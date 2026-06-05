@@ -1,0 +1,749 @@
+"""Frozen wrapper around a full ActionLatentTokenizer (encoder + decoder).
+
+Loads a pretrained ActionLatentTokenizer checkpoint, freezes all parameters,
+and exposes encode / decode / get_latent_target for use in VLA training and inference.
+
+Designed to be architecture-agnostic: detects the tokenizer type from checkpoint
+keys and instantiates the correct model.
+
+Supported types:
+- "timewise": TimeWiseEncoder (action_latent_tokenizer.py)
+             Detected by: encoder.action_proj.weight exists + NO encoder._is_dimension_wise
+             Latent tokens: Ng + T + Nh  (one token per timestep)
+- "dimwise":  DimensionWiseEncoder (action_latent_tokenizer_faster.py)
+             Detected by: encoder._is_dimension_wise buffer exists
+             Latent tokens: Ng + D + Nh  (one token per action dimension)
+
+Adding new tokenizer types: implement _build_XXX_tokenizer and register it in
+_TOKENIZER_DETECTORS inside _build_from_state_dict.
+"""
+
+import torch
+import torch.nn as nn
+from typing import Optional, Tuple
+
+
+class ActionLatentTokenizerWrapper(nn.Module):
+
+    def __init__(self, tokenizer: nn.Module):
+        super().__init__()
+        self.tokenizer = tokenizer
+        # Cache properties from the encoder
+        self.num_global_tokens = tokenizer.encoder.num_global_tokens
+        self.num_hand_tokens = tokenizer.encoder.num_hand_tokens
+        self.action_dim = tokenizer.encoder.action_dim
+        self.action_horizon = tokenizer.encoder.action_horizon
+        # The transformer's working hidden size (NOT the latent dim downstream
+        # consumers see — see ``emb_dim`` below).
+        self.internal_emb_dim = tokenizer.encoder.emb_dim
+        # ``emb_dim`` is the OUTPUT latent dimension downstream code consumes
+        # (action head ``action_dim``, ``decode_latent`` slicing, etc.). For
+        # tokenizers without a bottleneck (v1, v2, v3-no-bottleneck, dimwise)
+        # this equals the transformer ``emb_dim``. For v3-with-bottleneck it
+        # equals the bottleneck ``token_dim``.
+        self.emb_dim = getattr(tokenizer.encoder, "token_dim", tokenizer.encoder.emb_dim)
+
+        # Detect tokenizer type and set num_main_tokens accordingly.
+        # num_main_tokens: number of "primary" latent tokens (excluding global/hand).
+        #   timewise → action_horizon (one token per timestep)
+        #   dimwise  → action_dim     (one token per action dimension)
+        try:
+            from gr00t.model.action_latent_tokenizer_faster import DimensionWiseActionLatentTokenizer
+            if isinstance(tokenizer, DimensionWiseActionLatentTokenizer):
+                self.tokenizer_type = "dimwise"
+                self.num_main_tokens = self.action_dim
+            else:
+                self.tokenizer_type = "timewise"
+                self.num_main_tokens = self.action_horizon
+        except ImportError:
+            self.tokenizer_type = "timewise"
+            self.num_main_tokens = self.action_horizon
+
+        # Freeze all parameters
+        for p in self.parameters():
+            p.requires_grad = False
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        checkpoint_path: str,
+        device: str = "cpu",
+        head_dim_override: Optional[int] = None,
+    ):
+        """Load full tokenizer from a HuggingFace Trainer checkpoint or raw .pt file.
+
+        Supports:
+        - HF Trainer checkpoint dir (reads model.safetensors)
+        - Single .pt / .ckpt file with state_dict
+
+        Args:
+            head_dim_override: bypass the auto-detect heuristic and force a
+                specific attention head_dim. Use only when you know the
+                training-time value and the heuristic is wrong (state_dict
+                cannot disambiguate head_dim — see error_notes.md 2026-04-29).
+                Default heuristic prefers 64 (the training default).
+        """
+        import os
+
+        # Resolve checkpoint path
+        if os.path.isdir(checkpoint_path):
+            safetensors_path = os.path.join(checkpoint_path, "model.safetensors")
+            pt_path = os.path.join(checkpoint_path, "pytorch_model.bin")
+            if os.path.exists(safetensors_path):
+                from safetensors.torch import load_file
+                state_dict = load_file(safetensors_path, device=device)
+            elif os.path.exists(pt_path):
+                state_dict = torch.load(pt_path, map_location=device, weights_only=False)
+            else:
+                raise FileNotFoundError(
+                    f"No model.safetensors or pytorch_model.bin found in {checkpoint_path}"
+                )
+        else:
+            ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
+            if "state_dict" in ckpt:
+                state_dict = ckpt["state_dict"]
+            elif "model_state_dict" in ckpt:
+                state_dict = ckpt["model_state_dict"]
+            else:
+                state_dict = ckpt
+
+        tokenizer = cls._build_from_state_dict(state_dict, head_dim_override=head_dim_override)
+        # Filter state_dict to only keys present in the model.
+        # Training-only modules (mask_token, hand_pred_decoder, etc.) are
+        # excluded from the inference model and must be stripped.
+        model_keys = set(tokenizer.state_dict().keys())
+        filtered_sd = {k: v for k, v in state_dict.items() if k in model_keys}
+        extra_keys = set(state_dict.keys()) - model_keys
+        if extra_keys:
+            print(f"[ActionLatentTokenizerWrapper] Skipping {len(extra_keys)} training-only keys: "
+                  f"{sorted(extra_keys)[:5]}{'...' if len(extra_keys) > 5 else ''}")
+        tokenizer.load_state_dict(filtered_sd, strict=True)
+
+        wrapper = cls(tokenizer)
+        wrapper.to(device)
+        wrapper.eval()
+        print(f"[ActionLatentTokenizerWrapper] Loaded from {checkpoint_path}")
+        print(
+            f"  tokenizer_type={wrapper.tokenizer_type}, "
+            f"action_dim={wrapper.action_dim}, action_horizon={wrapper.action_horizon}, "
+            f"emb_dim={wrapper.emb_dim} (latent), internal_emb_dim={wrapper.internal_emb_dim} (transformer), "
+            f"num_global={wrapper.num_global_tokens}, num_hand={wrapper.num_hand_tokens}, "
+            f"num_main_tokens={wrapper.num_main_tokens}"
+        )
+        return wrapper
+
+    @staticmethod
+    def _build_from_state_dict(state_dict: dict, head_dim_override: Optional[int] = None):
+        """Detect tokenizer architecture from state_dict keys and build it.
+
+        Detection order (add new detectors here for new tokenizer types):
+          0. _is_v3 buffer                → timewise v3 (ActionLatentTokenizerV3)
+          1. _is_v2 buffer                → timewise v2 (ActionLatentTokenizerV2)
+          2. encoder._is_dimension_wise   → dimwise  (DimensionWiseEncoder)
+          3. encoder.action_proj.weight   → timewise  (TimeWiseEncoder)
+        """
+        if "_is_v3" in state_dict:
+            return ActionLatentTokenizerWrapper._build_timewise_v3_tokenizer(state_dict, head_dim_override)
+        elif "_is_v2" in state_dict:
+            return ActionLatentTokenizerWrapper._build_timewise_v2_tokenizer(state_dict, head_dim_override)
+        elif "encoder._is_dimension_wise" in state_dict:
+            return ActionLatentTokenizerWrapper._build_dimwise_tokenizer(state_dict, head_dim_override)
+        elif "encoder.action_proj.weight" in state_dict:
+            return ActionLatentTokenizerWrapper._build_timewise_tokenizer(state_dict, head_dim_override)
+        else:
+            raise ValueError(
+                "Unknown tokenizer architecture. "
+                "Expected '_is_v3' (V3), '_is_v2' (V2), 'encoder._is_dimension_wise' "
+                "(DimensionWiseEncoder) or 'encoder.action_proj.weight' (TimeWiseEncoder). "
+                f"Got keys: {list(state_dict.keys())[:10]}..."
+            )
+
+    @staticmethod
+    def _resolve_head_dim(emb_dim: int, override: Optional[int]) -> int:
+        """Resolve attention head_dim.
+
+        State_dict alone cannot disambiguate head_dim (QKV/proj weights are
+        [E, E] regardless of head count, qk_norm has elementwise_affine=False
+        so it stores no params). The training default in
+        ``train_action_latent_tokenizer_v2.py`` is ``head_dim=64``, so we try
+        64 first, then 128, then 32 — picking the largest divisor that the
+        training default would have used. Use ``head_dim_override`` to
+        bypass when the heuristic is wrong.
+        """
+        if override is not None:
+            return int(override)
+        for hd in [64, 128, 32]:
+            if emb_dim % hd == 0:
+                return hd
+        return 64
+
+    @staticmethod
+    def _build_timewise_v3_tokenizer(state_dict: dict, head_dim_override: Optional[int] = None):
+        """Build ActionLatentTokenizerV3 from state_dict shapes.
+
+        V3 = V2 + optional encoder output LayerNorm + (training-only) latent
+        Gaussian noise + optional VTP-style bottleneck. For inference only the
+        encoder + recon_decoder are needed; the noise hook is inactive in
+        eval() mode regardless.
+
+        Bottleneck detection: ``encoder.output_down_proj.weight`` is present
+        only when ``use_bottleneck=True`` (Identity layers contribute no keys).
+        Its shape is ``[token_dim, emb_dim]``.
+        """
+        from gr00t.model.action_latent_tokenizer_v3 import (
+            ActionLatentTokenizerV3,
+            ReconDecoderV3,
+            TimeWiseEncoderV3,
+        )
+
+        emb_dim, action_dim = state_dict["encoder.action_proj.weight"].shape
+        action_horizon = state_dict["encoder.time_pos_emb.posembs"].shape[2]
+
+        num_global = 0
+        if "encoder.global_tokens" in state_dict:
+            num_global = state_dict["encoder.global_tokens"].shape[0]
+
+        num_hand = 0
+        if "encoder.hand_tokens" in state_dict:
+            num_hand = state_dict["encoder.hand_tokens"].shape[0]
+
+        enc_depth = 0
+        for k in state_dict:
+            if k.startswith("encoder.transformer.blocks."):
+                idx = int(k.split(".")[3])
+                enc_depth = max(enc_depth, idx + 1)
+
+        head_dim = ActionLatentTokenizerWrapper._resolve_head_dim(emb_dim, head_dim_override)
+
+        # Detect optional encoder output LayerNorm by presence of its weight.
+        output_layernorm = "encoder.output_layernorm.weight" in state_dict
+
+        # Detect optional VTP-style bottleneck. When enabled, the encoder ends
+        # with Linear(emb_dim, token_dim) named ``output_down_proj``, and the
+        # decoder begins with Linear(token_dim, emb_dim) named ``input_up_proj``.
+        # Either key alone is sufficient; we check both for sanity.
+        use_bottleneck = "encoder.output_down_proj.weight" in state_dict
+        if use_bottleneck:
+            token_dim = state_dict["encoder.output_down_proj.weight"].shape[0]
+            # Sanity-check decoder side: if mismatched, fail loudly so silent
+            # state_dict-shape mismatches don't slip through (cf. memory note
+            # ``feedback_silent_arch_mismatch.md``).
+            if "recon_decoder.input_up_proj.weight" in state_dict:
+                dec_in = state_dict["recon_decoder.input_up_proj.weight"].shape[1]
+                if dec_in != token_dim:
+                    raise ValueError(
+                        f"[timewise_v3] bottleneck token_dim mismatch: "
+                        f"encoder.output_down_proj outputs {token_dim} but "
+                        f"recon_decoder.input_up_proj expects {dec_in}."
+                    )
+        else:
+            token_dim = emb_dim
+            if "recon_decoder.input_up_proj.weight" in state_dict:
+                raise ValueError(
+                    "[timewise_v3] decoder has input_up_proj but encoder has no "
+                    "output_down_proj — inconsistent bottleneck state."
+                )
+
+        decoder_num_hand = num_hand
+        if num_hand > 0 and "recon_decoder.hand_proj.weight" not in state_dict:
+            decoder_num_hand = 0
+
+        hand_in_recon = (decoder_num_hand > 0) or (num_hand == 0)
+
+        print(
+            f"[timewise_v3] action_dim={action_dim}, action_horizon={action_horizon}, "
+            f"emb_dim={emb_dim}, head_dim={head_dim}, depth={enc_depth}, "
+            f"num_global={num_global}, num_hand={num_hand}, "
+            f"decoder_num_hand={decoder_num_hand}, hand_in_recon={hand_in_recon}, "
+            f"output_layernorm={output_layernorm}, "
+            f"use_bottleneck={use_bottleneck}, token_dim={token_dim}"
+        )
+
+        encoder = TimeWiseEncoderV3(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            depth=enc_depth,
+            pdropout=0.0,
+            num_global_tokens=num_global,
+            num_hand_tokens=num_hand,
+            output_layernorm=output_layernorm,
+            use_bottleneck=use_bottleneck,
+            token_dim=token_dim,
+        )
+
+        # Decoder discovery (same as v2)
+        dec_depth = 0
+        for k in state_dict:
+            if k.startswith("recon_decoder.transformer.blocks."):
+                idx = int(k.split(".")[3])
+                dec_depth = max(dec_depth, idx + 1)
+
+        has_cross_attn = any(k.startswith("recon_decoder.decoder.") for k in state_dict)
+        decoder_mode = "cross_attention" if has_cross_attn else "self_attention"
+        if dec_depth == 0 and has_cross_attn:
+            for k in state_dict:
+                if k.startswith("recon_decoder.decoder.layers."):
+                    idx = int(k.split(".")[3])
+                    dec_depth = max(dec_depth, idx + 1)
+
+        print(f"[timewise_v3] decoder_mode={decoder_mode}, dec_depth={dec_depth}")
+
+        recon_decoder = ReconDecoderV3(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            depth=dec_depth,
+            pdropout=0.0,
+            decoder_mode=decoder_mode,
+            num_global_tokens=num_global,
+            num_hand_tokens=decoder_num_hand,
+            use_bottleneck=use_bottleneck,
+            token_dim=token_dim,
+        )
+
+        tokenizer = ActionLatentTokenizerV3(
+            encoder=encoder,
+            recon_decoder=recon_decoder,
+            lambda_recon=1.0,
+            hand_in_recon=hand_in_recon,
+            latent_noise_std=0.0,  # noise is training-only; inference uses 0.
+        )
+
+        return tokenizer
+
+    @staticmethod
+    def _build_timewise_v2_tokenizer(state_dict: dict, head_dim_override: Optional[int] = None):
+        """Build ActionLatentTokenizerV2 from state_dict shapes.
+
+        For inference, only encoder + recon_decoder are needed.
+        Training-only modules (hand_pred_decoder, action_text_encoder, etc.) are omitted.
+        """
+        from gr00t.model.action_latent_tokenizer_v2 import (
+            ActionLatentTokenizerV2,
+            TimeWiseEncoder,
+            ReconDecoder,
+        )
+
+        # Infer encoder config
+        emb_dim, action_dim = state_dict["encoder.action_proj.weight"].shape  # [E, D]
+        action_horizon = state_dict["encoder.time_pos_emb.posembs"].shape[2]  # [1, E, T]
+
+        num_global = 0
+        if "encoder.global_tokens" in state_dict:
+            num_global = state_dict["encoder.global_tokens"].shape[0]
+
+        num_hand = 0
+        if "encoder.hand_tokens" in state_dict:
+            num_hand = state_dict["encoder.hand_tokens"].shape[0]
+
+        enc_depth = 0
+        for k in state_dict:
+            if k.startswith("encoder.transformer.blocks."):
+                idx = int(k.split(".")[3])
+                enc_depth = max(enc_depth, idx + 1)
+
+        head_dim = ActionLatentTokenizerWrapper._resolve_head_dim(emb_dim, head_dim_override)
+
+        # Decoder num_hand: detect independently (hand_in_recon=False이면 decoder에 hand_proj 없음)
+        decoder_num_hand = num_hand
+        if num_hand > 0 and "recon_decoder.hand_proj.weight" not in state_dict:
+            decoder_num_hand = 0
+
+        hand_in_recon = (decoder_num_hand > 0) or (num_hand == 0)
+
+        print(f"[timewise_v2] action_dim={action_dim}, action_horizon={action_horizon}, "
+              f"emb_dim={emb_dim}, head_dim={head_dim}, depth={enc_depth}, "
+              f"num_global={num_global}, num_hand={num_hand}, "
+              f"decoder_num_hand={decoder_num_hand}, hand_in_recon={hand_in_recon}")
+
+        encoder = TimeWiseEncoder(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            depth=enc_depth,
+            pdropout=0.0,
+            num_global_tokens=num_global,
+            num_hand_tokens=num_hand,
+        )
+
+        # Infer decoder config
+        dec_depth = 0
+        for k in state_dict:
+            if k.startswith("recon_decoder.transformer.blocks."):
+                idx = int(k.split(".")[3])
+                dec_depth = max(dec_depth, idx + 1)
+
+        has_cross_attn = any(k.startswith("recon_decoder.decoder.") for k in state_dict)
+        decoder_mode = "cross_attention" if has_cross_attn else "self_attention"
+        if dec_depth == 0 and has_cross_attn:
+            # cross_attention uses nn.TransformerDecoder, count its layers
+            for k in state_dict:
+                if k.startswith("recon_decoder.decoder.layers."):
+                    idx = int(k.split(".")[3])
+                    dec_depth = max(dec_depth, idx + 1)
+
+        print(f"[timewise_v2] decoder_mode={decoder_mode}, dec_depth={dec_depth}")
+
+        recon_decoder = ReconDecoder(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            depth=dec_depth,
+            pdropout=0.0,
+            decoder_mode=decoder_mode,
+            num_global_tokens=num_global,
+            num_hand_tokens=decoder_num_hand,
+        )
+
+        # Build V2 tokenizer with only encoder + recon_decoder (inference mode).
+        # Weight loading is handled by from_checkpoint's filtered load_state_dict.
+        tokenizer = ActionLatentTokenizerV2(
+            encoder=encoder,
+            recon_decoder=recon_decoder,
+            lambda_recon=1.0,
+            hand_in_recon=hand_in_recon,
+        )
+
+        return tokenizer
+
+    @staticmethod
+    def _build_timewise_tokenizer(state_dict: dict, head_dim_override: Optional[int] = None):
+        """Build ActionLatentTokenizer with TimeWiseEncoder from state_dict shapes."""
+        from gr00t.model.action_latent_tokenizer import (
+            ActionLatentTokenizer,
+            TimeWiseEncoder,
+            ReconDecoder,
+            MaskedReconDecoder,
+            TimestepMasking,
+        )
+
+        # Infer encoder config
+        emb_dim, action_dim = state_dict["encoder.action_proj.weight"].shape  # [E, D]
+        action_horizon = state_dict["encoder.time_pos_emb.posembs"].shape[2]  # [1, E, T]
+
+        num_global = 0
+        if "encoder.global_tokens" in state_dict:
+            num_global = state_dict["encoder.global_tokens"].shape[0]
+
+        num_hand = 0
+        if "encoder.hand_tokens" in state_dict:
+            num_hand = state_dict["encoder.hand_tokens"].shape[0]
+
+        enc_depth = 0
+        for k in state_dict:
+            if k.startswith("encoder.transformer.blocks."):
+                idx = int(k.split(".")[3])
+                enc_depth = max(enc_depth, idx + 1)
+
+        head_dim = ActionLatentTokenizerWrapper._resolve_head_dim(emb_dim, head_dim_override)
+
+        print(f"[timewise] action_dim={action_dim}, action_horizon={action_horizon}, "
+              f"emb_dim={emb_dim}, head_dim={head_dim}, depth={enc_depth}, "
+              f"num_global={num_global}, num_hand={num_hand}")
+
+        encoder = TimeWiseEncoder(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            depth=enc_depth,
+            pdropout=0.0,
+            num_global_tokens=num_global,
+            num_hand_tokens=num_hand,
+        )
+
+        dec_depth = 0
+        for k in state_dict:
+            if k.startswith("recon_decoder.transformer.blocks."):
+                idx = int(k.split(".")[3])
+                dec_depth = max(dec_depth, idx + 1)
+
+        has_cross_attn = any("cross_attn" in k for k in state_dict if k.startswith("recon_decoder."))
+        decoder_mode = "cross_attention" if has_cross_attn else "self_attention"
+        print(f"[timewise] decoder_mode={decoder_mode}, dec_depth={dec_depth}")
+
+        recon_decoder = ReconDecoder(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            depth=dec_depth,
+            pdropout=0.0,
+            decoder_mode=decoder_mode,
+            num_hand_tokens=num_hand,
+        )
+
+        masked_recon_decoder = None
+        masking = None
+        has_masked = any(k.startswith("masked_recon_decoder.") for k in state_dict)
+        if has_masked:
+            masked_depth = 0
+            for k in state_dict:
+                if k.startswith("masked_recon_decoder.transformer.blocks."):
+                    idx = int(k.split(".")[3])
+                    masked_depth = max(masked_depth, idx + 1)
+
+            has_masked_cross = any(
+                "cross_attn" in k for k in state_dict if k.startswith("masked_recon_decoder.")
+            )
+            masked_mode = "cross_attention" if has_masked_cross else "self_attention"
+            print(f"[timewise] masked_mode={masked_mode}, masked_depth={masked_depth}")
+
+            masked_recon_decoder = MaskedReconDecoder(
+                action_dim=action_dim,
+                action_horizon=action_horizon,
+                emb_dim=emb_dim,
+                head_dim=head_dim,
+                depth=masked_depth,
+                pdropout=0.0,
+                decoder_mode=masked_mode,
+                num_global_tokens=num_global,
+            )
+            mask_mode = "random"
+            min_mask_ratio = 0.5
+            max_mask_ratio = 0.5
+            if "masking._mask_mode_bytes" in state_dict:
+                mask_mode = bytes(state_dict["masking._mask_mode_bytes"].tolist()).decode()
+            if "masking._min_mask_ratio_buf" in state_dict:
+                min_mask_ratio = state_dict["masking._min_mask_ratio_buf"].item()
+                max_mask_ratio = state_dict["masking._max_mask_ratio_buf"].item()
+            print(f"[timewise] masking: mask_mode={mask_mode}, min={min_mask_ratio}, max={max_mask_ratio}")
+            masking = TimestepMasking(
+                mask_ratio=min_mask_ratio,
+                mask_mode=mask_mode,
+                min_mask_ratio=min_mask_ratio,
+                max_mask_ratio=max_mask_ratio,
+            )
+
+        return ActionLatentTokenizer(
+            encoder=encoder,
+            recon_decoder=recon_decoder,
+            masked_recon_decoder=masked_recon_decoder,
+            masking=masking,
+            lambda_recon=1.0,
+            lambda_masked=1.0 if has_masked else 0.0,
+        )
+
+    @staticmethod
+    def _build_dimwise_tokenizer(state_dict: dict, head_dim_override: Optional[int] = None):
+        """Build DimensionWiseActionLatentTokenizer from state_dict shapes."""
+        from gr00t.model.action_latent_tokenizer_faster import (
+            DimensionWiseActionLatentTokenizer,
+            DimensionWiseEncoder,
+            DimensionWiseReconDecoder,
+            DimensionWiseMaskedReconDecoder,
+            DimensionMasking,
+        )
+
+        # Infer encoder config
+        # action_proj: Linear(T→E), weight shape [E, T]
+        emb_dim = state_dict["encoder.action_proj.weight"].shape[0]
+        action_horizon = state_dict["encoder.action_proj.weight"].shape[1]
+        # dim_pos_emb.posembs: [1, E, D]
+        action_dim = state_dict["encoder.dim_pos_emb.posembs"].shape[2]
+
+        num_global = 0
+        if "encoder.global_tokens" in state_dict:
+            num_global = state_dict["encoder.global_tokens"].shape[0]
+
+        num_hand = 0
+        if "encoder.hand_tokens" in state_dict:
+            num_hand = state_dict["encoder.hand_tokens"].shape[0]
+
+        enc_depth = 0
+        for k in state_dict:
+            if k.startswith("encoder.transformer.blocks."):
+                idx = int(k.split(".")[3])
+                enc_depth = max(enc_depth, idx + 1)
+
+        head_dim = ActionLatentTokenizerWrapper._resolve_head_dim(emb_dim, head_dim_override)
+
+        print(f"[dimwise] action_dim={action_dim}, action_horizon={action_horizon}, "
+              f"emb_dim={emb_dim}, head_dim={head_dim}, depth={enc_depth}, "
+              f"num_global={num_global}, num_hand={num_hand}")
+
+        encoder = DimensionWiseEncoder(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            depth=enc_depth,
+            pdropout=0.0,
+            num_global_tokens=num_global,
+            num_hand_tokens=num_hand,
+        )
+
+        dec_depth = 0
+        for k in state_dict:
+            if k.startswith("recon_decoder.transformer.blocks."):
+                idx = int(k.split(".")[3])
+                dec_depth = max(dec_depth, idx + 1)
+
+        has_cross_attn = any("cross_attn" in k for k in state_dict if k.startswith("recon_decoder."))
+        decoder_mode = "cross_attention" if has_cross_attn else "self_attention"
+        print(f"[dimwise] decoder_mode={decoder_mode}, dec_depth={dec_depth}")
+
+        recon_decoder = DimensionWiseReconDecoder(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            depth=dec_depth,
+            pdropout=0.0,
+            decoder_mode=decoder_mode,
+            num_hand_tokens=num_hand,
+        )
+
+        masked_recon_decoder = None
+        masking = None
+        has_masked = any(k.startswith("masked_recon_decoder.") for k in state_dict)
+        if has_masked:
+            masked_depth = 0
+            for k in state_dict:
+                if k.startswith("masked_recon_decoder.transformer.blocks."):
+                    idx = int(k.split(".")[3])
+                    masked_depth = max(masked_depth, idx + 1)
+
+            has_masked_cross = any(
+                "cross_attn" in k for k in state_dict if k.startswith("masked_recon_decoder.")
+            )
+            masked_mode = "cross_attention" if has_masked_cross else "self_attention"
+            print(f"[dimwise] masked_mode={masked_mode}, masked_depth={masked_depth}")
+
+            masked_recon_decoder = DimensionWiseMaskedReconDecoder(
+                action_dim=action_dim,
+                action_horizon=action_horizon,
+                emb_dim=emb_dim,
+                head_dim=head_dim,
+                depth=masked_depth,
+                pdropout=0.0,
+                decoder_mode=masked_mode,
+                num_global_tokens=num_global,
+            )
+            mask_mode = "random"
+            min_mask_ratio = 0.5
+            max_mask_ratio = 0.5
+            if "masking._mask_mode_bytes" in state_dict:
+                mask_mode = bytes(state_dict["masking._mask_mode_bytes"].tolist()).decode()
+            if "masking._min_mask_ratio_buf" in state_dict:
+                min_mask_ratio = state_dict["masking._min_mask_ratio_buf"].item()
+                max_mask_ratio = state_dict["masking._max_mask_ratio_buf"].item()
+            print(f"[dimwise] masking: mask_mode={mask_mode}, min={min_mask_ratio}, max={max_mask_ratio}")
+            masking = DimensionMasking(
+                mask_ratio=min_mask_ratio,
+                mask_mode=mask_mode,
+                min_mask_ratio=min_mask_ratio,
+                max_mask_ratio=max_mask_ratio,
+            )
+
+        return DimensionWiseActionLatentTokenizer(
+            encoder=encoder,
+            recon_decoder=recon_decoder,
+            masked_recon_decoder=masked_recon_decoder,
+            masking=masking,
+            lambda_recon=1.0,
+            lambda_masked=1.0 if has_masked else 0.0,
+        )
+
+    def get_num_tokens(self, target_tokens: str = "all") -> int:
+        """Return number of output latent tokens for a given target mode.
+
+        target_tokens:
+          "time"        → num_main_tokens (T for timewise, D for dimwise)
+          "global_time" → num_global + num_main_tokens
+          "time_hand"   → num_main_tokens + num_hand_tokens
+          "all"         → num_global + num_main_tokens + num_hand_tokens
+        """
+        n = self.num_main_tokens
+        if target_tokens == "time":
+            return n
+        elif target_tokens == "global_time":
+            return self.num_global_tokens + n
+        elif target_tokens == "time_hand":
+            return n + self.num_hand_tokens
+        elif target_tokens == "all":
+            return self.num_global_tokens + n + self.num_hand_tokens
+        else:
+            raise ValueError(f"Unknown target_tokens mode: {target_tokens}")
+
+    @torch.no_grad()
+    def encode(self, actions: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Encode actions to (global_tok, main_tok, hand_tok).
+
+        Args:
+            actions: [B, T, D] already normalized to [-1, 1]
+        Returns:
+            timewise: (global[B,Ng,E], time[B,T,E],  hand[B,Nh,E])
+            dimwise:  (global[B,Ng,E], dim[B,D,E],   hand[B,Nh,E])
+        """
+        actions = actions.to(dtype=self.tokenizer.encoder.action_proj.weight.dtype)
+        return self.tokenizer.encode(actions)
+
+    @torch.no_grad()
+    def get_latent_target(
+        self, actions: torch.Tensor, target_tokens: str = "all"
+    ) -> torch.Tensor:
+        """Encode actions and return concatenated latent target.
+
+        Args:
+            actions: [B, T, D] already normalized to [-1, 1]
+            target_tokens: "time", "global_time", "time_hand", "all"
+        Returns:
+            [B, N, E] concatenated latent tokens
+        """
+        global_tok, main_tok, hand_tok = self.encode(actions)
+
+        parts = []
+        if target_tokens in ("global_time", "all") and self.num_global_tokens > 0:
+            parts.append(global_tok)
+        parts.append(main_tok)
+        if target_tokens in ("time_hand", "all") and self.num_hand_tokens > 0:
+            parts.append(hand_tok)
+
+        return torch.cat(parts, dim=1).detach()
+
+    @torch.no_grad()
+    def decode_latent(
+        self, latent: torch.Tensor, target_tokens: str = "all"
+    ) -> torch.Tensor:
+        """Decode concatenated latent tokens back to action space.
+
+        Args:
+            latent: [B, N, self.emb_dim] concatenated latent tokens (same order
+                as ``get_latent_target``). For v3 with bottleneck, the per-token
+                feature dim is the bottleneck ``token_dim``, NOT the
+                transformer ``internal_emb_dim`` — the decoder up-projects
+                internally.
+            target_tokens: must match what was used for ``get_latent_target``.
+        Returns:
+            [B, T, D] reconstructed actions
+        """
+        Ng = self.num_global_tokens
+        main_n = self.num_main_tokens
+        Nh = self.num_hand_tokens
+
+        idx = 0
+        if target_tokens in ("global_time", "all") and Ng > 0:
+            global_tok = latent[:, idx:idx + Ng]
+            idx += Ng
+        else:
+            global_tok = torch.zeros(
+                latent.shape[0], 0, self.emb_dim, device=latent.device, dtype=latent.dtype
+            )
+
+        main_tok = latent[:, idx:idx + main_n]
+        idx += main_n
+
+        if target_tokens in ("time_hand", "all") and Nh > 0:
+            hand_tok = latent[:, idx:idx + Nh]
+        else:
+            hand_tok = torch.zeros(
+                latent.shape[0], 0, self.emb_dim, device=latent.device, dtype=latent.dtype
+            )
+
+        return self.tokenizer.decode(global_tok, main_tok, hand_tok)
