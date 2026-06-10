@@ -106,9 +106,13 @@ class ActlatFMTrainer(DualBrainTrainer):
                 if is_actlat:
                     # Latent metrics
                     target_tokens = unwrapped.actlat_target_tokens
+                    # V4 (RLA-DINO) tokenizer needs chunk start/end frames; pass
+                    # them when present (None-safe for v2/v3 tokenizers).
                     latent_target = tokenizer.get_latent_target(
                         real_actions.to(device=unwrapped.device),
                         target_tokens=target_tokens,
+                        x0=inputs.get("frame_x0"),
+                        x1=inputs.get("frame_x1"),
                     )
                     latent_target_dev = latent_target.to(
                         device=raw_pred.device, dtype=raw_pred.dtype

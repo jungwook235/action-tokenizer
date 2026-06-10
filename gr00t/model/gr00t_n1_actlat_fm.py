@@ -163,8 +163,15 @@ class GR00T_N1_5(PreTrainedModel):
 
         # Encode actions → latent target
         actions = inputs["action"]  # [B, T, D] original actions, normalized to [-1, 1]
+        # V4 (RLA-DINO) tokenizers produce DINO-dependent latents and need the
+        # chunk start/end frames. The dataset (LeRobotSingleDatasetActlatFMV4)
+        # supplies frame_x0/frame_x1; for v2/v3 tokenizers these are ignored, and
+        # if absent .get(...) returns None (the wrapper raises only for v4).
         latent_target = self.action_latent_tokenizer.get_latent_target(
-            actions.to(dtype=torch.float32), target_tokens=self.actlat_target_tokens
+            actions.to(dtype=torch.float32),
+            target_tokens=self.actlat_target_tokens,
+            x0=inputs.get("frame_x0"),
+            x1=inputs.get("frame_x1"),
         )
         # Set latent as the "action" for the action head
         input_1["action"] = latent_target.to(

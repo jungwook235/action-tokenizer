@@ -222,8 +222,16 @@ class ArgsConfig:
     lr_scheduler_type: Literal["cosine", "constant", "constant_with_warmup"] = "constant"
     num_gpus: int = 1
     save_steps: int = 5000
+    save_total_limit: int = 20
+    """Max number of checkpoints to keep; oldest are deleted first. Set <=0 to keep all."""
     eval_steps: Optional[int] = None
     dataloader_num_workers: int = 16
+    cache_dataset: bool = True
+    """If True (default), pre-cache all actions into memory before training (fast
+    steps, but GPUs idle during the caching phase). If False, read samples
+    on-the-fly each step like Stage-2 via dataloader workers — keeps GPU
+    utilization up from the start. Only supported for the action-only path
+    (no state-pred / global losses)."""
     report_to: Literal["wandb", "tensorboard"] = "wandb"
     run_name: Optional[str] = None
     wandb_project: str = "action-latent-tokenizer-v3"
@@ -381,6 +389,13 @@ def main(config: ArgsConfig):
     need_fast = config.lambda_global > 0
 
     if need_state or need_fast:
+        assert config.cache_dataset, (
+            "cache_dataset=False (on-the-fly loading) is only supported for the "
+            "action-only path. The action+state / FAST-token path pre-computes "
+            "hand_state / future_hand_states / fast_tokens during caching, which "
+            "the on-the-fly source does not produce. Enable caching, or disable "
+            "state-pred / global losses to use --no-cache-dataset."
+        )
         from gr00t.data.dataset_action_state_pretransform_v3 import (
             ActionStateCollator,
             PreTransformedActionStateDatasetV3,
@@ -406,13 +421,26 @@ def main(config: ArgsConfig):
                 fixed_val_path=config.fixed_val_path,
             )
     else:
-        from gr00t.data.dataset_action_only_pretransform_v3 import (
-            PreTransformedActionOnlyDatasetV3,
-        )
         from gr00t.data.dataset_action_only import ActionOnlyCollator
 
-        DatasetCls = PreTransformedActionOnlyDatasetV3
         CollatorCls = ActionOnlyCollator
+
+        if config.cache_dataset:
+            from gr00t.data.dataset_action_only_pretransform_v3 import (
+                PreTransformedActionOnlyDatasetV3,
+            )
+            DatasetCls = PreTransformedActionOnlyDatasetV3
+        else:
+            # On-the-fly: same item format ({"action": ...}) and collator as the
+            # cached wrapper, so it is a drop-in. No pre-caching → GPUs are fed
+            # from step 0 (relies on dataloader_num_workers > 0).
+            from gr00t.data.dataset_action_only_v3 import ActionOnlyDatasetV3
+
+            DatasetCls = ActionOnlyDatasetV3
+            print(
+                "[dataset] cache_dataset=False → action-only on-the-fly loading "
+                f"(no pre-caching; dataloader_num_workers={config.dataloader_num_workers})."
+            )
 
         def make_dataset(path, split):
             return DatasetCls(
@@ -481,7 +509,7 @@ def main(config: ArgsConfig):
         max_steps=config.max_steps,
         save_strategy="steps",
         save_steps=config.save_steps,
-        save_total_limit=20,
+        save_total_limit=config.save_total_limit if config.save_total_limit > 0 else None,
         do_eval=True,
         eval_strategy="steps",
         eval_steps=eval_steps,

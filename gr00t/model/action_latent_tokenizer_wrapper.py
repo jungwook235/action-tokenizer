@@ -137,11 +137,14 @@ class ActionLatentTokenizerWrapper(nn.Module):
         """Detect tokenizer architecture from state_dict keys and build it.
 
         Detection order (add new detectors here for new tokenizer types):
-          0. _is_v3 buffer                → timewise v3 (ActionLatentTokenizerV3)
-          1. _is_v2 buffer                → timewise v2 (ActionLatentTokenizerV2)
-          2. encoder._is_dimension_wise   → dimwise  (DimensionWiseEncoder)
-          3. encoder.action_proj.weight   → timewise  (TimeWiseEncoder)
+          0. _is_v4 buffer                → timewise v4 (ActionLatentTokenizerV4, RLA-DINO)
+          1. _is_v3 buffer                → timewise v3 (ActionLatentTokenizerV3)
+          2. _is_v2 buffer                → timewise v2 (ActionLatentTokenizerV2)
+          3. encoder._is_dimension_wise   → dimwise  (DimensionWiseEncoder)
+          4. encoder.action_proj.weight   → timewise  (TimeWiseEncoder)
         """
+        if "_is_v4" in state_dict:
+            return ActionLatentTokenizerWrapper._build_timewise_v4_tokenizer(state_dict, head_dim_override)
         if "_is_v3" in state_dict:
             return ActionLatentTokenizerWrapper._build_timewise_v3_tokenizer(state_dict, head_dim_override)
         elif "_is_v2" in state_dict:
@@ -312,6 +315,147 @@ class ActionLatentTokenizerWrapper(nn.Module):
             latent_noise_std=0.0,  # noise is training-only; inference uses 0.
         )
 
+        return tokenizer
+
+    @staticmethod
+    def _build_timewise_v4_tokenizer(state_dict: dict, head_dim_override: Optional[int] = None):
+        """Build ActionLatentTokenizerV4 (RLA-DINO hybrid) from state_dict shapes.
+
+        Only the encoder (action encoder + RLA fusion encoder) + recon_decoder are
+        rebuilt — the ``dino_decoder`` is a training-only module and is left out
+        (its keys get filtered by ``from_checkpoint``). ``encode`` still needs the
+        fusion encoder (it consumes DINO feats), so the full ``TimeWiseEncoderV4``
+        is constructed.
+
+        Shapes:
+          encoder.action_encoder.action_proj.weight   → [emb_dim, action_dim]
+          encoder.action_encoder.time_pos_emb.posembs → [1, emb_dim, action_horizon]
+          encoder.joint.input_layer.weight            → [fusion_width, dino_dim]
+          encoder.joint.out_layer.weight              → [token_dim, fusion_width]
+        """
+        from gr00t.model.action_latent_tokenizer_v4 import (
+            ActionLatentTokenizerV4,
+            ReconDecoderV4,
+            TimeWiseEncoderV4,
+        )
+
+        emb_dim, action_dim = state_dict["encoder.action_encoder.action_proj.weight"].shape
+        action_horizon = state_dict["encoder.action_encoder.time_pos_emb.posembs"].shape[2]
+
+        fusion_width, dino_dim = state_dict["encoder.joint.input_layer.weight"].shape
+        token_dim = state_dict["encoder.joint.out_layer.weight"].shape[0]
+
+        num_global = 0
+        if "encoder.action_encoder.global_tokens" in state_dict:
+            num_global = state_dict["encoder.action_encoder.global_tokens"].shape[0]
+        num_hand = 0
+        if "encoder.action_encoder.hand_tokens" in state_dict:
+            num_hand = state_dict["encoder.action_encoder.hand_tokens"].shape[0]
+
+        enc_depth = 0
+        for k in state_dict:
+            if k.startswith("encoder.action_encoder.transformer.blocks."):
+                enc_depth = max(enc_depth, int(k.split(".")[4]) + 1)
+
+        fusion_depth = 0
+        for k in state_dict:
+            if k.startswith("encoder.joint.blocks."):
+                fusion_depth = max(fusion_depth, int(k.split(".")[3]) + 1)
+
+        head_dim = ActionLatentTokenizerWrapper._resolve_head_dim(emb_dim, head_dim_override)
+        # MultiheadAttention does not store its head count in the state_dict; the
+        # training default uses head_dim 64 for the fusion transformer too.
+        fusion_heads = max(1, fusion_width // 64)
+
+        # recon decoder discovery (same logic as v2/v3)
+        dec_depth = 0
+        for k in state_dict:
+            if k.startswith("recon_decoder.transformer.blocks."):
+                dec_depth = max(dec_depth, int(k.split(".")[3]) + 1)
+        has_cross_attn = any(k.startswith("recon_decoder.decoder.") for k in state_dict)
+        decoder_mode = "cross_attention" if has_cross_attn else "self_attention"
+        if dec_depth == 0 and has_cross_attn:
+            for k in state_dict:
+                if k.startswith("recon_decoder.decoder.layers."):
+                    dec_depth = max(dec_depth, int(k.split(".")[3]) + 1)
+
+        print(
+            f"[timewise_v4] action_dim={action_dim}, action_horizon={action_horizon}, "
+            f"emb_dim={emb_dim}, token_dim={token_dim}, dino_dim={dino_dim}, "
+            f"fusion_width={fusion_width}, fusion_depth={fusion_depth}, "
+            f"enc_depth={enc_depth}, dec_depth={dec_depth}, decoder_mode={decoder_mode}, "
+            f"num_global={num_global}, num_hand={num_hand}"
+        )
+
+        encoder = TimeWiseEncoderV4(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            encoder_depth=enc_depth,
+            pdropout=0.0,
+            num_global_tokens=num_global,
+            num_hand_tokens=num_hand,
+            dino_dim=dino_dim,
+            fusion_width=fusion_width,
+            fusion_depth=fusion_depth,
+            fusion_heads=fusion_heads,
+            token_dim=token_dim,
+        )
+
+        recon_decoder = ReconDecoderV4(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            depth=dec_depth,
+            pdropout=0.0,
+            decoder_mode=decoder_mode,
+            num_global_tokens=num_global,
+            num_hand_tokens=num_hand,
+            token_dim=token_dim,
+        )
+
+        # Visual feature source markers (present only for VGGT-trained tokenizers;
+        # DINO checkpoints have none → feature_source stays "dino" and no extra
+        # buffers are registered, so the strict load below still matches).
+        feature_source = "dino"
+        vggt_token_source = vggt_image_size = vggt_model = None
+        if "_feature_source" in state_dict:
+            from gr00t.model.action_latent_tokenizer_v4 import byte_tensor_to_str
+
+            feature_source = byte_tensor_to_str(state_dict["_feature_source"])
+            if feature_source == "vggt":
+                vggt_token_source = byte_tensor_to_str(state_dict["_vggt_token_source"])
+                vggt_image_size = int(state_dict["_vggt_image_size"].item())
+                vggt_model = byte_tensor_to_str(state_dict["_vggt_model"])
+                print(
+                    f"[timewise_v4] feature_source=vggt, token_source={vggt_token_source}, "
+                    f"image_size={vggt_image_size}, model={vggt_model}"
+                )
+
+        # DINO final-LayerNorm marker (present only when trained with the non-affine
+        # "naive" mode; absent → "affine", the standard/default path).
+        dino_final_norm = "affine"
+        if "_dino_final_norm" in state_dict:
+            from gr00t.model.action_latent_tokenizer_v4 import byte_tensor_to_str
+
+            dino_final_norm = byte_tensor_to_str(state_dict["_dino_final_norm"])
+            print(f"[timewise_v4] dino_final_norm={dino_final_norm}")
+
+        # dino_decoder omitted (training-only); its checkpoint keys are filtered.
+        tokenizer = ActionLatentTokenizerV4(
+            encoder=encoder,
+            recon_decoder=recon_decoder,
+            dino_decoder=None,
+            lambda_recon=1.0,
+            lambda_dino=0.0,
+            feature_source=feature_source,
+            vggt_token_source=vggt_token_source,
+            vggt_image_size=vggt_image_size,
+            vggt_model=vggt_model,
+            dino_final_norm=dino_final_norm,
+        )
         return tokenizer
 
     @staticmethod
@@ -671,32 +815,167 @@ class ActionLatentTokenizerWrapper(nn.Module):
         else:
             raise ValueError(f"Unknown target_tokens mode: {target_tokens}")
 
+    def _is_v4(self) -> bool:
+        return hasattr(self.tokenizer, "_is_v4")
+
+    def _ensure_dino_extractor(self, device):
+        """Lazily build a frozen DINO extractor for the V4 encode path.
+
+        Stored as a plain attribute (NOT a registered submodule) so it never
+        enters this wrapper's state_dict. The DINO variant is derived from the
+        encoder's input channel count (``dino_dim``).
+        """
+        if getattr(self, "_dino_extractor", None) is None:
+            from gr00t.utils.dino import DINOv3FeatureExtractor
+
+            dino_dim = self.tokenizer.encoder.dino_dim
+            # Stage-1 trains the V4 tokenizer against dinov2 features (transformers
+            # 4.51.3 predates dinov3), so Stage-2 MUST use the matching dinov2
+            # model — NOT get_dinov3_model_for_channels (which returns a dinov3
+            # repo that fails to load here and silently falls back to dinov2-small
+            # → 384-dim → shape mismatch). Pick the dinov2 variant by channel.
+            dinov2_by_channels = {
+                384: "facebook/dinov2-small",
+                768: "facebook/dinov2-base",
+                1024: "facebook/dinov2-large",
+                1536: "facebook/dinov2-giant",
+            }
+            model = dinov2_by_channels.get(dino_dim)
+            assert model is not None, (
+                f"No dinov2 model for dino_dim={dino_dim}; "
+                f"known: {sorted(dinov2_by_channels)}"
+            )
+            extractor = DINOv3FeatureExtractor(
+                model_name=model,
+                use_compile=False,
+                final_norm=getattr(self.tokenizer, "dino_final_norm", "affine"),
+            )
+            assert extractor.embed_dim == dino_dim, (
+                f"DINO embed_dim={extractor.embed_dim} != encoder dino_dim={dino_dim} "
+                f"(model={model}). A silent fallback likely occurred."
+            )
+            extractor.eval()
+            for p in extractor.parameters():
+                p.requires_grad = False
+            extractor.to(device)
+            self._dino_extractor = extractor
+        return self._dino_extractor
+
+    def _ensure_vggt_extractor(self, device):
+        """Lazily build a frozen VGGT extractor for the V4 encode path (vggt source).
+
+        Mirrors ``_ensure_dino_extractor``: stored as a plain attribute (not a
+        submodule) so it never enters this wrapper's state_dict. Config (token
+        source / image size / model id) comes from the markers recorded at training
+        time and decoded into the tokenizer at build.
+        """
+        if getattr(self, "_vggt_extractor", None) is None:
+            from gr00t.model.action_latent_tokenizer_v4 import byte_tensor_to_str
+            from gr00t.utils.vggt_feature import VGGTFeatureExtractor
+
+            tok = self.tokenizer
+            token_source = byte_tensor_to_str(tok._vggt_token_source)
+            image_size = int(tok._vggt_image_size.item())
+            model_name = byte_tensor_to_str(tok._vggt_model)
+            extractor = VGGTFeatureExtractor(
+                model_name=model_name,
+                token_source=token_source,
+                image_size=image_size,
+                use_compile=False,
+            )
+            assert extractor.embed_dim == tok.encoder.dino_dim, (
+                f"VGGT embed_dim={extractor.embed_dim} != encoder dino_dim="
+                f"{tok.encoder.dino_dim} (token_source={token_source})."
+            )
+            extractor.eval()
+            for p in extractor.parameters():
+                p.requires_grad = False
+            extractor.to(device)
+            self._vggt_extractor = extractor
+        return self._vggt_extractor
+
     @torch.no_grad()
-    def encode(self, actions: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _resolve_dino_feats(self, x0, x1, x0_feat, x1_feat, device):
+        """Return (x0_feat, x1_feat) [B, Lp, C] from precomputed feats or raw frames."""
+        if x0_feat is not None and x1_feat is not None:
+            return x0_feat.to(device), x1_feat.to(device)
+        if x0 is None or x1 is None:
+            raise ValueError(
+                "V4 encode requires visual features: pass x0_feat/x1_feat or raw "
+                "frames x0/x1 ([B,3,H,W])."
+            )
+
+        if getattr(self.tokenizer, "feature_source", "dino") == "vggt":
+            extractor = self._ensure_vggt_extractor(device)
+
+            def to_feat(frames):
+                frames = frames.to(device).float()
+                if frames.max() > 1.5:
+                    frames = frames / 255.0
+                tok, _ = extractor(frames)  # [B, Lp, C]
+                return tok.float()
+
+            return to_feat(x0), to_feat(x1)
+
+        extractor = self._ensure_dino_extractor(device)
+
+        def to_feat(frames):
+            frames = frames.to(device).float()
+            if frames.max() > 1.5:
+                frames = frames / 255.0
+            _, grid = extractor(frames, return_spatial_grid=True)  # [B, C, h, w]
+            return grid.flatten(2).transpose(1, 2).float()         # [B, h*w, C]
+
+        return to_feat(x0), to_feat(x1)
+
+    @torch.no_grad()
+    def encode(
+        self,
+        actions: torch.Tensor,
+        x0=None,
+        x1=None,
+        x0_feat=None,
+        x1_feat=None,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Encode actions to (global_tok, main_tok, hand_tok).
 
         Args:
             actions: [B, T, D] already normalized to [-1, 1]
+            x0/x1: optional raw frames [B,3,H,W] (current/future), V4 only.
+            x0_feat/x1_feat: optional precomputed DINO feats [B,Lp,C], V4 only.
         Returns:
             timewise: (global[B,Ng,E], time[B,T,E],  hand[B,Nh,E])
             dimwise:  (global[B,Ng,E], dim[B,D,E],   hand[B,Nh,E])
         """
-        actions = actions.to(dtype=self.tokenizer.encoder.action_proj.weight.dtype)
+        dtype = self.tokenizer.encoder.action_proj.weight.dtype
+        actions = actions.to(dtype=dtype)
+        if self._is_v4():
+            f0, f1 = self._resolve_dino_feats(x0, x1, x0_feat, x1_feat, actions.device)
+            return self.tokenizer.encode(actions, f0, f1)
         return self.tokenizer.encode(actions)
 
     @torch.no_grad()
     def get_latent_target(
-        self, actions: torch.Tensor, target_tokens: str = "all"
+        self,
+        actions: torch.Tensor,
+        target_tokens: str = "all",
+        x0=None,
+        x1=None,
+        x0_feat=None,
+        x1_feat=None,
     ) -> torch.Tensor:
         """Encode actions and return concatenated latent target.
 
         Args:
             actions: [B, T, D] already normalized to [-1, 1]
             target_tokens: "time", "global_time", "time_hand", "all"
+            x0/x1/x0_feat/x1_feat: V4-only DINO inputs (ignored for v2/v3).
         Returns:
             [B, N, E] concatenated latent tokens
         """
-        global_tok, main_tok, hand_tok = self.encode(actions)
+        global_tok, main_tok, hand_tok = self.encode(
+            actions, x0=x0, x1=x1, x0_feat=x0_feat, x1_feat=x1_feat
+        )
 
         parts = []
         if target_tokens in ("global_time", "all") and self.num_global_tokens > 0:

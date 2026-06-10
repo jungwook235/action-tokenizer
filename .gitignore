@@ -129,6 +129,8 @@ output/
 analysis_logs/
 checkpoints/
 checkpoints_FINEACT/
+checkpoints_action_tokenizer/
+slurm/
 data_images_from_video/
 data_images_from_video_png/
 demo_data/

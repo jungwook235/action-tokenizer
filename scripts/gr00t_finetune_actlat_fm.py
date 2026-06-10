@@ -15,7 +15,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 import torch
 import tyro
@@ -26,6 +26,7 @@ from gr00t.data.dataset_actlat_fm import (
     ActlatFMDataCollator,
     LeRobotSingleDatasetActlatFM,
 )
+from gr00t.data.dataset_actlat_fm_v4 import LeRobotSingleDatasetActlatFMV4
 from gr00t.data.schema import EmbodimentTag
 from gr00t.experiment.data_config import DATA_CONFIG_MAP
 from gr00t.experiment.trainer_actlat_fm import ActlatFMTrainer
@@ -71,6 +72,9 @@ class ArgsConfig:
     save_steps: int = 1000
     """Save checkpoint every N steps."""
 
+    save_total_limit: int = 8
+    """Max number of checkpoints to keep; oldest are deleted first. Set <=0 to keep all."""
+
     learning_rate: float = 1e-4
     """Learning rate."""
 
@@ -109,9 +113,28 @@ class ArgsConfig:
     actlat_target_tokens: str = "all"
     """Which tokens to use as target: 'time', 'global_time', 'time_hand', 'all'. (actlat_fm mode only)"""
 
+    actlat_frames: bool = False
+    """If True, use the V4 dataset that also yields (frame_x0, frame_x1) so the
+    V4 (RLA-DINO) tokenizer can compute DINO-dependent latent targets. Required
+    when the tokenizer is V4; harmless to leave False for v2/v3."""
+
+    frame_image_size: int = 224
+    """Square resize for the V4 frame pair (must match V4 tokenizer training)."""
+
     # Validation
     val_ratio: float = 0.003
     """Fraction of episodes for validation."""
+
+    val_seed: int = 42
+    """Seed used to derive the train/val split when the fixed-val file is created."""
+
+    use_fixed_val: bool = True
+    """If True, load/persist the train/val split as JSON so it matches the Stage-1
+    tokenizer split. The file is created on first use if missing."""
+
+    fixed_val_path: Optional[str] = None
+    """Explicit path to the fixed-val JSON. If None, defaults to
+    <dataset>/meta/fixed_val_split.json (one file per dataset)."""
 
     eval_steps: int = 1000
     """Evaluate every N steps."""
@@ -258,8 +281,21 @@ def main(config: ArgsConfig):
     transforms = data_config_cls.transform()
 
     # ------------ step 1: dataset (identical for all modes) ------------
+    # V4 (RLA-DINO) tokenizer needs the chunk start/end frames for its latent
+    # target → swap in the frame-pair dataset and pass the frame options.
+    if config.actlat_frames:
+        DatasetCls = LeRobotSingleDatasetActlatFMV4
+        frame_kwargs = dict(
+            frame_video_key=data_config_cls.video_keys[0],
+            frame_image_size=config.frame_image_size,
+            frame_action_horizon=len(data_config_cls.action_indices),
+        )
+    else:
+        DatasetCls = LeRobotSingleDatasetActlatFM
+        frame_kwargs = {}
+
     if len(config.dataset_path) == 1:
-        train_dataset = LeRobotSingleDatasetActlatFM(
+        train_dataset = DatasetCls(
             dataset_path=config.dataset_path[0],
             modality_configs=modality_configs,
             transforms=transforms,
@@ -267,13 +303,17 @@ def main(config: ArgsConfig):
             video_backend=config.video_backend,
             split="train",
             val_ratio=config.val_ratio,
+            val_seed=config.val_seed,
+            use_fixed_val=config.use_fixed_val,
+            fixed_val_path=config.fixed_val_path,
+            **frame_kwargs,
         )
     else:
         single_datasets = []
         for p in config.dataset_path:
             assert os.path.exists(p), f"Dataset path {p} does not exist"
             single_datasets.append(
-                LeRobotSingleDatasetActlatFM(
+                DatasetCls(
                     dataset_path=p,
                     modality_configs=modality_configs,
                     transforms=transforms,
@@ -281,6 +321,10 @@ def main(config: ArgsConfig):
                     video_backend=config.video_backend,
                     split="train",
                     val_ratio=config.val_ratio,
+                    val_seed=config.val_seed,
+                    use_fixed_val=config.use_fixed_val,
+                    fixed_val_path=config.fixed_val_path,
+                    **frame_kwargs,
                 )
             )
         train_dataset = LeRobotMixtureDataset(
@@ -291,7 +335,7 @@ def main(config: ArgsConfig):
             seed=42,
         )
 
-    eval_dataset = LeRobotSingleDatasetActlatFM(
+    eval_dataset = DatasetCls(
         dataset_path=config.dataset_path[0],
         modality_configs=modality_configs,
         transforms=transforms,
@@ -299,6 +343,10 @@ def main(config: ArgsConfig):
         video_backend=config.video_backend,
         split="val",
         val_ratio=config.val_ratio,
+        val_seed=config.val_seed,
+        use_fixed_val=config.use_fixed_val,
+        fixed_val_path=config.fixed_val_path,
+        **frame_kwargs,
     )
 
     print(f"Train dataset: {len(train_dataset)} steps")
@@ -354,7 +402,7 @@ def main(config: ArgsConfig):
         save_steps=config.save_steps,
         eval_strategy="steps",
         eval_steps=config.eval_steps,
-        save_total_limit=8,
+        save_total_limit=config.save_total_limit if config.save_total_limit > 0 else None,
         report_to=config.report_to,
         seed=42,
         do_eval=True,
