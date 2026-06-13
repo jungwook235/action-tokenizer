@@ -1,5 +1,48 @@
 # GitHub 업로드 가이드
 
+## 최신 버전 가져오기 (pull / 로컬 업데이트)
+
+GitHub `origin`에 올라와 있는 최신 버전으로 이 디렉토리를 업데이트할 때 사용합니다.
+
+### 1단계 — 원격 변경분 확인 (fetch)
+
+```bash
+cd /sjw_alinlab1/home/jungwook/action_tokenizer
+
+git fetch origin
+git log --oneline -5 origin/master            # 원격 최신 커밋 확인
+git rev-list --left-right --count origin/master...master   # 좌=원격 앞섬, 우=로컬 앞섬
+```
+
+### 2단계 — 로컬에 커밋 안 된 변경분이 없는 경우 (일반)
+
+```bash
+git pull --ff-only origin master
+```
+
+> `--ff-only`은 깨끗한 fast-forward 업데이트만 허용합니다. 로컬이 원격과 갈라져 있으면 거부되므로 안전합니다.
+
+### 2-1단계 — 로컬에 커밋 안 된 변경분이 있는 경우
+
+`git pull`이 `Your local changes ... would be overwritten` 오류로 막히면, 로컬 변경분을 잠시 보관(stash)한 뒤 pull하고 다시 적용합니다. (변경분은 버려지지 않고 보존됨)
+
+```bash
+git stash push -m "before pull"   # 로컬 변경분 임시 보관
+git pull --ff-only origin master  # 최신 버전으로 업데이트
+git stash pop                     # 보관한 변경분 재적용 (필요시 충돌 해결)
+```
+
+> 로컬 변경분이 더 이상 필요 없다면 stash 대신 `git checkout -- <파일>` 또는 `git reset --hard origin/master`로 버릴 수 있습니다. **`reset --hard`는 로컬 변경/커밋을 완전히 삭제하므로 주의하세요.**
+
+### 3단계 — 업데이트 결과 확인
+
+```bash
+git log --oneline -3
+git status
+```
+
+---
+
 ## 방법 0: 기존 레포에 현재 버전 다시 푸시 (현재 상황)
 
 이미 `origin`(https://github.com/snu-jungwook/action-tokenizer.git)이 연결되어 있고
@@ -76,6 +119,19 @@ cd /sjw_alinlab1/home/jungwook/action_tokenizer
 git init
 git add .
 git commit -m "Initial commit"
+```
+
+> **주의:** `rla-wm`처럼 내부에 `.git`이 있는 디렉토리가 있으면 embedded git repository 경고가 뜨며, 실제 파일이 아닌 gitlink 포인터로만 커밋됩니다. 아래 2-1단계로 해결하세요.
+
+### 2-1단계 — embedded git 레포 (rla-wm) 처리
+
+내부 코드를 직접 포함시키려면:
+
+```bash
+git rm --cached rla-wm
+rm -rf rla-wm/.git          # rla-wm의 git 이력만 제거 (코드 파일은 유지됨)
+git add rla-wm/
+git commit -m "Include rla-wm source files directly"
 ```
 
 ### 3단계 — GitHub에 새 레포 생성 및 push

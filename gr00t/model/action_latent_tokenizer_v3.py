@@ -114,6 +114,8 @@ class TimeWiseEncoderV3(nn.Module):
         use_bottleneck: bool = False,
         token_dim: int = 64,
         compress_token: int = 1,
+        use_vae: bool = False,
+        kl_free_bits: float = 0.0,
     ):
         super().__init__()
         self.action_dim = action_dim
@@ -175,6 +177,26 @@ class TimeWiseEncoderV3(nn.Module):
             self.token_dim = emb_dim
             self.output_down_proj = nn.Identity()
 
+        # V3 feature 5: optional SD-style VAE bottleneck (opt-in). When False this
+        # branch adds NO parameters/buffers and the forward path is byte-identical
+        # to the deterministic V3. When True, the bottleneck output is treated as
+        # the posterior mean μ and a single linear head predicts logσ²;
+        # ``encode_postproc`` reparameterizes z = μ + σ·ε and stashes the
+        # KL(N(0,I)) term in ``self._last_kl`` for the tokenizer loss. The latent
+        # dim (``token_dim``) is unchanged, so decoder / downstream shapes are all
+        # unaffected. Mirrors the V4 VAE (SD regime, tiny ``lambda_kl``).
+        self.use_vae = bool(use_vae)
+        self.kl_free_bits = float(kl_free_bits)
+        self.kl_logvar_min = -8.0
+        self.kl_logvar_max = 8.0
+        self._last_kl = None
+        if self.use_vae:
+            self.logvar_head = nn.Linear(self.token_dim, self.token_dim)
+            # Start near-deterministic (σ≈0.08) so VAE training begins from ~the
+            # same point as the AE; KL/recon then move logvar to equilibrium.
+            nn.init.zeros_(self.logvar_head.weight)
+            nn.init.constant_(self.logvar_head.bias, -5.0)
+
     def encode_postproc(self, x: torch.Tensor) -> torch.Tensor:
         """Apply output LayerNorm + (optional) bottleneck projection.
 
@@ -183,6 +205,23 @@ class TimeWiseEncoderV3(nn.Module):
         """
         x = self.output_layernorm(x)
         x = self.output_down_proj(x)
+        if self.use_vae:
+            # SD-style VAE: bottleneck output = posterior mean μ; reparameterize z.
+            # Sampling runs whenever use_vae is set (including frozen/eval) so the
+            # Stage-2 VLA target is a sample z, matching SD latent-diffusion.
+            mu = x
+            logvar = self.logvar_head(mu).clamp(self.kl_logvar_min, self.kl_logvar_max)
+            std = torch.exp(0.5 * logvar)
+            x = mu + torch.randn_like(std) * std
+            # Per-dim KL to N(0,I), averaged over batch+tokens; optional free-bits
+            # floors each dim so it cannot collapse below the budget.
+            kl_dim = -0.5 * (1.0 + logvar - mu.pow(2) - logvar.exp())
+            kl_dim = kl_dim.mean(dim=(0, 1))
+            if self.kl_free_bits > 0:
+                kl_dim = torch.clamp(kl_dim, min=self.kl_free_bits)
+            self._last_kl = kl_dim.sum()
+        else:
+            self._last_kl = None
         return x
 
     def compress_time(self, x: torch.Tensor) -> torch.Tensor:
@@ -417,6 +456,7 @@ class ActionLatentTokenizerV3(ActionLatentTokenizerV2):
         state_pred_kv_source: str = "hand",
         # V3 additions
         latent_noise_std: float = 0.0,
+        lambda_kl: float = 0.0,
     ):
         super().__init__(
             encoder=encoder,
@@ -442,6 +482,16 @@ class ActionLatentTokenizerV3(ActionLatentTokenizerV2):
         self.latent_noise_std = float(latent_noise_std)
         # V3 detection marker (in addition to inherited _is_v2).
         self.register_buffer("_is_v3", torch.tensor(True))
+
+        # V3 feature 5: SD-style VAE. The flag's single source of truth is the
+        # encoder; when set, weight the KL the encoder stashed during encode and
+        # record a detection marker so the inference wrapper rebuilds the matching
+        # VAE encoder (with logvar_head). When unset, NO buffer is registered →
+        # state_dict stays byte-identical to the deterministic V3.
+        self.lambda_kl = float(lambda_kl)
+        self.use_vae = bool(getattr(encoder, "use_vae", False))
+        if self.use_vae:
+            self.register_buffer("_is_vae", torch.tensor(True))
 
     def _maybe_noise(self, t: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
         if t is None or t.numel() == 0:
@@ -472,6 +522,10 @@ class ActionLatentTokenizerV3(ActionLatentTokenizerV2):
 
         # --- Encode ---
         global_tok, time_tok, hand_tok = self.encoder(actions)
+
+        # V3 VAE: capture the KL from the CLEAN encode now, before the masked path
+        # (below) calls encode_postproc again and overwrites encoder._last_kl.
+        loss_kl = getattr(self.encoder, "_last_kl", None)
 
         # V3: inject Gaussian noise before any decoder consumes the latents.
         global_tok_n = self._maybe_noise(global_tok)
@@ -624,7 +678,12 @@ class ActionLatentTokenizerV3(ActionLatentTokenizerV2):
             + self.freq_loss_weight * loss_freq
         )
 
-        return {
+        # V3 VAE: weight + add the clean-path KL. logvar_head is in the z graph
+        # whenever use_vae is set, so DDP sees no unused params even at lambda_kl=0.
+        if self.use_vae and loss_kl is not None and self.lambda_kl > 0:
+            loss = loss + self.lambda_kl * loss_kl
+
+        out = {
             "loss": loss,
             "loss_recon": loss_recon,
             "loss_hand_pred": loss_hand_pred,
@@ -633,3 +692,6 @@ class ActionLatentTokenizerV3(ActionLatentTokenizerV2):
             "loss_global": loss_global,
             "loss_freq": loss_freq,
         }
+        if self.use_vae and loss_kl is not None:
+            out["loss_kl"] = loss_kl
+        return out

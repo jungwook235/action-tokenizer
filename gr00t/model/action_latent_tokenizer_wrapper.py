@@ -282,6 +282,12 @@ class ActionLatentTokenizerWrapper(nn.Module):
 
         hand_in_recon = (decoder_num_hand > 0) or (num_hand == 0)
 
+        # Detect optional SD-style VAE bottleneck. The ``_is_vae`` marker buffer is
+        # registered only when the tokenizer was trained with --use-vae; when set,
+        # the encoder has a ``logvar_head`` and ``encode_postproc`` reparameterizes
+        # z. The latent dim (token_dim) is unchanged, so downstream shapes match.
+        use_vae = "_is_vae" in state_dict
+
         print(
             f"[timewise_v3] action_dim={action_dim}, action_horizon={action_horizon}, "
             f"emb_dim={emb_dim}, head_dim={head_dim}, depth={enc_depth}, "
@@ -289,7 +295,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
             f"decoder_num_hand={decoder_num_hand}, hand_in_recon={hand_in_recon}, "
             f"output_layernorm={output_layernorm}, "
             f"use_bottleneck={use_bottleneck}, token_dim={token_dim}, "
-            f"compress_token={compress_token}"
+            f"compress_token={compress_token}, use_vae={use_vae}"
         )
 
         encoder = TimeWiseEncoderV3(
@@ -305,6 +311,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
             use_bottleneck=use_bottleneck,
             token_dim=token_dim,
             compress_token=compress_token,
+            use_vae=use_vae,
         )
 
         # Decoder discovery (same as v2)

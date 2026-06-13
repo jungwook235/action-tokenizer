@@ -80,6 +80,7 @@ class ActionLatentV3Trainer(transformers.Trainer):
                 "loss_mask_hand_pred",
                 "loss_global",
                 "loss_freq",
+                "loss_kl",
             ):
                 val = outputs.get(key)
                 if val is not None:
@@ -181,6 +182,18 @@ class ArgsConfig:
     compress_token 으로 나누어 떨어져야 함. VLA 학습 시 예측 토큰 수는 wrapper 가
     압축된 토큰 수를 자동으로 노출하여 그에 맞게 설정됨."""
 
+    use_vae: bool = False
+    """SD 스타일 VAE bottleneck 사용 (V4 와 동일). 켜지면 bottleneck 출력이
+    posterior mean μ 로 취급되고 logvar_head 가 추가되어 z = μ + σ·ε 로
+    reparameterize 됨. lambda_kl 로 KL(N(0,I)) 가중. 기본 off (deterministic V3,
+    state_dict 가 기존 v3 와 byte-identical)."""
+
+    lambda_kl: float = 1e-6
+    """VAE KL loss 가중치 (SD regime, 기본 1e-6). use_vae=False 이면 무시."""
+
+    kl_free_bits: float = 0.0
+    """per-dim KL 하한 (free-bits). 0 이면 비활성."""
+
     # ── Global / Hand tokens ──
     num_global_tokens: int = 0
     num_hand_tokens: int = 0
@@ -281,6 +294,8 @@ def _build_v3_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         use_bottleneck=config.use_bottleneck,
         token_dim=config.token_dim,
         compress_token=config.compress_token,
+        use_vae=config.use_vae,
+        kl_free_bits=config.kl_free_bits,
     )
 
     decoder_num_hand = config.num_hand_tokens if config.hand_in_recon else 0
@@ -380,6 +395,7 @@ def _build_v3_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         hand_in_recon=config.hand_in_recon,
         state_pred_kv_source=config.state_pred_kv_source,
         latent_noise_std=config.latent_noise_std,
+        lambda_kl=config.lambda_kl,
     )
 
 
@@ -580,6 +596,9 @@ def main(config: ArgsConfig):
                     "use_bottleneck": config.use_bottleneck,
                     "token_dim": config.token_dim,
                     "compress_token": config.compress_token,
+                    "use_vae": config.use_vae,
+                    "lambda_kl": config.lambda_kl,
+                    "kl_free_bits": config.kl_free_bits,
                     "num_global_tokens": config.num_global_tokens,
                     "num_hand_tokens": config.num_hand_tokens,
                     "lambda_recon": config.lambda_recon,
