@@ -58,6 +58,10 @@ class VGGTFeatureExtractor(nn.Module):
         model_name: HF repo id for the VGGT checkpoint (e.g. ``facebook/VGGT-1B``).
         token_source: ``"aggregator"`` (2048-d) or ``"dpt_out2"`` (1024-d).
         image_size: square input size handed to VGGT (must be a multiple of 14).
+        final_norm: ``"none"`` (default) returns the raw token features. ``"naive"``
+            applies an extra non-affine LayerNorm ((x-mean)/std, no learned γ/β) to
+            the final token features — the analog of the DINO extractor's "naive"
+            final norm, but added on top rather than replacing an existing affine LN.
     """
 
     def __init__(
@@ -66,12 +70,17 @@ class VGGTFeatureExtractor(nn.Module):
         token_source: str = "dpt_out2",
         image_size: int = 224,
         use_compile: bool = False,
+        final_norm: str = "none",
     ):
         super().__init__()
 
         assert token_source in _VALID_TOKEN_SOURCES, (
             f"token_source must be one of {_VALID_TOKEN_SOURCES}; got {token_source!r}"
         )
+        assert final_norm in ("none", "naive"), (
+            f"final_norm must be 'none' or 'naive'; got {final_norm!r}"
+        )
+        self.final_norm = final_norm
         self.patch_size = 14
         assert image_size % self.patch_size == 0, (
             f"image_size ({image_size}) must be a multiple of patch_size "
@@ -157,6 +166,16 @@ class VGGTFeatureExtractor(nn.Module):
             tok, grid = self._dpt_out2(tokens_list, patch_start_idx, H, W)
 
         tok = tok.float()
+        if self.final_norm == "naive":
+            # Extra non-affine LayerNorm over the channel dim of the final token
+            # features (no learned γ/β). Applied to the token sequence the callers
+            # consume; the optional spatial grid is normalized to match.
+            tok = F.layer_norm(tok, (tok.shape[-1],), eps=1e-6)
+            if grid is not None:
+                # grid is [B, C, h, w]; normalize over the channel dim (dim=1).
+                g = grid.float().permute(0, 2, 3, 1)
+                g = F.layer_norm(g, (g.shape[-1],), eps=1e-6)
+                grid = g.permute(0, 3, 1, 2)
         if return_spatial_grid:
             return tok, grid
         return tok, None

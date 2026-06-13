@@ -1,3 +1,50 @@
+# GitHub 업로드 가이드
+
+## 방법 0: 기존 레포에 현재 버전 다시 푸시 (현재 상황)
+
+이미 `origin`(https://github.com/snu-jungwook/action-tokenizer.git)이 연결되어 있고
+`master` 브랜치가 존재합니다. 새로 만들 필요 없이 변경분만 커밋해서 push하면 됩니다.
+
+### 1단계 — 현재 상태 확인
+
+```bash
+cd /NHNHOME/data/wook/action-tokenizer
+
+git status          # 변경/추가된 파일 확인
+git remote -v       # origin 연결 확인
+```
+
+### 2단계 — 변경분 스테이징 및 커밋
+
+```bash
+# 모든 변경분(수정 + 신규 파일) 스테이징
+git add -A
+
+# 커밋 (메시지는 원하는 내용으로 변경)
+git commit -m "Update action tokenizer: v5 LAM modules, smoketests, sbatch scripts"
+```
+
+> 일부 파일만 올리고 싶으면 `git add -A` 대신 `git add <파일경로>`로 개별 추가하세요.
+
+### 3단계 — push
+
+```bash
+git push origin master
+```
+
+> 인증 창이 뜨면 username 입력 후 password 자리에 GitHub Personal Access Token(PAT)을 붙여넣으세요.
+> `gh auth login`으로 미리 로그인해두면 인증 과정이 생략됩니다.
+
+### (선택) 강제 덮어쓰기
+
+원격 히스토리를 로컬 기준으로 완전히 덮어써야 하는 경우에만 사용하세요. **원격 커밋이 사라질 수 있습니다.**
+
+```bash
+git push --force origin master
+```
+
+---
+
 # GitHub 새 레포 업로드 가이드
 
 ## 전제 조건

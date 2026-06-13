@@ -137,12 +137,15 @@ class ActionLatentTokenizerWrapper(nn.Module):
         """Detect tokenizer architecture from state_dict keys and build it.
 
         Detection order (add new detectors here for new tokenizer types):
+          -1. _is_v5 buffer               → timewise v5 (ActionLatentTokenizerV5, RLA-LAM)
           0. _is_v4 buffer                → timewise v4 (ActionLatentTokenizerV4, RLA-DINO)
           1. _is_v3 buffer                → timewise v3 (ActionLatentTokenizerV3)
           2. _is_v2 buffer                → timewise v2 (ActionLatentTokenizerV2)
           3. encoder._is_dimension_wise   → dimwise  (DimensionWiseEncoder)
           4. encoder.action_proj.weight   → timewise  (TimeWiseEncoder)
         """
+        if "_is_v5" in state_dict:
+            return ActionLatentTokenizerWrapper._build_timewise_v5_tokenizer(state_dict, head_dim_override)
         if "_is_v4" in state_dict:
             return ActionLatentTokenizerWrapper._build_timewise_v4_tokenizer(state_dict, head_dim_override)
         if "_is_v3" in state_dict:
@@ -379,12 +382,17 @@ class ActionLatentTokenizerWrapper(nn.Module):
                 if k.startswith("recon_decoder.decoder.layers."):
                     dec_depth = max(dec_depth, int(k.split(".")[3]) + 1)
 
+        # SD-style VAE marker: present only for VAE-trained tokenizers. When set, the
+        # encoder has a logvar_head and ``encode`` returns a reparameterized sample z;
+        # token_dim (= out_layer width) is unchanged, so downstream shapes match.
+        use_vae = "_is_vae" in state_dict
+
         print(
             f"[timewise_v4] action_dim={action_dim}, action_horizon={action_horizon}, "
             f"emb_dim={emb_dim}, token_dim={token_dim}, dino_dim={dino_dim}, "
             f"fusion_width={fusion_width}, fusion_depth={fusion_depth}, "
             f"enc_depth={enc_depth}, dec_depth={dec_depth}, decoder_mode={decoder_mode}, "
-            f"num_global={num_global}, num_hand={num_hand}"
+            f"num_global={num_global}, num_hand={num_hand}, use_vae={use_vae}"
         )
 
         encoder = TimeWiseEncoderV4(
@@ -401,6 +409,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
             fusion_depth=fusion_depth,
             fusion_heads=fusion_heads,
             token_dim=token_dim,
+            use_vae=use_vae,
         )
 
         recon_decoder = ReconDecoderV4(
@@ -421,6 +430,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
         # buffers are registered, so the strict load below still matches).
         feature_source = "dino"
         vggt_token_source = vggt_image_size = vggt_model = None
+        vggt_final_norm = "none"
         if "_feature_source" in state_dict:
             from gr00t.model.action_latent_tokenizer_v4 import byte_tensor_to_str
 
@@ -429,9 +439,12 @@ class ActionLatentTokenizerWrapper(nn.Module):
                 vggt_token_source = byte_tensor_to_str(state_dict["_vggt_token_source"])
                 vggt_image_size = int(state_dict["_vggt_image_size"].item())
                 vggt_model = byte_tensor_to_str(state_dict["_vggt_model"])
+                if "_vggt_final_norm" in state_dict:
+                    vggt_final_norm = byte_tensor_to_str(state_dict["_vggt_final_norm"])
                 print(
                     f"[timewise_v4] feature_source=vggt, token_source={vggt_token_source}, "
-                    f"image_size={vggt_image_size}, model={vggt_model}"
+                    f"image_size={vggt_image_size}, model={vggt_model}, "
+                    f"final_norm={vggt_final_norm}"
                 )
 
         # DINO final-LayerNorm marker (present only when trained with the non-affine
@@ -454,7 +467,141 @@ class ActionLatentTokenizerWrapper(nn.Module):
             vggt_token_source=vggt_token_source,
             vggt_image_size=vggt_image_size,
             vggt_model=vggt_model,
+            vggt_final_norm=vggt_final_norm,
             dino_final_norm=dino_final_norm,
+        )
+        return tokenizer
+
+    @staticmethod
+    def _build_timewise_v5_tokenizer(state_dict: dict, head_dim_override: Optional[int] = None):
+        """Build ActionLatentTokenizerV5 (RLA-LAM hybrid) from state_dict shapes.
+
+        Mirrors ``_build_timewise_v4_tokenizer``: only the encoder (action encoder +
+        RLA fusion) + recon_decoder are rebuilt. The ``pixel_decoder`` is a
+        training-only module and is omitted (its checkpoint keys are filtered by
+        ``from_checkpoint``). ``encode`` still needs the fusion encoder (it consumes
+        the LAM z_rep); the frozen LAM extractor is rebuilt lazily from the recorded
+        ``_lam_*`` markers (see ``_ensure_lam_extractor``).
+
+        Shapes (identical to v4 except ``dino_dim`` is the LAM latent width, e.g. 32):
+          encoder.action_encoder.action_proj.weight   → [emb_dim, action_dim]
+          encoder.action_encoder.time_pos_emb.posembs → [1, emb_dim, action_horizon]
+          encoder.joint.input_layer.weight            → [fusion_width, dino_dim]
+          encoder.joint.out_layer.weight              → [token_dim, fusion_width]
+        """
+        from gr00t.model.action_latent_tokenizer_v4 import ReconDecoderV4, TimeWiseEncoderV4
+        from gr00t.model.action_latent_tokenizer_v5 import (
+            ActionLatentTokenizerV5,
+            byte_tensor_to_str,
+        )
+
+        emb_dim, action_dim = state_dict["encoder.action_encoder.action_proj.weight"].shape
+        action_horizon = state_dict["encoder.action_encoder.time_pos_emb.posembs"].shape[2]
+
+        fusion_width, dino_dim = state_dict["encoder.joint.input_layer.weight"].shape
+        token_dim = state_dict["encoder.joint.out_layer.weight"].shape[0]
+
+        num_global = 0
+        if "encoder.action_encoder.global_tokens" in state_dict:
+            num_global = state_dict["encoder.action_encoder.global_tokens"].shape[0]
+        num_hand = 0
+        if "encoder.action_encoder.hand_tokens" in state_dict:
+            num_hand = state_dict["encoder.action_encoder.hand_tokens"].shape[0]
+
+        enc_depth = 0
+        for k in state_dict:
+            if k.startswith("encoder.action_encoder.transformer.blocks."):
+                enc_depth = max(enc_depth, int(k.split(".")[4]) + 1)
+
+        fusion_depth = 0
+        for k in state_dict:
+            if k.startswith("encoder.joint.blocks."):
+                fusion_depth = max(fusion_depth, int(k.split(".")[3]) + 1)
+
+        head_dim = ActionLatentTokenizerWrapper._resolve_head_dim(emb_dim, head_dim_override)
+        fusion_heads = max(1, fusion_width // 64)
+
+        dec_depth = 0
+        for k in state_dict:
+            if k.startswith("recon_decoder.transformer.blocks."):
+                dec_depth = max(dec_depth, int(k.split(".")[3]) + 1)
+        has_cross_attn = any(k.startswith("recon_decoder.decoder.") for k in state_dict)
+        decoder_mode = "cross_attention" if has_cross_attn else "self_attention"
+        if dec_depth == 0 and has_cross_attn:
+            for k in state_dict:
+                if k.startswith("recon_decoder.decoder.layers."):
+                    dec_depth = max(dec_depth, int(k.split(".")[3]) + 1)
+
+        use_vae = "_is_vae" in state_dict
+
+        def _int(name, default):
+            return int(state_dict[name].item()) if name in state_dict else default
+
+        lam_model_dim = _int("_lam_model_dim", 1024)
+        lam_latent_dim = _int("_lam_latent_dim", 32)
+        lam_patch_size = _int("_lam_patch_size", 16)
+        lam_enc_blocks = _int("_lam_enc_blocks", 24)
+        lam_dec_blocks = _int("_lam_dec_blocks", 24)
+        lam_num_heads = _int("_lam_num_heads", 16)
+        lam_image_h = _int("_lam_image_h", 240)
+        lam_image_w = _int("_lam_image_w", 320)
+        lam_ckpt = byte_tensor_to_str(state_dict["_lam_ckpt"]) if "_lam_ckpt" in state_dict else None
+
+        print(
+            f"[timewise_v5] action_dim={action_dim}, action_horizon={action_horizon}, "
+            f"emb_dim={emb_dim}, token_dim={token_dim}, dino_dim(lam_latent)={dino_dim}, "
+            f"fusion_width={fusion_width}, fusion_depth={fusion_depth}, "
+            f"enc_depth={enc_depth}, dec_depth={dec_depth}, decoder_mode={decoder_mode}, "
+            f"num_global={num_global}, num_hand={num_hand}, use_vae={use_vae}, "
+            f"lam_latent_dim={lam_latent_dim}, lam_ckpt={lam_ckpt}"
+        )
+
+        encoder = TimeWiseEncoderV4(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            encoder_depth=enc_depth,
+            pdropout=0.0,
+            num_global_tokens=num_global,
+            num_hand_tokens=num_hand,
+            dino_dim=dino_dim,
+            fusion_width=fusion_width,
+            fusion_depth=fusion_depth,
+            fusion_heads=fusion_heads,
+            token_dim=token_dim,
+            use_vae=use_vae,
+        )
+
+        recon_decoder = ReconDecoderV4(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            emb_dim=emb_dim,
+            head_dim=head_dim,
+            depth=dec_depth,
+            pdropout=0.0,
+            decoder_mode=decoder_mode,
+            num_global_tokens=num_global,
+            num_hand_tokens=num_hand,
+            token_dim=token_dim,
+        )
+
+        # pixel_decoder omitted (training-only); its checkpoint keys are filtered.
+        tokenizer = ActionLatentTokenizerV5(
+            encoder=encoder,
+            recon_decoder=recon_decoder,
+            pixel_decoder=None,
+            lambda_recon=1.0,
+            lambda_pixel=0.0,
+            lam_ckpt=lam_ckpt,
+            lam_model_dim=lam_model_dim,
+            lam_latent_dim=lam_latent_dim,
+            lam_patch_size=lam_patch_size,
+            lam_enc_blocks=lam_enc_blocks,
+            lam_dec_blocks=lam_dec_blocks,
+            lam_num_heads=lam_num_heads,
+            lam_image_h=lam_image_h,
+            lam_image_w=lam_image_w,
         )
         return tokenizer
 
@@ -818,6 +965,69 @@ class ActionLatentTokenizerWrapper(nn.Module):
     def _is_v4(self) -> bool:
         return hasattr(self.tokenizer, "_is_v4")
 
+    def _is_v5(self) -> bool:
+        return hasattr(self.tokenizer, "_is_v5")
+
+    def _ensure_lam_extractor(self, device):
+        """Lazily build a frozen LAM extractor for the V5 encode path.
+
+        Stored as a plain attribute (NOT a registered submodule) so it never enters
+        this wrapper's state_dict. Config (ckpt path + LAM hyperparameters) comes
+        from the ``_lam_*`` markers recorded at training time.
+        """
+        if getattr(self, "_lam_extractor", None) is None:
+            from gr00t.model.action_latent_tokenizer_v5 import byte_tensor_to_str
+            from gr00t.utils.lam_feature import LAMFeatureExtractor
+
+            tok = self.tokenizer
+            ckpt = byte_tensor_to_str(tok._lam_ckpt) if hasattr(tok, "_lam_ckpt") else None
+            assert ckpt, (
+                "V5 inference requires the LAM checkpoint path, but the '_lam_ckpt' "
+                "marker is missing from the tokenizer state_dict."
+            )
+            extractor = LAMFeatureExtractor(
+                ckpt_path=ckpt,
+                model_dim=int(tok._lam_model_dim.item()),
+                latent_dim=int(tok._lam_latent_dim.item()),
+                patch_size=int(tok._lam_patch_size.item()),
+                enc_blocks=int(tok._lam_enc_blocks.item()),
+                dec_blocks=int(tok._lam_dec_blocks.item()),
+                num_heads=int(tok._lam_num_heads.item()),
+                image_h=int(tok._lam_image_h.item()),
+                image_w=int(tok._lam_image_w.item()),
+            )
+            assert extractor.latent_dim == self.tokenizer.encoder.dino_dim, (
+                f"LAM latent_dim={extractor.latent_dim} != encoder dino_dim="
+                f"{self.tokenizer.encoder.dino_dim}."
+            )
+            extractor.eval()
+            for p in extractor.parameters():
+                p.requires_grad = False
+            extractor.to(device)
+            self._lam_extractor = extractor
+        return self._lam_extractor
+
+    @torch.no_grad()
+    def _resolve_lam_zrep(self, x0, x1, z_rep, device):
+        """Return LAM z_rep [B, 1, latent] from a precomputed z_rep or raw frames."""
+        if z_rep is not None:
+            return z_rep.to(device)
+        if x0 is None or x1 is None:
+            raise ValueError(
+                "V5 encode requires visual input: pass raw frames x0/x1 ([B,3,H,W]) "
+                "or a precomputed z_rep (via x0_feat)."
+            )
+        extractor = self._ensure_lam_extractor(device)
+
+        def to_video(frames):
+            frames = frames.to(device).float()
+            if frames.max() > 1.5:
+                frames = frames / 255.0
+            return frames.permute(0, 2, 3, 1)  # [B,3,H,W] → [B,H,W,3]
+
+        videos = torch.stack([to_video(x0), to_video(x1)], dim=1)  # [B,2,H,W,3]
+        return extractor(videos).float()  # [B, 1, latent]
+
     def _ensure_dino_extractor(self, device):
         """Lazily build a frozen DINO extractor for the V4 encode path.
 
@@ -877,11 +1087,13 @@ class ActionLatentTokenizerWrapper(nn.Module):
             token_source = byte_tensor_to_str(tok._vggt_token_source)
             image_size = int(tok._vggt_image_size.item())
             model_name = byte_tensor_to_str(tok._vggt_model)
+            final_norm = getattr(tok, "vggt_final_norm", "none")
             extractor = VGGTFeatureExtractor(
                 model_name=model_name,
                 token_source=token_source,
                 image_size=image_size,
                 use_compile=False,
+                final_norm=final_norm,
             )
             assert extractor.embed_dim == tok.encoder.dino_dim, (
                 f"VGGT embed_dim={extractor.embed_dim} != encoder dino_dim="
@@ -949,6 +1161,9 @@ class ActionLatentTokenizerWrapper(nn.Module):
         """
         dtype = self.tokenizer.encoder.action_proj.weight.dtype
         actions = actions.to(dtype=dtype)
+        if self._is_v5():
+            z_rep = self._resolve_lam_zrep(x0, x1, x0_feat, actions.device)
+            return self.tokenizer.encode(actions, z_rep)
         if self._is_v4():
             f0, f1 = self._resolve_dino_feats(x0, x1, x0_feat, x1_feat, actions.device)
             return self.tokenizer.encode(actions, f0, f1)

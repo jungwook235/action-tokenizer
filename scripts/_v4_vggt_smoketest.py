@@ -94,6 +94,25 @@ def test_vggt_markers_roundtrip():
     print("[B] VGGT markers round-trip OK — wrapper detected vggt/dpt_out2/224")
 
 
+def test_vggt_naive_ln_marker():
+    from gr00t.model.action_latent_tokenizer_wrapper import ActionLatentTokenizerWrapper
+    from gr00t.model.action_latent_tokenizer_v4 import byte_tensor_to_str
+
+    tok = build_tiny_v4(
+        "vggt", vggt_token_source="dpt_out2", vggt_image_size=224,
+        vggt_model="facebook/VGGT-1B", vggt_final_norm="naive",
+    )
+    sd = tok.state_dict()
+    assert "_vggt_final_norm" in sd and "_dino_final_norm" not in sd
+    rebuilt = ActionLatentTokenizerWrapper._build_from_state_dict(sd)
+    keys = set(rebuilt.state_dict().keys())
+    rebuilt.load_state_dict({k: v for k, v in sd.items() if k in keys}, strict=True)
+    assert rebuilt.feature_source == "vggt"
+    assert byte_tensor_to_str(rebuilt._vggt_final_norm) == "naive"
+    assert rebuilt.vggt_final_norm == "naive"
+    print("[B2] VGGT naive-LN marker round-trip OK — wrapper detected vggt/naive")
+
+
 def test_extraction_math():
     from vggt.heads.dpt_head import DPTHead
 
@@ -155,6 +174,7 @@ if __name__ == "__main__":
     test_dino_regression()
     test_dino_naive_ln_marker()
     test_vggt_markers_roundtrip()
+    test_vggt_naive_ln_marker()
     test_extraction_math()
     test_tiny_aggregator_structure()
     print("\nALL SMOKE TESTS PASSED")

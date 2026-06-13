@@ -374,6 +374,8 @@ class TimeWiseEncoderV4(nn.Module):
         fusion_depth: int = 12,
         fusion_heads: int = 16,
         token_dim: int = 64,
+        use_vae: bool = False,
+        kl_free_bits: float = 0.0,
     ):
         super().__init__()
         self.action_dim = action_dim
@@ -383,6 +385,26 @@ class TimeWiseEncoderV4(nn.Module):
         self.dino_dim = dino_dim
         self.num_global_tokens = num_global_tokens
         self.num_hand_tokens = num_hand_tokens
+
+        # ---- SD-style VAE bottleneck (opt-in) ----
+        # When ``use_vae`` is False this branch adds NO parameters/buffers and the
+        # forward path is byte-identical to the deterministic V4. When True, the
+        # fusion output is treated as the posterior mean μ and a single linear head
+        # predicts logσ²; ``forward`` reparameterizes z = μ + σ·ε and stashes the
+        # KL(N(0,I)) term in ``self._last_kl`` for the tokenizer loss. The fusion
+        # ``out_layer`` is unchanged (still → token_dim), so latent dim / decoder /
+        # downstream shapes are all unaffected.
+        self.use_vae = bool(use_vae)
+        self.kl_free_bits = float(kl_free_bits)
+        self.kl_logvar_min = -8.0
+        self.kl_logvar_max = 8.0
+        self._last_kl = None
+        if self.use_vae:
+            self.logvar_head = nn.Linear(token_dim, token_dim)
+            # Start near-deterministic (σ≈0.08) so VAE training begins from ~the same
+            # point as the AE; KL/recon then move logvar to equilibrium.
+            nn.init.zeros_(self.logvar_head.weight)
+            nn.init.constant_(self.logvar_head.bias, -5.0)
 
         self.action_encoder = ActionEncoderV4(
             action_dim=action_dim,
@@ -424,6 +446,24 @@ class TimeWiseEncoderV4(nn.Module):
         act_tokens = torch.cat([g256, t256, h256], dim=1)         # [B, Ng+T+Nh, 256]
 
         tokens_out, _ = self.joint(x=dino_diff, tokens=act_tokens)  # [B, Ng+T+Nh, 64]
+
+        if self.use_vae:
+            # SD-style VAE: fusion output = posterior mean μ; reparameterize z.
+            # Sampling runs whenever use_vae is set (including frozen/eval) so the
+            # VLA target is a sample z, matching SD latent-diffusion practice.
+            mu = tokens_out
+            logvar = self.logvar_head(mu).clamp(self.kl_logvar_min, self.kl_logvar_max)
+            std = torch.exp(0.5 * logvar)
+            tokens_out = mu + torch.randn_like(std) * std
+            # Per-dim KL to N(0,I), averaged over batch+tokens; optional free-bits
+            # floors each dim so it cannot collapse below the budget.
+            kl_dim = -0.5 * (1.0 + logvar - mu.pow(2) - logvar.exp())  # [B,N,token_dim]
+            kl_dim = kl_dim.mean(dim=(0, 1))                           # [token_dim]
+            if self.kl_free_bits > 0:
+                kl_dim = torch.clamp(kl_dim, min=self.kl_free_bits)
+            self._last_kl = kl_dim.sum()
+        else:
+            self._last_kl = None
 
         global_out = tokens_out[:, :Ng]
         time_out = tokens_out[:, Ng:Ng + T]
@@ -570,6 +610,7 @@ class ActionLatentTokenizerV4(nn.Module):
         dino_decoder: Optional[SimpleTokenTransformer] = None,
         lambda_recon: float = 1.0,
         lambda_dino: float = 1.0,
+        lambda_kl: float = 0.0,
         recon_loss_type: str = "mse",
         dino_loss_type: str = "l1",
         dino_loss_weights: Optional[dict] = None,
@@ -577,6 +618,7 @@ class ActionLatentTokenizerV4(nn.Module):
         vggt_token_source: Optional[str] = None,
         vggt_image_size: Optional[int] = None,
         vggt_model: Optional[str] = None,
+        vggt_final_norm: str = "none",
         dino_final_norm: str = "affine",
     ):
         super().__init__()
@@ -586,7 +628,14 @@ class ActionLatentTokenizerV4(nn.Module):
 
         self.lambda_recon = float(lambda_recon)
         self.lambda_dino = float(lambda_dino)
+        self.lambda_kl = float(lambda_kl)
         self.recon_loss_type = recon_loss_type
+
+        # VAE flag is the single source of truth on the encoder. When set, record a
+        # detection marker so the inference wrapper rebuilds the matching encoder
+        # (with logvar_head). When unset, NO buffer is registered → state_dict stays
+        # byte-identical to the deterministic V4.
+        self.use_vae = bool(getattr(encoder, "use_vae", False))
 
         self.dino_terms = self._parse_dino_loss_type(dino_loss_type)
         w = {"l1": 1.0, "mse": 1.0, "cosine": 1.0}
@@ -602,6 +651,10 @@ class ActionLatentTokenizerV4(nn.Module):
         # V4 detection marker.
         self.register_buffer("_is_v4", torch.tensor(True))
 
+        # VAE detection marker (only when enabled → off-path state_dict unchanged).
+        if self.use_vae:
+            self.register_buffer("_is_vae", torch.tensor(True))
+
         # Visual feature source. Default "dino" registers NO extra buffers, so the
         # state_dict / forward of DINO-trained models is byte-identical to before.
         # Only the "vggt" path records markers so the inference wrapper can rebuild
@@ -616,6 +669,13 @@ class ActionLatentTokenizerV4(nn.Module):
             self.register_buffer("_vggt_token_source", _str_to_byte_tensor(str(vggt_token_source)))
             self.register_buffer("_vggt_image_size", torch.tensor(int(vggt_image_size or 224)))
             self.register_buffer("_vggt_model", _str_to_byte_tensor(str(vggt_model or "facebook/VGGT-1B")))
+            # VGGT final-norm mode. "none" (default) registers NO buffer, so existing
+            # VGGT checkpoints stay byte-identical. "naive" (extra non-affine LN on the
+            # final tokens) records a marker so the inference wrapper rebuilds a
+            # matching VGGT extractor. Only meaningful when feature_source == "vggt".
+            if vggt_final_norm == "naive":
+                self.register_buffer("_vggt_final_norm", _str_to_byte_tensor("naive"))
+        self.vggt_final_norm = vggt_final_norm
 
         # DINO final-LayerNorm mode. "affine" (default) registers NO buffer, so the
         # state_dict stays byte-identical to before. "naive" (drop the final LN's
@@ -708,10 +768,19 @@ class ActionLatentTokenizerV4(nn.Module):
 
         loss = self.lambda_recon * loss_recon + self.lambda_dino * loss_dino
 
+        # Loss 3: VAE KL (only when the encoder is a VAE). The encoder stashes the
+        # KL during encode; here we weight and add it. logvar_head is in the z graph
+        # regardless of lambda_kl, so DDP sees no unused params even at lambda_kl=0.
         out = {
             "loss": loss,
             "loss_recon": loss_recon,
             "loss_dino": loss_dino,
         }
+        if self.use_vae and self.encoder._last_kl is not None:
+            loss_kl = self.encoder._last_kl
+            if self.lambda_kl > 0:
+                loss = loss + self.lambda_kl * loss_kl
+            out["loss"] = loss
+            out["loss_kl"] = loss_kl
         out.update(dino_sub)
         return out

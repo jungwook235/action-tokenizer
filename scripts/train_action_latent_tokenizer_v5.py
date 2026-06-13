@@ -1,16 +1,20 @@
-"""Action Latent Tokenizer V4 (RLA-DINO hybrid) training script.
+"""Action Latent Tokenizer V5 (RLA-LAM hybrid) training script.
 
-V4 fuses the V3 action autoencoder with rla-wm's DINO inverse-dynamics
-autoencoder. Per step:
-  1. The dataset yields an action chunk + two RGB frames (chunk start / end).
-  2. A frozen DINOv3 extractor (trainer-owned, on-the-fly) turns the frames into
-     patch-token features ``x0_feat`` / ``x1_feat`` ([B, Lp, dino_channels]).
-  3. The V4 tokenizer encodes (action latents as RLA queries + DINO-diff) → a
-     64-dim latent, then decodes it BOTH to actions (recon) and to future DINO
-     features (dino recon). Loss = lambda_recon * recon + lambda_dino * dino.
+V5 is V4 with the visual element swapped from DINO/VGGT to DreamDojo's Latent
+Action Model (LAM):
 
-Cloned from ``train_action_latent_tokenizer_v3.py`` (logging / launcher / fixed-val
-conventions preserved). Action-recon + DINO-recon only (no mask / global / hand).
+  1. A frozen LAM encoder (trainer-owned, on-the-fly) turns the (frame0, frame1)
+     pair into a single latent-action token ``z_rep`` ([B, 1, lam_latent_dim]).
+  2. The V5 tokenizer encodes (action latents as RLA queries + z_rep) → a
+     token_dim latent, then decodes it BOTH to actions (recon) and to the
+     future-frame pixels (LAM SpatioTransformer pixel decoder). The per-timestep
+     latents are merged into one (for the pixel decoder) by a learnable softmax
+     weighted sum. Loss = lambda_recon * recon + lambda_pixel * pixel.
+
+The training / eval / save / DDP structure is identical to V4 (same Trainer,
+sampler, eval-metric harness, torchrun relaunch). Only the feature extractor
+(DINO/VGGT → LAM), the second decoder (DINO-feature → pixel), and the associated
+loss/metric wiring change.
 """
 
 import math
@@ -27,7 +31,7 @@ import transformers
 import tyro
 from transformers import TrainingArguments
 
-# Side-effect import to register any extra data configs (kept for parity with v3).
+# Side-effect import to register any extra data configs (kept for parity with v4).
 import gr00t.experiment.data_config_v3  # noqa: F401
 from gr00t.data.dataset_action_frames_v4 import (
     ActionFramesCollatorV4,
@@ -35,13 +39,44 @@ from gr00t.data.dataset_action_frames_v4 import (
 )
 from gr00t.experiment.data_config import DATA_CONFIG_MAP
 from gr00t.experiment.trainer import BaseSampler
-from gr00t.model.action_latent_tokenizer_v4 import (
-    ActionLatentTokenizerV4,
-    ReconDecoderV4,
-    TimeWiseEncoderV4,
+from gr00t.model.action_latent_tokenizer_v4 import ReconDecoderV4, TimeWiseEncoderV4
+from gr00t.model.action_latent_tokenizer_v5 import (
+    ActionLatentTokenizerV5,
+    PixelDecoderV5,
 )
-from gr00t.model.rla_modules import SimpleTokenTransformer
-from gr00t.utils.dino import DINOv3FeatureExtractor
+from gr00t.utils.lam_feature import LAMFeatureExtractor, resolve_lam_ckpt
+
+
+# =====================================================================
+# LAM pixel-decoder checkpoint init
+# =====================================================================
+
+
+def _init_pixel_decoder_from_lam(pixel_decoder: PixelDecoderV5, ckpt_path: str) -> None:
+    """Initialize the V5 pixel decoder's ``patch_up`` / ``decoder`` from LAM weights.
+
+    The pretrained LAM Lightning checkpoint stores keys under ``lam.*`` (e.g.
+    ``lam.decoder.ffn.0.weight``, ``lam.patch_up.weight``). We copy only the
+    ``decoder.*`` and ``patch_up.*`` subtrees (submodule names match by design).
+    ``action_up`` is left fresh-initialized (LAM is 32→model_dim, ours is
+    token_dim→model_dim), and ``pool_logits`` is fresh (zeros → uniform mean).
+    """
+    # Resolve to a local path (auto-downloads from HF nvidia/DreamDojo if absent).
+    ckpt_path = resolve_lam_ckpt(ckpt_path)
+    sd = torch.load(ckpt_path, map_location="cpu")
+    sd = sd.get("state_dict", sd)
+    want = {}
+    for k, v in sd.items():
+        if k.startswith("lam.decoder.") or k.startswith("lam.patch_up."):
+            want[k[len("lam."):]] = v  # strip "lam." → "decoder.*" / "patch_up.*"
+    missing, unexpected = pixel_decoder.load_state_dict(want, strict=False)
+    # Expected-missing: pool_logits + action_up.* (fresh). Unexpected should be empty.
+    fresh = [m for m in missing if not (m.startswith("action_up") or m == "pool_logits")]
+    print(
+        f"[v5] LAM pixel-decoder init from {ckpt_path}: loaded {len(want)} tensors "
+        f"(decoder/patch_up). fresh={['pool_logits', 'action_up']} "
+        f"unexpected={list(unexpected)[:5]} other_missing={fresh[:5]}"
+    )
 
 
 # =====================================================================
@@ -49,48 +84,42 @@ from gr00t.utils.dino import DINOv3FeatureExtractor
 # =====================================================================
 
 
-class ActionLatentV4Trainer(transformers.Trainer):
-    """V4 trainer: owns a frozen DINO extractor, extracts feats on-the-fly."""
+class ActionLatentV5Trainer(transformers.Trainer):
+    """V5 trainer: owns a frozen LAM extractor, extracts z_rep on-the-fly."""
 
     def __init__(
         self,
         *args,
-        dino_model: str,
-        dino_channels: int,
-        feature_source: str = "dino",
-        vggt_token_source: str = "dpt_out2",
-        vggt_model: str = "facebook/VGGT-1B",
-        vggt_image_size: int = 224,
-        vggt_final_norm: str = "none",
-        dino_final_norm: str = "affine",
+        lam_ckpt: str,
+        lam_model_dim: int = 1024,
+        lam_latent_dim: int = 32,
+        lam_patch_size: int = 16,
+        lam_enc_blocks: int = 24,
+        lam_dec_blocks: int = 24,
+        lam_num_heads: int = 16,
+        lam_image_h: int = 240,
+        lam_image_w: int = 320,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.feature_source = feature_source
-        if feature_source == "vggt":
-            from gr00t.utils.vggt_feature import VGGTFeatureExtractor
-
-            self.dino = VGGTFeatureExtractor(
-                model_name=vggt_model,
-                token_source=vggt_token_source,
-                image_size=vggt_image_size,
-                use_compile=False,
-                final_norm=vggt_final_norm,
-            )
-        else:
-            self.dino = DINOv3FeatureExtractor(
-                model_name=dino_model, use_compile=False, final_norm=dino_final_norm
-            )
-        self.dino.eval()
-        for p in self.dino.parameters():
-            p.requires_grad = False
-        assert self.dino.embed_dim == dino_channels, (
-            f"[{feature_source}] extractor embed_dim={self.dino.embed_dim} != "
-            f"dino_channels={dino_channels}. For dino, check --dino-model (a silent "
-            "fallback to dinov2-small gives 384). For vggt, set --dino-channels to "
-            "match --vggt-token-source (dpt_out2→1024, aggregator→2048)."
+        self.lam_image_h = lam_image_h
+        self.lam_image_w = lam_image_w
+        self.lam = LAMFeatureExtractor(
+            ckpt_path=lam_ckpt,
+            model_dim=lam_model_dim,
+            latent_dim=lam_latent_dim,
+            patch_size=lam_patch_size,
+            enc_blocks=lam_enc_blocks,
+            dec_blocks=lam_dec_blocks,
+            num_heads=lam_num_heads,
+            image_h=lam_image_h,
+            image_w=lam_image_w,
         )
-        self._dino_on_device = False
+        self.lam.eval()
+        for p in self.lam.parameters():
+            p.requires_grad = False
+        assert self.lam.latent_dim == lam_latent_dim
+        self._lam_on_device = False
 
     def _get_train_sampler(self, *args, **kwargs):
         return BaseSampler(self.train_dataset, shuffle=True, seed=self.args.seed)
@@ -104,35 +133,47 @@ class ActionLatentV4Trainer(transformers.Trainer):
         return self._cached_eval_dataloader
 
     @torch.no_grad()
-    def _extract_feats(self, inputs):
-        """frames (uint8 [B,3,H,W]) → DINO patch features [B, Lp, C] (fp32)."""
-        device = self.model.device if hasattr(self.model, "device") else next(self.model.parameters()).device
-        if not self._dino_on_device:
-            self.dino.to(device)
-            self._dino_on_device = True
+    def _extract(self, inputs):
+        """frames (uint8 [B,3,H,W]) → (z_rep [B,1,latent], frame0/frame1 [B,1,Hl,Wl,3]).
 
-        f0 = inputs["frame_x0"].to(device).float() / 255.0
-        f1 = inputs["frame_x1"].to(device).float() / 255.0
-        if self.feature_source == "vggt":
-            # VGGT extractor returns patch tokens [B, Lp, C] directly.
-            x0, _ = self.dino(f0)
-            x1, _ = self.dino(f1)
-            return x0.float(), x1.float()
-        _, g0 = self.dino(f0, return_spatial_grid=True)  # [B, C, h, w] fp16
-        _, g1 = self.dino(f1, return_spatial_grid=True)
-        x0 = g0.flatten(2).transpose(1, 2).float()       # [B, h*w, C]
-        x1 = g1.flatten(2).transpose(1, 2).float()
-        return x0, x1
+        Frames are resized to the LAM training resolution (Hl×Wl) and arranged as
+        ``[B, 2, Hl, Wl, 3]`` videos; the frozen LAM encoder produces z_rep, and the
+        same videos provide the pixel-decoder input (frame0) and target (frame1).
+        """
+        device = self.model.device if hasattr(self.model, "device") else next(self.model.parameters()).device
+        if not self._lam_on_device:
+            self.lam.to(device)
+            self._lam_on_device = True
+
+        def to_frame(key):
+            f = inputs[key].to(device).float() / 255.0  # [B,3,H,W]
+            if f.shape[-2:] != (self.lam_image_h, self.lam_image_w):
+                f = F.interpolate(
+                    f, size=(self.lam_image_h, self.lam_image_w),
+                    mode="bilinear", align_corners=False,
+                )
+            return f.permute(0, 2, 3, 1)  # [B,Hl,Wl,3]
+
+        f0 = to_frame("frame_x0")
+        f1 = to_frame("frame_x1")
+        videos = torch.stack([f0, f1], dim=1)  # [B,2,Hl,Wl,3]
+        z_rep = self.lam(videos).float()       # [B,1,latent]
+        frame0 = videos[:, :1]                 # [B,1,Hl,Wl,3]
+        frame1 = videos[:, 1:]                 # [B,1,Hl,Wl,3]
+        return z_rep, frame0, frame1
+
+    def _build_batch(self, inputs):
+        z_rep, frame0, frame1 = self._extract(inputs)
+        return {"action": inputs["action"], "z_rep": z_rep, "frame0": frame0, "frame1": frame1}
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        x0_feat, x1_feat = self._extract_feats(inputs)
-        batch = {"action": inputs["action"], "x0_feat": x0_feat, "x1_feat": x1_feat}
+        batch = self._build_batch(inputs)
         outputs = model(batch)
         loss = outputs["loss"]
         if model.training:
             if not hasattr(self, "_train_loss_buffer"):
                 self._train_loss_buffer = {}
-            for key in ("loss_recon", "loss_dino", "loss_kl", "loss_dino_l1", "loss_dino_mse", "loss_dino_cosine"):
+            for key in ("loss_recon", "loss_pixel", "loss_kl"):
                 val = outputs.get(key)
                 if val is not None:
                     v = val.item() if isinstance(val, torch.Tensor) else float(val)
@@ -141,11 +182,10 @@ class ActionLatentV4Trainer(transformers.Trainer):
 
     def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
         """Eval forward. HF's default eval loop calls ``model(**inputs)`` with the
-        RAW batch (no x0_feat/x1_feat) → KeyError. Override to extract DINO feats
-        from the frames first, mirroring compute_loss. Returns (loss, None, None)."""
+        RAW batch (no z_rep/frames extracted) → KeyError. Override to extract LAM
+        z_rep + frames first, mirroring compute_loss. Returns (loss, None, None)."""
         with torch.no_grad():
-            x0_feat, x1_feat = self._extract_feats(inputs)
-            batch = {"action": inputs["action"], "x0_feat": x0_feat, "x1_feat": x1_feat}
+            batch = self._build_batch(inputs)
             outputs = model(batch)
             loss = outputs["loss"].detach()
         return (loss, None, None)
@@ -162,31 +202,30 @@ class ActionLatentV4Trainer(transformers.Trainer):
             super().log(logs)
 
     def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval"):
-        """Standard eval + action recon (MSE/L1) and DINO recon (L1/cosine) metrics."""
+        """Standard eval + action recon (MSE/L1) and pixel recon (MSE) metrics."""
         metrics = super().evaluate(eval_dataset, ignore_keys, metric_key_prefix)
 
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         model = self.model
         model.eval()
 
-        total_mse = total_l1 = total_dino_l1 = total_dino_cos = 0.0
+        total_mse = total_l1 = total_pixel_mse = 0.0
         n_samples = 0
         with torch.no_grad():
             for batch in eval_dataloader:
                 batch = self._prepare_inputs(batch)
-                x0_feat, x1_feat = self._extract_feats(batch)
+                z_rep, frame0, frame1 = self._extract(batch)
                 actions = batch["action"].to(dtype=model.encoder.action_proj.weight.dtype)
 
-                g, t, h = model.encode(actions, x0_feat, x1_feat)
+                g, t, h = model.encode(actions, z_rep)
                 preds = model.decode(g, t, h)
-                pred_x1 = model.decode_dino(t, x0_feat)
+                frame1_hat = model.decode_pixel(t, frame0.to(dtype=preds.dtype))
 
                 B = actions.shape[0]
                 total_mse += F.mse_loss(preds, actions).item() * B
                 total_l1 += F.l1_loss(preds, actions).item() * B
-                total_dino_l1 += F.l1_loss(pred_x1, x1_feat.to(dtype=pred_x1.dtype)).item() * B
-                total_dino_cos += (
-                    1.0 - F.cosine_similarity(pred_x1, x1_feat.to(dtype=pred_x1.dtype), dim=-1).mean()
+                total_pixel_mse += F.mse_loss(
+                    frame1_hat, frame1.to(dtype=frame1_hat.dtype)
                 ).item() * B
                 n_samples += B
 
@@ -194,8 +233,7 @@ class ActionLatentV4Trainer(transformers.Trainer):
             extra = {
                 f"{metric_key_prefix}_recon_mse": total_mse / n_samples,
                 f"{metric_key_prefix}_recon_l1": total_l1 / n_samples,
-                f"{metric_key_prefix}_dino_l1": total_dino_l1 / n_samples,
-                f"{metric_key_prefix}_dino_cos_dist": total_dino_cos / n_samples,
+                f"{metric_key_prefix}_pixel_mse": total_pixel_mse / n_samples,
             }
             self.log(extra)
             metrics.update(extra)
@@ -210,7 +248,7 @@ class ActionLatentV4Trainer(transformers.Trainer):
 
 @dataclass
 class ArgsConfig:
-    """Action Latent Tokenizer V4 training config."""
+    """Action Latent Tokenizer V5 training config."""
 
     # ── Dataset ──
     dataset_path: List[str]
@@ -218,7 +256,7 @@ class ArgsConfig:
     embodiment_tag: str = "new_embodiment"
     normalization_mode: str = "min_max"
 
-    # ── Action encoder (V3-style) ──
+    # ── Action encoder (V4-style) ──
     emb_dim: int = 256
     head_dim: int = 64
     encoder_depth: int = 4
@@ -228,58 +266,38 @@ class ArgsConfig:
     token_dim: int = 64
 
     # ── Fusion (RLA SimpleTokenTransformer) ──
-    dino_model: str = "facebook/dinov3-vitl16-pretrain-lvd1689m"
-    dino_channels: int = 1024
     fusion_width: int = 1024
     fusion_depth: int = 12
     fusion_heads: int = 16
 
-    # ── Visual feature source ──
-    # "dino" (default): unchanged DINO path. "vggt": replace DINO feats with VGGT
-    # patch tokens. ``dino_channels`` must match the chosen VGGT source width
-    # (dpt_out2 → 1024, aggregator → 2048).
-    feature_source: Literal["dino", "vggt"] = "dino"
-    vggt_token_source: Literal["aggregator", "dpt_out2"] = "dpt_out2"
-    vggt_model: str = "facebook/VGGT-1B"
-    vggt_image_size: int = 224
-    # VGGT final LayerNorm: "none" (default, raw token features) or "naive" (apply
-    # an extra non-affine LayerNorm to the final VGGT tokens). vggt source only.
-    vggt_final_norm: Literal["none", "naive"] = "none"
-    # DINO final LayerNorm: "affine" (default, standard last_hidden_state) or
-    # "naive" (drop the final LN's learned γ/β, normalize only). dino source only.
-    dino_final_norm: Literal["affine", "naive"] = "affine"
-
-    # ── DINO decoder ──
-    dino_decoder_depth: int = 12
+    # ── LAM visual source (frozen extractor + pixel decoder init) ──
+    lam_ckpt: str = "DreamDojo/checkpoints/DreamDojo/LAM_400k.ckpt"
+    lam_model_dim: int = 1024
+    lam_latent_dim: int = 32  # = fusion visual in_channels (z_rep width)
+    lam_patch_size: int = 16
+    lam_enc_blocks: int = 24
+    lam_dec_blocks: int = 24
+    lam_num_heads: int = 16
+    lam_image_h: int = 240
+    lam_image_w: int = 320
 
     # ── Loss ──
     lambda_recon: float = 1.0
-    lambda_dino: float = 1.0
+    lambda_pixel: float = 1.0
     recon_loss_type: Literal["mse", "l1"] = "mse"
-    dino_loss_type: str = "l1+mse"  # RLA default (L1 + MSE). Also: "cosine", "l1+cosine" ...
-    dino_w_l1: float = 1.0
-    dino_w_mse: float = 1.0
-    dino_w_cosine: float = 1.0
+    pixel_loss_type: Literal["mse", "l1"] = "mse"
 
-    # ── VAE bottleneck (SD-style, opt-in) ──
-    # use_vae=False (default): deterministic V4 — byte-identical to before (no extra
-    #   params/buffers, no sampling).
-    # use_vae=True: the fusion output is the posterior mean μ; a logvar head is added
-    #   and ``encode`` returns a reparameterized sample z (so the VLA target is z,
-    #   matching SD latent-diffusion). lambda_kl weights KL(N(0,I)); SD uses a tiny
-    #   KL (~1e-6). kl_free_bits floors per-dim KL (0 = off).
+    # ── VAE bottleneck (SD-style, opt-in; identical semantics to V4) ──
     use_vae: bool = False
     lambda_kl: float = 1e-6
     kl_free_bits: float = 0.0
 
-    # ── Frames / DINO input ──
-    image_size: int = 224
+    # ── Frames ──
+    image_size: int = 256
     video_backend: str = "decord"
-    """Video backend for frame loading. Use 'decord' (nearest-frame mapping);
-    'torchvision_av' requires exact pts match and can drop frames."""
 
     # ── Training ──
-    output_dir: str = "/tmp/action_latent_tokenizer_v4"
+    output_dir: str = "/tmp/action_latent_tokenizer_v5"
     batch_size: int = 64
     max_steps: int = 100000
     learning_rate: float = 5e-5
@@ -293,7 +311,7 @@ class ArgsConfig:
     dataloader_num_workers: int = 16
     report_to: Literal["wandb", "tensorboard"] = "wandb"
     run_name: Optional[str] = None
-    wandb_project: str = "action-latent-tokenizer-v4"
+    wandb_project: str = "action-latent-tokenizer-v5"
     resume: bool = False
 
     # ── Validation ──
@@ -308,7 +326,7 @@ class ArgsConfig:
 # =====================================================================
 
 
-def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int):
+def _build_v5_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int):
     encoder = TimeWiseEncoderV4(
         action_dim=action_dim,
         action_horizon=action_horizon,
@@ -318,7 +336,7 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         pdropout=config.pdropout,
         num_global_tokens=0,
         num_hand_tokens=0,
-        dino_dim=config.dino_channels,
+        dino_dim=config.lam_latent_dim,  # fusion visual context = z_rep width
         fusion_width=config.fusion_width,
         fusion_depth=config.fusion_depth,
         fusion_heads=config.fusion_heads,
@@ -340,41 +358,36 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         token_dim=config.token_dim,
     )
 
-    # DINO decoder: x0 feats + latent (token_channels=token_dim) → predict x1 feats.
-    # num_tokens = action_horizon (internal learnable tokens added to the external
-    # latent), mirroring rla-wm's decoder which uses internal tokens too.
-    dino_decoder = SimpleTokenTransformer(
-        in_channels=config.dino_channels,
-        model_channels=config.fusion_width,
-        out_channels=config.dino_channels,
-        num_blocks=config.dino_decoder_depth,
-        num_heads=config.fusion_heads,
-        num_tokens=action_horizon,
-        token_channels=config.token_dim,
-        zero_init=True,
-        use_fp16=False,
+    pixel_decoder = PixelDecoderV5(
+        action_horizon=action_horizon,
+        token_dim=config.token_dim,
+        image_channels=3,
+        patch_size=config.lam_patch_size,
+        model_dim=config.lam_model_dim,
+        dec_blocks=config.lam_dec_blocks,
+        num_heads=config.lam_num_heads,
     )
+    # Initialize patch_up + decoder from the pretrained LAM checkpoint (trainable).
+    _init_pixel_decoder_from_lam(pixel_decoder, config.lam_ckpt)
 
-    return ActionLatentTokenizerV4(
+    return ActionLatentTokenizerV5(
         encoder=encoder,
         recon_decoder=recon_decoder,
-        dino_decoder=dino_decoder,
+        pixel_decoder=pixel_decoder,
         lambda_recon=config.lambda_recon,
-        lambda_dino=config.lambda_dino,
+        lambda_pixel=config.lambda_pixel,
         lambda_kl=config.lambda_kl,
         recon_loss_type=config.recon_loss_type,
-        dino_loss_type=config.dino_loss_type,
-        dino_loss_weights={
-            "l1": config.dino_w_l1,
-            "mse": config.dino_w_mse,
-            "cosine": config.dino_w_cosine,
-        },
-        feature_source=config.feature_source,
-        vggt_token_source=config.vggt_token_source,
-        vggt_image_size=config.vggt_image_size,
-        vggt_model=config.vggt_model,
-        vggt_final_norm=config.vggt_final_norm,
-        dino_final_norm=config.dino_final_norm,
+        pixel_loss_type=config.pixel_loss_type,
+        lam_ckpt=config.lam_ckpt,
+        lam_model_dim=config.lam_model_dim,
+        lam_latent_dim=config.lam_latent_dim,
+        lam_patch_size=config.lam_patch_size,
+        lam_enc_blocks=config.lam_enc_blocks,
+        lam_dec_blocks=config.lam_dec_blocks,
+        lam_num_heads=config.lam_num_heads,
+        lam_image_h=config.lam_image_h,
+        lam_image_w=config.lam_image_w,
     )
 
 
@@ -415,7 +428,7 @@ def main(config: ArgsConfig):
     action_horizon, action_dim = sample["action"].shape
     print(f"action_horizon={action_horizon}, action_dim={action_dim}")
 
-    model = _build_v4_tokenizer(config, action_dim, action_horizon)
+    model = _build_v5_tokenizer(config, action_dim, action_horizon)
     total_params = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Total params: {total_params:,} | Trainable: {trainable:,}")
@@ -453,8 +466,9 @@ def main(config: ArgsConfig):
         eval_steps=eval_steps,
         report_to=config.report_to,
         seed=42,
-        # V4: the fusion transformer computes outputs at the DINO-token positions
-        # that the latent readout discards → guard against DDP unused-param errors.
+        # V5: the fusion transformer computes outputs at the z_rep-token position
+        # that the latent readout discards; pixel decoder params are unused when
+        # lambda_pixel=0 → guard against DDP unused-param errors.
         ddp_find_unused_parameters=True,
     )
 
@@ -468,20 +482,21 @@ def main(config: ArgsConfig):
 
     collator = ActionFramesCollatorV4()
 
-    trainer = ActionLatentV4Trainer(
+    trainer = ActionLatentV5Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         data_collator=collator,
-        dino_model=config.dino_model,
-        dino_channels=config.dino_channels,
-        feature_source=config.feature_source,
-        vggt_token_source=config.vggt_token_source,
-        vggt_model=config.vggt_model,
-        vggt_image_size=config.vggt_image_size,
-        vggt_final_norm=config.vggt_final_norm,
-        dino_final_norm=config.dino_final_norm,
+        lam_ckpt=config.lam_ckpt,
+        lam_model_dim=config.lam_model_dim,
+        lam_latent_dim=config.lam_latent_dim,
+        lam_patch_size=config.lam_patch_size,
+        lam_enc_blocks=config.lam_enc_blocks,
+        lam_dec_blocks=config.lam_dec_blocks,
+        lam_num_heads=config.lam_num_heads,
+        lam_image_h=config.lam_image_h,
+        lam_image_w=config.lam_image_w,
     )
 
     if config.report_to == "wandb":
@@ -492,12 +507,12 @@ def main(config: ArgsConfig):
 
     rank = int(os.environ.get("RANK", 0))
     if rank == 0:
-        save_path = os.path.join(config.output_dir, "action_latent_tokenizer_v4_final.pt")
+        save_path = os.path.join(config.output_dir, "action_latent_tokenizer_v5_final.pt")
         torch.save(
             {
                 "model_state_dict": model.state_dict(),
                 "config": {
-                    "tokenizer_version": "v4",
+                    "tokenizer_version": "v5",
                     "action_dim": action_dim,
                     "action_horizon": action_horizon,
                     "emb_dim": config.emb_dim,
@@ -507,25 +522,25 @@ def main(config: ArgsConfig):
                     "decoder_mode": config.decoder_mode,
                     "pdropout": config.pdropout,
                     "token_dim": config.token_dim,
-                    "dino_model": config.dino_model,
-                    "dino_channels": config.dino_channels,
                     "fusion_width": config.fusion_width,
                     "fusion_depth": config.fusion_depth,
                     "fusion_heads": config.fusion_heads,
-                    "dino_decoder_depth": config.dino_decoder_depth,
-                    "feature_source": config.feature_source,
-                    "vggt_token_source": config.vggt_token_source,
-                    "vggt_model": config.vggt_model,
-                    "vggt_image_size": config.vggt_image_size,
-                    "vggt_final_norm": config.vggt_final_norm,
-                    "dino_final_norm": config.dino_final_norm,
+                    "lam_ckpt": config.lam_ckpt,
+                    "lam_model_dim": config.lam_model_dim,
+                    "lam_latent_dim": config.lam_latent_dim,
+                    "lam_patch_size": config.lam_patch_size,
+                    "lam_enc_blocks": config.lam_enc_blocks,
+                    "lam_dec_blocks": config.lam_dec_blocks,
+                    "lam_num_heads": config.lam_num_heads,
+                    "lam_image_h": config.lam_image_h,
+                    "lam_image_w": config.lam_image_w,
                     "lambda_recon": config.lambda_recon,
-                    "lambda_dino": config.lambda_dino,
+                    "lambda_pixel": config.lambda_pixel,
                     "lambda_kl": config.lambda_kl,
                     "use_vae": config.use_vae,
                     "kl_free_bits": config.kl_free_bits,
                     "recon_loss_type": config.recon_loss_type,
-                    "dino_loss_type": config.dino_loss_type,
+                    "pixel_loss_type": config.pixel_loss_type,
                     "image_size": config.image_size,
                     "use_fixed_val": config.use_fixed_val,
                     "fixed_val_path": config.fixed_val_path,
@@ -547,7 +562,7 @@ if __name__ == "__main__":
     config = tyro.cli(ArgsConfig)
 
     print("\n" + "=" * 60)
-    print("ACTION LATENT TOKENIZER V4 TRAINING CONFIGURATION:")
+    print("ACTION LATENT TOKENIZER V5 TRAINING CONFIGURATION:")
     print("=" * 60)
     for key, value in vars(config).items():
         print(f"  {key}: {value}")
