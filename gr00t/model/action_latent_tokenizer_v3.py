@@ -49,6 +49,7 @@ from gr00t.model.action_latent_tokenizer_v2 import (
     ActionTextEncoder,
     GlobalTokenLossModule,
     HandStatePredDecoder,
+    LinearHead,
     PositionalEmbeddingAdder,
     ReconDecoder,
     TimeWiseEncoder,
@@ -64,10 +65,11 @@ from gr00t.model.action_latent_tokenizer_v2 import (
 
 class TimeWiseEncoderV3(nn.Module):
     """V3 encoder = V2 encoder + optional output ``LayerNorm`` + optional
-    VTP-style bottleneck at the output.
+    VTP-style bottleneck at the output + optional time-axis compression.
 
-    Pipeline: ``transformer → output_layernorm → output_down_proj
-    → split(global, time, hand)``.
+    Pipeline: ``action_proj → time_conv (compress) → time_pos_emb
+    → concat(global, time, hand) → transformer → output_layernorm
+    → output_down_proj → split(global, time, hand)``.
 
     - ``output_layernorm`` (V3 feature 1): LayerNorm applied to the transformer
       output. ``Identity`` when ``output_layernorm=False`` (default). When
@@ -78,10 +80,22 @@ class TimeWiseEncoderV3(nn.Module):
       token_dim)`` that reduces the latent dimension. ``Identity`` when
       ``use_bottleneck=False`` (default), in which case ``self.token_dim ==
       emb_dim`` and the state_dict is identical to V3 without the bottleneck.
+    - ``time_conv`` (V3 feature 4): when ``compress_token > 1``, a single
+      ``Conv1d(emb_dim, emb_dim, kernel_size=stride=compress_token)`` applied
+      over the time axis right after ``action_proj`` to reduce the number of
+      time tokens by ``compress_token`` (``action_horizon`` → ``num_time_tokens
+      = action_horizon // compress_token``). ``Identity`` when
+      ``compress_token == 1`` (default), in which case no key is added to the
+      state_dict and behavior is byte-identical to V3 without compression. The
+      bottleneck (``token_dim``) and time compression are orthogonal: the conv
+      changes token COUNT, the bottleneck changes token DIM.
 
     The attribute :attr:`token_dim` always reflects the true output dimension
-    of the encoder. Downstream code (the wrapper, action heads in VLA training)
-    must use ``token_dim`` (or equivalently ``wrapper.emb_dim``) — NOT the
+    of the encoder. :attr:`num_time_tokens` reflects the true number of time
+    tokens the encoder emits (and that the wrapper exposes as
+    ``num_main_tokens`` → the VLA action head's predicted token count).
+    Downstream code (the wrapper, action heads in VLA training) must use
+    ``token_dim`` (or equivalently ``wrapper.emb_dim``) — NOT the
     transformer's working ``emb_dim`` — to size projections that consume the
     output tokens.
     """
@@ -99,6 +113,7 @@ class TimeWiseEncoderV3(nn.Module):
         output_layernorm: bool = False,
         use_bottleneck: bool = False,
         token_dim: int = 64,
+        compress_token: int = 1,
     ):
         super().__init__()
         self.action_dim = action_dim
@@ -106,6 +121,24 @@ class TimeWiseEncoderV3(nn.Module):
         self.emb_dim = emb_dim
         self.num_global_tokens = num_global_tokens
         self.num_hand_tokens = num_hand_tokens
+
+        # V3 feature 4: optional time-axis compression. Default off (compress=1
+        # → Identity, no state_dict key, byte-identical to V3 w/o compression).
+        self.compress_token = int(compress_token)
+        if self.compress_token > 1:
+            assert action_horizon % self.compress_token == 0, (
+                f"action_horizon ({action_horizon}) must be divisible by "
+                f"compress_token ({self.compress_token})."
+            )
+            self.num_time_tokens = action_horizon // self.compress_token
+            # Conv over the time axis: kernel == stride == compress_token so
+            # the receptive fields tile the sequence without overlap.
+            self.time_conv = nn.Conv1d(
+                emb_dim, emb_dim, kernel_size=self.compress_token, stride=self.compress_token
+            )
+        else:
+            self.num_time_tokens = action_horizon
+            self.time_conv = nn.Identity()
 
         self.action_proj = nn.Linear(action_dim, emb_dim)
         self.time_pos_emb = PositionalEmbeddingAdder(emb_dim, max_sizes=[action_horizon])
@@ -152,13 +185,28 @@ class TimeWiseEncoderV3(nn.Module):
         x = self.output_down_proj(x)
         return x
 
+    def compress_time(self, x: torch.Tensor) -> torch.Tensor:
+        """Compress the time axis by ``compress_token`` via ``time_conv``.
+
+        ``x``: ``[B, T, E]`` → ``[B, T // compress_token, E]``. No-op (returns
+        ``x`` unchanged) when ``compress_token == 1``. Shared by :meth:`forward`
+        and the masked-path forward so both paths compress identically.
+        """
+        if self.compress_token <= 1:
+            return x
+        x = x.transpose(1, 2)       # [B, E, T]
+        x = self.time_conv(x)       # [B, E, T // c]
+        return x.transpose(1, 2)    # [B, T // c, E]
+
     def forward(self, x: torch.Tensor):
         B, T, D = x.shape
         Ng = self.num_global_tokens
         Nh = self.num_hand_tokens
 
         x = self.action_proj(x)
-        x = self.time_pos_emb(x)
+        x = self.compress_time(x)     # [B, Tc, E]; Tc == T when compress_token == 1
+        Tc = x.shape[1]
+        x = self.time_pos_emb(x)      # pos emb auto-slices to Tc
 
         parts = []
         if Ng > 0:
@@ -172,8 +220,8 @@ class TimeWiseEncoderV3(nn.Module):
         x = self.encode_postproc(x)  # output_layernorm + (optional) bottleneck
 
         global_out = x[:, :Ng]
-        time_out = x[:, Ng:Ng + T]
-        hand_out = x[:, Ng + T:]
+        time_out = x[:, Ng:Ng + Tc]
+        hand_out = x[:, Ng + Tc:]
 
         return global_out, time_out, hand_out
 
@@ -184,7 +232,8 @@ class TimeWiseEncoderV3(nn.Module):
 
 
 class ReconDecoderV3(ReconDecoder):
-    """V2's :class:`ReconDecoder` + optional input up-projection.
+    """V2's :class:`ReconDecoder` + optional input up-projection + optional
+    time-axis sub-pixel upsampling at the output.
 
     When ``use_bottleneck=True``, expects input tokens (time/global/hand) of
     dimension ``token_dim`` and applies ``Linear(token_dim, emb_dim)`` to each
@@ -193,8 +242,21 @@ class ReconDecoderV3(ReconDecoder):
     bottleneck is symmetric on all latent tokens, mirroring the encoder where
     a single ``output_down_proj`` is applied to the concatenated sequence.
 
-    When ``use_bottleneck=False``, ``input_up_proj`` is :class:`nn.Identity`
-    and the state_dict + behavior are identical to v2's :class:`ReconDecoder`.
+    When ``compress_token > 1``, the decoder consumes the compressed time
+    tokens (``T // compress_token`` of them, produced by the encoder's
+    ``time_conv``) and runs the entire v2 decoder pipeline at that compressed
+    resolution. Upsampling happens ONLY at the very end via a sub-pixel
+    (pixel-shuffle) projection: the output head is widened to
+    ``LinearHead(emb_dim, action_dim * compress_token)`` so each compressed
+    token emits ``compress_token`` consecutive action steps, which are then
+    reshaped ``[B, Tc, c, D] → [B, Tc * c, D] = [B, T, D]``. This matches the
+    "one projection per upsampled step" idiom and keeps the transformer at the
+    compressed token count.
+
+    When ``use_bottleneck=False`` and ``compress_token == 1``, ``input_up_proj``
+    is :class:`nn.Identity`, the head is the plain ``LinearHead(emb_dim,
+    action_dim)``, and the state_dict + behavior are identical to v2's
+    :class:`ReconDecoder`.
     """
 
     def __init__(
@@ -210,6 +272,7 @@ class ReconDecoderV3(ReconDecoder):
         num_hand_tokens: int = 0,
         use_bottleneck: bool = False,
         token_dim: int = 64,
+        compress_token: int = 1,
     ):
         super().__init__(
             action_dim=action_dim,
@@ -230,6 +293,15 @@ class ReconDecoderV3(ReconDecoder):
             self.token_dim = emb_dim
             self.input_up_proj = nn.Identity()
 
+        # V3 feature 4: sub-pixel upsampling head. When compress>1, widen the
+        # head so each compressed time token emits ``compress_token`` action
+        # steps; ``forward`` reshapes them back to the full horizon. When
+        # compress==1 the inherited ``LinearHead(emb_dim, action_dim)`` is kept
+        # untouched (byte-identical to v2).
+        self.compress_token = int(compress_token)
+        if self.compress_token > 1:
+            self.head = LinearHead(emb_dim, action_dim * self.compress_token)
+
     def forward(
         self,
         time_tokens: torch.Tensor,
@@ -242,7 +314,16 @@ class ReconDecoderV3(ReconDecoder):
                 global_tokens = self.input_up_proj(global_tokens)
             if hand_tokens is not None and hand_tokens.numel() > 0:
                 hand_tokens = self.input_up_proj(hand_tokens)
-        return super().forward(time_tokens, global_tokens=global_tokens, hand_tokens=hand_tokens)
+
+        out = super().forward(time_tokens, global_tokens=global_tokens, hand_tokens=hand_tokens)
+
+        if self.compress_token > 1:
+            # out: [B, Tc, action_dim * c] → [B, Tc * c, action_dim] == [B, T, D]
+            B, Tc, _ = out.shape
+            out = out.reshape(B, Tc, self.compress_token, self.action_dim)
+            out = out.reshape(B, Tc * self.compress_token, self.action_dim)
+
+        return out
 
 
 class HandStatePredDecoderV3(HandStatePredDecoder):
@@ -445,12 +526,27 @@ class ActionLatentTokenizerV3(ActionLatentTokenizerV2):
             else:
                 raise ValueError(f"Unknown mask_mode: {self.mask_mode}")
 
-            masked_proj = self.encoder.action_proj(masked_actions)
-            masked_proj = self.encoder.time_pos_emb(masked_proj)
+            # V3 feature 4: time compression. For compress>1 the mask is applied
+            # at the original T resolution (the recon target is the full action),
+            # then time_conv compresses and pos_emb is added at the compressed
+            # resolution — mirroring the clean encode() path. For compress==1 the
+            # original v3 order (pos_emb → mask) is kept byte/behavior identical.
+            compress = getattr(self.encoder, "compress_token", 1)
+            Tc = T // compress
+            if compress > 1:
+                masked_proj = self.encoder.action_proj(masked_actions)
+                mask_expanded = mask.unsqueeze(-1).expand_as(masked_proj)
+                mask_tok = self.mask_token.unsqueeze(0).unsqueeze(0).expand_as(masked_proj)
+                masked_proj = torch.where(mask_expanded, mask_tok, masked_proj)
+                masked_proj = self.encoder.compress_time(masked_proj)  # [m, Tc, E]
+                masked_proj = self.encoder.time_pos_emb(masked_proj)
+            else:
+                masked_proj = self.encoder.action_proj(masked_actions)
+                masked_proj = self.encoder.time_pos_emb(masked_proj)
 
-            mask_expanded = mask.unsqueeze(-1).expand_as(masked_proj)
-            mask_tok = self.mask_token.unsqueeze(0).unsqueeze(0).expand_as(masked_proj)
-            masked_proj = torch.where(mask_expanded, mask_tok, masked_proj)
+                mask_expanded = mask.unsqueeze(-1).expand_as(masked_proj)
+                mask_tok = self.mask_token.unsqueeze(0).unsqueeze(0).expand_as(masked_proj)
+                masked_proj = torch.where(mask_expanded, mask_tok, masked_proj)
 
             parts = []
             if Ng > 0:
@@ -469,8 +565,8 @@ class ActionLatentTokenizerV3(ActionLatentTokenizerV2):
                 masked_seq = self.encoder.output_layernorm(masked_seq)
 
             m_global = masked_seq[:, :Ng] if Ng > 0 else None
-            m_time = masked_seq[:, Ng:Ng + T]
-            m_hand_full = masked_seq[:, Ng + T:] if Nh > 0 else None
+            m_time = masked_seq[:, Ng:Ng + Tc]
+            m_hand_full = masked_seq[:, Ng + Tc:] if Nh > 0 else None
 
             # V3: noise each stream once, then route the noisy tensors below.
             m_global_n = self._maybe_noise(m_global)

@@ -45,8 +45,13 @@ class ActionLatentTokenizerWrapper(nn.Module):
 
         # Detect tokenizer type and set num_main_tokens accordingly.
         # num_main_tokens: number of "primary" latent tokens (excluding global/hand).
-        #   timewise → action_horizon (one token per timestep)
+        #   timewise → action_horizon (one token per timestep), OR for v3 with
+        #              time compression, action_horizon // compress_token. The
+        #              encoder exposes the true count as ``num_time_tokens``.
         #   dimwise  → action_dim     (one token per action dimension)
+        # This value flows to ``get_num_tokens`` → the VLA action head's
+        # predicted token count, so it MUST reflect the compressed count.
+        timewise_main = getattr(tokenizer.encoder, "num_time_tokens", self.action_horizon)
         try:
             from gr00t.model.action_latent_tokenizer_faster import DimensionWiseActionLatentTokenizer
             if isinstance(tokenizer, DimensionWiseActionLatentTokenizer):
@@ -54,10 +59,10 @@ class ActionLatentTokenizerWrapper(nn.Module):
                 self.num_main_tokens = self.action_dim
             else:
                 self.tokenizer_type = "timewise"
-                self.num_main_tokens = self.action_horizon
+                self.num_main_tokens = timewise_main
         except ImportError:
             self.tokenizer_type = "timewise"
-            self.num_main_tokens = self.action_horizon
+            self.num_main_tokens = timewise_main
 
         # Freeze all parameters
         for p in self.parameters():
@@ -250,6 +255,27 @@ class ActionLatentTokenizerWrapper(nn.Module):
                     "output_down_proj — inconsistent bottleneck state."
                 )
 
+        # Detect optional time-axis compression. When enabled, the encoder has a
+        # Conv1d named ``time_conv`` with weight shape [emb_dim, emb_dim, kernel]
+        # where kernel == stride == compress_token. Absent (Identity) → no key →
+        # compress_token=1.
+        compress_token = 1
+        if "encoder.time_conv.weight" in state_dict:
+            compress_token = int(state_dict["encoder.time_conv.weight"].shape[2])
+            # Sanity-check the decoder side: the sub-pixel head must emit
+            # action_dim * compress_token per token. Fail loudly on mismatch so
+            # silent state_dict-shape divergences don't slip through.
+            head_w = state_dict.get("recon_decoder.head.proj.weight")
+            if head_w is not None:
+                head_out = head_w.shape[0]
+                if head_out != action_dim * compress_token:
+                    raise ValueError(
+                        f"[timewise_v3] compression head mismatch: encoder.time_conv "
+                        f"kernel={compress_token} implies head out_dim="
+                        f"{action_dim * compress_token} but recon_decoder.head emits "
+                        f"{head_out}."
+                    )
+
         decoder_num_hand = num_hand
         if num_hand > 0 and "recon_decoder.hand_proj.weight" not in state_dict:
             decoder_num_hand = 0
@@ -262,7 +288,8 @@ class ActionLatentTokenizerWrapper(nn.Module):
             f"num_global={num_global}, num_hand={num_hand}, "
             f"decoder_num_hand={decoder_num_hand}, hand_in_recon={hand_in_recon}, "
             f"output_layernorm={output_layernorm}, "
-            f"use_bottleneck={use_bottleneck}, token_dim={token_dim}"
+            f"use_bottleneck={use_bottleneck}, token_dim={token_dim}, "
+            f"compress_token={compress_token}"
         )
 
         encoder = TimeWiseEncoderV3(
@@ -277,6 +304,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
             output_layernorm=output_layernorm,
             use_bottleneck=use_bottleneck,
             token_dim=token_dim,
+            compress_token=compress_token,
         )
 
         # Decoder discovery (same as v2)
@@ -308,6 +336,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
             num_hand_tokens=decoder_num_hand,
             use_bottleneck=use_bottleneck,
             token_dim=token_dim,
+            compress_token=compress_token,
         )
 
         tokenizer = ActionLatentTokenizerV3(

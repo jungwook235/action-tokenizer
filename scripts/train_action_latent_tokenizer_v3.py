@@ -173,6 +173,14 @@ class ArgsConfig:
     """Bottleneck 사용 시 출력 latent 차원. use_bottleneck=False 이면 무시되고
     실제 출력 차원은 emb_dim 이 됨."""
 
+    compress_token: int = 1
+    """Time 축 토큰 압축 배율. 1 이면 압축 비활성 (기본, V3 와 동치). >1 이면
+    encoder 입력단 Conv1d(kernel=stride=compress_token)로 time 토큰 수를
+    action_horizon → action_horizon // compress_token 로 줄이고, decoder 의
+    sub-pixel head 가 마지막에 다시 action_horizon 으로 복원함. action_horizon 은
+    compress_token 으로 나누어 떨어져야 함. VLA 학습 시 예측 토큰 수는 wrapper 가
+    압축된 토큰 수를 자동으로 노출하여 그에 맞게 설정됨."""
+
     # ── Global / Hand tokens ──
     num_global_tokens: int = 0
     num_hand_tokens: int = 0
@@ -272,6 +280,7 @@ def _build_v3_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         output_layernorm=config.encoder_output_layernorm,
         use_bottleneck=config.use_bottleneck,
         token_dim=config.token_dim,
+        compress_token=config.compress_token,
     )
 
     decoder_num_hand = config.num_hand_tokens if config.hand_in_recon else 0
@@ -288,6 +297,7 @@ def _build_v3_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         num_hand_tokens=decoder_num_hand,
         use_bottleneck=config.use_bottleneck,
         token_dim=config.token_dim,
+        compress_token=config.compress_token,
     )
 
     hand_pred_decoder = None
@@ -295,7 +305,8 @@ def _build_v3_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         hand_state_dim = len(config.hand_state_dims)
         num_future_steps = len(config.hand_pred_future_steps)
         if config.state_pred_kv_source == "time":
-            num_kv_tokens = action_horizon
+            # time tokens are compressed by compress_token (1 → no change)
+            num_kv_tokens = action_horizon // config.compress_token
         else:
             num_kv_tokens = config.num_hand_tokens
         hand_pred_decoder = HandStatePredDecoderV3(
@@ -568,6 +579,7 @@ def main(config: ArgsConfig):
                     "latent_noise_std": config.latent_noise_std,
                     "use_bottleneck": config.use_bottleneck,
                     "token_dim": config.token_dim,
+                    "compress_token": config.compress_token,
                     "num_global_tokens": config.num_global_tokens,
                     "num_hand_tokens": config.num_hand_tokens,
                     "lambda_recon": config.lambda_recon,
