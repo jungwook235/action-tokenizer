@@ -1166,7 +1166,19 @@ class LeRobotMixtureDataset(Dataset):
             dict: The data for the trajectory and start index.
         """
         dataset, trajectory_name, step = self.sample_step(index)
-        return dataset.transforms(dataset.get_step_data(trajectory_name, step))
+        item = dataset.transforms(dataset.get_step_data(trajectory_name, step))
+        # Frame-pair datasets (V4 DINO / V5 LAM tokenizers) attach
+        # (frame_x0, frame_x1) inside their own __getitem__, which this mixture
+        # bypasses by calling get_step_data/transforms directly. Re-apply that
+        # hook here so the frame-dependent latent target still receives visual
+        # input. No-op for plain datasets (attribute absent). get_step_data above
+        # has set the child's curr_traj_data for this trajectory, which
+        # _load_frame_pair relies on.
+        if hasattr(dataset, "_load_frame_pair"):
+            f0, f1 = dataset._load_frame_pair(trajectory_name, step)
+            item["frame_x0"] = f0
+            item["frame_x1"] = f1
+        return item
 
     def __len__(self) -> int:
         """Get the length of a single epoch in the mixture.

@@ -1045,6 +1045,52 @@ class FourierGr1ArmsWaistActlatFMDataConfig(FourierGr1ArmsOnlyDataConfig):
         ]
         return ComposedModalityTransform(transforms=transforms)
 
+
+class FourierGr1ArmsWaistActlatFM1000DemosDataConfig(FourierGr1ArmsWaistActlatFMDataConfig):
+    """Same as FourierGr1ArmsWaistActlatFMDataConfig but actions are normalized
+    with q01/q99 (``q99`` mode) instead of ``min_max``. State is unchanged
+    (still sin/cos via StateActionSinCosTransform)."""
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.3,
+                contrast=0.4,
+                saturation=0.5,
+                hue=0.08,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms (unchanged: sin/cos)
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionSinCosTransform(apply_to=self.state_keys),
+            # action transforms (q01/q99 normalization instead of min_max)
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "q99" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TInferTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=29,
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+
+
 class FourierGr1ArmsWaistDataConfig(FourierGr1ArmsOnlyDataConfig):
     video_keys = ["video.ego_view"]
     state_keys = [
@@ -3933,6 +3979,7 @@ class DebugG0FrankaTeleopDataConfig(BimanualPandaGripperDataConfig):
 
 DATA_CONFIG_MAP = {
     "fourier_gr1_arms_waist_actlat_fm": FourierGr1ArmsWaistActlatFMDataConfig(),
+    "fourier_gr1_arms_waist_actlat_fm_1000demos": FourierGr1ArmsWaistActlatFM1000DemosDataConfig(),
     "fourier_gr1_arms_waist": FourierGr1ArmsWaistDataConfig(),
     "fourier_gr1_arms_only": FourierGr1ArmsOnlyDataConfig(),
     "fourier_gr1_full_upper_body": FourierGr1FullUpperBodyDataConfig(),

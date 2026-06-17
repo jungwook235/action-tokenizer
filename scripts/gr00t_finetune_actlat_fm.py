@@ -21,6 +21,8 @@ import torch
 import tyro
 from transformers import TrainingArguments, set_seed
 
+import numpy as np
+
 from gr00t.data.dataset import LeRobotMixtureDataset
 from gr00t.data.dataset_actlat_fm import (
     ActlatFMDataCollator,
@@ -335,22 +337,110 @@ def main(config: ArgsConfig):
             seed=42,
         )
 
-    eval_dataset = DatasetCls(
-        dataset_path=config.dataset_path[0],
-        modality_configs=modality_configs,
-        transforms=transforms,
-        embodiment_tag=embodiment_tag,
-        video_backend=config.video_backend,
-        split="val",
-        val_ratio=config.val_ratio,
-        val_seed=config.val_seed,
-        use_fixed_val=config.use_fixed_val,
-        fixed_val_path=config.fixed_val_path,
-        **frame_kwargs,
-    )
+    if len(config.dataset_path) == 1:
+        eval_dataset = DatasetCls(
+            dataset_path=config.dataset_path[0],
+            modality_configs=modality_configs,
+            transforms=transforms,
+            embodiment_tag=embodiment_tag,
+            video_backend=config.video_backend,
+            split="val",
+            val_ratio=config.val_ratio,
+            val_seed=config.val_seed,
+            use_fixed_val=config.use_fixed_val,
+            fixed_val_path=config.fixed_val_path,
+            **frame_kwargs,
+        )
+    else:
+        # Build the eval set as a mixture over the val split of ALL datasets,
+        # using the same weighting as train (weight 1.0 each + balance flags),
+        # so validation is sampled proportionally to the train mixture.
+        eval_single_datasets = []
+        for p in config.dataset_path:
+            eval_single_datasets.append(
+                DatasetCls(
+                    dataset_path=p,
+                    modality_configs=modality_configs,
+                    transforms=transforms,
+                    embodiment_tag=embodiment_tag,
+                    video_backend=config.video_backend,
+                    split="val",
+                    val_ratio=config.val_ratio,
+                    val_seed=config.val_seed,
+                    use_fixed_val=config.use_fixed_val,
+                    fixed_val_path=config.fixed_val_path,
+                    **frame_kwargs,
+                )
+            )
+        eval_dataset = LeRobotMixtureDataset(
+            data_mixture=[(d, 1.0) for d in eval_single_datasets],
+            mode="val",
+            balance_dataset_weights=config.balance_dataset_weights,
+            balance_trajectory_weights=config.balance_trajectory_weights,
+            seed=42,
+        )
+
+    # All datasets (train children + eval children) share the SAME `transforms`
+    # object, mutated in place; each __init__ overwrites the normalization stats.
+    # Re-apply the train mixture's MERGED stats LAST so both train and eval
+    # normalize with the intended merged statistics (not whichever single
+    # dataset was constructed last).
+    if isinstance(train_dataset, LeRobotMixtureDataset):
+        merged_metadata = next(iter(train_dataset.merged_metadata.values()))
+        transforms.set_metadata(merged_metadata)
 
     print(f"Train dataset: {len(train_dataset)} steps")
     print(f"Eval dataset: {len(eval_dataset)} steps")
+
+    # ---- DEBUG: print normalization stats ACTUALLY applied at train time ----
+    # The transforms object is SHARED by reference across all datasets and is
+    # mutated in place by set_transforms_metadata. The mixture's __getitem__
+    # runs `child.transforms(...)`, i.e. this same shared object, so the ground
+    # truth of what normalization is applied lives in its Normalizers, not in
+    # any separate metadata dict. We read the live Normalizers here.
+    if int(os.environ.get("RANK", 0)) == 0:
+        # The dataset the train dataloader actually pulls from.
+        if isinstance(train_dataset, LeRobotMixtureDataset):
+            live_tf = train_dataset.datasets[0].transforms
+            print("[norm] reading LIVE transforms from mixture child[0]")
+        else:
+            live_tf = train_dataset.transforms
+            print("[norm] reading LIVE transforms from single dataset")
+
+        sa_tr = next(
+            (t for t in getattr(live_tf, "transforms", []) if hasattr(t, "_normalizers")),
+            None,
+        )
+        # Helper: print both min/max and q01/q99 so the APPLIED-vs-MERGED
+        # comparison works regardless of the active mode (min_max OR q99).
+        def _fmt(st):
+            def g(k):
+                v = st[k]
+                return v.tolist() if hasattr(v, "tolist") else list(v)
+            return (
+                f"min={g('min')} max={g('max')} q01={g('q01')} q99={g('q99')}"
+            )
+
+        if sa_tr is None:
+            print("[norm] WARNING: no StateActionTransform with _normalizers found")
+        else:
+            for key, normd in sa_tr._normalizers.items():
+                # normd.statistics holds the FULL stat dict (model_dump) used.
+                print(f"[norm] APPLIED {key} mode={normd.mode} {_fmt(normd.statistics)}")
+
+        # For comparison: the MERGED metadata the mixture computed (intended).
+        # If MERGED differs from APPLIED for the mode's stat (min/max when
+        # min_max, q01/q99 when q99), the shared transform was overwritten
+        # (e.g. by eval_dataset built from dataset_path[0]).
+        if isinstance(train_dataset, LeRobotMixtureDataset):
+            merged = next(iter(train_dataset.merged_metadata.values()))
+            for subkey, v in merged.statistics.action.items():
+                print(
+                    f"[norm] MERGED action.{subkey} "
+                    f"min={np.asarray(v.min).tolist()} max={np.asarray(v.max).tolist()} "
+                    f"q01={np.asarray(v.q01).tolist()} q99={np.asarray(v.q99).tolist()}"
+                )
+    # ----------------------------------------------------------------------
 
     # ------------ step 2: model (only part that differs by mode) ------------
     # Get actual action shape from data to match model config

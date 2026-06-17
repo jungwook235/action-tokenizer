@@ -405,6 +405,14 @@ def main(config: ArgsConfig):
         datasets_train.append(make_dataset(path, "train"))
         datasets_val.append(make_dataset(path, "val"))
 
+    # ConcatDataset does NOT merge normalization stats — without this each
+    # dataset would normalize actions with its own single-dataset min/max.
+    # Merge across all datasets (matching LeRobotMixtureDataset / the VLA) and
+    # apply to train+val so the whole-mixture statistics are used. No-op for 1.
+    from gr00t.data.merge_norm_stats import apply_merged_normalization_metadata
+
+    apply_merged_normalization_metadata(datasets_train, datasets_train + datasets_val)
+
     if len(datasets_train) == 1:
         train_dataset, val_dataset = datasets_train[0], datasets_val[0]
     else:

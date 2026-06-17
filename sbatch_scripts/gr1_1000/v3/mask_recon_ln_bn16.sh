@@ -1,11 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=full_v3_gr1_recon_ln_bn64_fs
+#SBATCH --job-name=full_v3_gr1_mask_recon_ln_bn16
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:b200:4
 #SBATCH --nodes=1
+#SBATCH --qos=preempt
+#SBATCH --requeue
+#SBATCH --signal=B:SIGTERM@120
 #SBATCH --time=72:00:00
-#SBATCH --output=/NHNHOME/data/wook/action-tokenizer/slurm/logs/full_v3_gr1_recon_ln_bn64_fs%j.out
-#SBATCH --error=/NHNHOME/data/wook/action-tokenizer/slurm/logs/full_v3_gr1_recon_ln_bn64_fs%j.err
+#SBATCH --output=/NHNHOME/data/wook/action-tokenizer/slurm/logs_1000/full_v3_gr1_mask_recon_ln_bn16_%j.out
+#SBATCH --error=/NHNHOME/data/wook/action-tokenizer/slurm/logs_1000/full_v3_gr1_mask_recon_ln_bn16_%j.err
 
 
 set -x
@@ -25,8 +28,8 @@ echo "[env-check] CONDA_PREFIX=$CONDA_PREFIX"
 python -c "import sys, transformers; print('exe=', sys.executable, 'transformers=', transformers.__version__)"
 
 DATA_DIR=(/NHNHOME/data/wook/dataset/gr00t_unified/gr1_unified.*)
-TOK_CKPT_DIR=checkpoints_action_tokenizer/gr1_1000demos_v3_recon_ln_bn64
-VLA_CKPT_DIR=checkpoints/vla_actlat_fm_gr1_1000demos/v3_recon_ln_bn64_fs
+TOK_CKPT_DIR=checkpoints_action_tokenizer/gr1_1000demos_v3_mask_recon_ln_bn16
+VLA_CKPT_DIR=checkpoints/vla_actlat_fm_gr1_1000demos/v3_mask_recon_ln_bn16
 TOK_STEP=100000
 ABS_TOK_CKPT="/NHNHOME/data/wook/action-tokenizer/$TOK_CKPT_DIR"
 
@@ -47,7 +50,7 @@ python scripts/train_action_latent_tokenizer_v3.py \
     --no-resume \
     --data-config fourier_gr1_arms_waist \
     --embodiment-tag new_embodiment \
-    --run-name "actlat_v3_gr1_recon_ln_bn64_1000demos" \
+    --run-name "actlat_v3_gr1_mask_recon_ln_bn16_1000demos" \
     --num-gpus 4 \
     --batch-size 512 \
     --max-steps $TOK_STEP \
@@ -58,11 +61,15 @@ python scripts/train_action_latent_tokenizer_v3.py \
     --num-global-tokens 0 \
     --num-hand-tokens 0 \
     --lambda-recon 1.0 \
+    --lambda-mask-recon 1.0 \
+    --mask-ratio-min 0.2 \
+    --mask-ratio-max 0.4 \
+    --mask-batch-ratio 0.5 \
     --recon-loss-type mse \
     --decoder-mode self_attention \
     --encoder-output-layernorm \
     --use-bottleneck \
-    --token-dim 64 \
+    --token-dim 16 \
     --use-fixed-val \
     --wandb-project "Action-Tokenizer-GR1-1000demos-tokenizer" \
     --eval-steps 1000 \
@@ -79,7 +86,7 @@ python scripts/gr00t_finetune_actlat_fm.py \
     --data-config fourier_gr1_arms_waist_actlat_fm \
     --embodiment-tag new_embodiment \
     --base-model-path "nvidia/GR00T-N1.5-3B" \
-    --run-name "actlat_fm_v3_gr1_recon_ln_bn64_fs_1000demos" \
+    --run-name "actlat_fm_v3_gr1_mask_recon_ln_bn16_1000demos" \
     --num-gpus 4 \
     --batch-size 128 \
     --max-steps 60000 \
@@ -90,5 +97,4 @@ python scripts/gr00t_finetune_actlat_fm.py \
     --actlat-target-tokens "all" \
     --val-ratio 0.003 \
     --use-fixed-val \
-    --no-load-action-head \
     --video-backend "decord"
