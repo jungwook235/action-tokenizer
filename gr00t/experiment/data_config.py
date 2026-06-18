@@ -3977,6 +3977,153 @@ class DebugG0FrankaTeleopDataConfig(BimanualPandaGripperDataConfig):
 
         return ComposedModalityTransform(transforms=transforms)
 
+
+class DexJoCoSingleArmDataConfig:
+    """DexJoCo single-arm dexterous-hand config (e.g. hammer_nail, water_plant).
+
+    LeRobot layout: observation.state (23) = [pos3, quat4, hand16];
+    action (22) = [pos3, rotvec3, hand16]; cameras = front, wrist. No gripper /
+    discrete action dims (the 16-DoF hand is continuous). Fetches a 64-step action
+    sequence (multi-horizon) so the MoE action head can compute compressed losses;
+    the baseline head simply uses the first 16. State quaternion -> rotation_6d.
+    """
+    video_keys = ["video.front", "video.wrist"]
+    state_keys = ["state.arm_pos", "state.arm_rot", "state.hand"]
+    action_keys = ["action.arm_pos", "action.arm_rot", "action.hand"]
+    language_keys = ["annotation.human.action.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+
+    state_normalization_modes = {
+        "state.arm_pos": "min_max",
+        "state.arm_rot": "min_max",
+        "state.hand": "min_max",
+    }
+    state_target_rotations = {"state.arm_rot": "rotation_6d"}
+    action_normalization_modes = {
+        "action.arm_pos": "min_max",
+        "action.arm_rot": "min_max",
+        "action.hand": "min_max",
+    }
+
+    def modality_config(self):
+        return {
+            "video": ModalityConfig(delta_indices=self.observation_indices, modality_keys=self.video_keys),
+            "state": ModalityConfig(delta_indices=self.observation_indices, modality_keys=self.state_keys),
+            "action": ModalityConfig(delta_indices=self.action_indices, modality_keys=self.action_keys),
+            "language": ModalityConfig(delta_indices=self.observation_indices, modality_keys=self.language_keys),
+        }
+
+    def transform(self):
+        transforms = [
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(apply_to=self.video_keys, brightness=0.3, contrast=0.4, saturation=0.5, hue=0.08),
+            VideoToNumpy(apply_to=self.video_keys),
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes=self.state_normalization_modes,
+                target_rotations=self.state_target_rotations,
+            ),
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes=self.action_normalization_modes,
+            ),
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TInferTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=32,
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+
+
+
+class DexJoCoDualArmDataConfig:
+    """DexJoCo dual-arm dexterous-hand config (e.g. hammer_nail, water_plant).
+
+    LeRobot layout: observation.state (23) = [pos3, quat4, hand16];
+    action (22) = [pos3, rotvec3, hand16]; cameras = front, wrist. No gripper /
+    discrete action dims (the 16-DoF hand is continuous). Fetches a 64-step action
+    sequence (multi-horizon) so the MoE action head can compute compressed losses;
+    the baseline head simply uses the first 16. State quaternion -> rotation_6d.
+    """
+    video_keys = ["video.front", "video.wrist_left", "video.wrist_right"]
+    state_keys = ["state.right_arm_pos", "state.right_arm_rot", "state.right_hand", "state.left_arm_pos", "state.left_arm_rot", "state.left_hand"]
+    action_keys = ["action.right_arm_pos", "action.right_arm_rot", "action.right_hand", "action.left_arm_pos", "action.left_arm_rot", "action.left_hand"]
+    language_keys = ["annotation.human.action.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+
+    state_normalization_modes = {
+        "state.right_arm_pos": "min_max",
+        "state.right_arm_rot": "min_max",
+        "state.right_hand": "min_max",
+        "state.left_arm_pos": "min_max",
+        "state.left_arm_rot": "min_max",
+        "state.left_hand": "min_max",
+    }
+    state_target_rotations = {"state.right_arm_rot": "rotation_6d", "state.left_arm_rot": "rotation_6d"}
+    action_normalization_modes = {
+        "action.right_arm_pos": "min_max",
+        "action.right_arm_rot": "min_max",
+        "action.right_hand": "min_max",
+        "action.left_arm_pos": "min_max",
+        "action.left_arm_rot": "min_max",
+        "action.left_hand": "min_max",
+    }
+
+    def modality_config(self):
+        return {
+            "video": ModalityConfig(delta_indices=self.observation_indices, modality_keys=self.video_keys),
+            "state": ModalityConfig(delta_indices=self.observation_indices, modality_keys=self.state_keys),
+            "action": ModalityConfig(delta_indices=self.action_indices, modality_keys=self.action_keys),
+            "language": ModalityConfig(delta_indices=self.observation_indices, modality_keys=self.language_keys),
+        }
+
+    def transform(self):
+        transforms = [
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(apply_to=self.video_keys, brightness=0.3, contrast=0.4, saturation=0.5, hue=0.08),
+            VideoToNumpy(apply_to=self.video_keys),
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes=self.state_normalization_modes,
+                target_rotations=self.state_target_rotations,
+            ),
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes=self.action_normalization_modes,
+            ),
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TInferTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=44,
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+
 DATA_CONFIG_MAP = {
     "fourier_gr1_arms_waist_actlat_fm": FourierGr1ArmsWaistActlatFMDataConfig(),
     "fourier_gr1_arms_waist_actlat_fm_1000demos": FourierGr1ArmsWaistActlatFM1000DemosDataConfig(),
@@ -4018,4 +4165,6 @@ DATA_CONFIG_MAP = {
     "allex": AllexDataConfig(),
     "allex_rlwrld": AllexRLWRldDataConfig(),
     "debug_G0_franka_teleop": DebugG0FrankaTeleopDataConfig(),
+    "dexjoco_single_arm": DexJoCoSingleArmDataConfig(),
+    "dexjoco_dual_arm": DexJoCoDualArmDataConfig(),
 }
