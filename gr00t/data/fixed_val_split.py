@@ -18,6 +18,7 @@ A ``n_total`` consistency check guards against silent dataset growth.
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -114,10 +115,13 @@ def load_or_create_fixed_split(
         "val_episode_ids": [int(x) for x in val_ids.tolist()],
         "train_episode_ids": [int(x) for x in train_ids.tolist()],
     }
-    tmp = target.with_suffix(target.suffix + ".tmp")
+    # Per-process tmp name so concurrent ranks don't share (and race on) one
+    # tmp file. Content is deterministic (val_seed), so the atomic replace is
+    # idempotent across ranks — last writer wins with identical bytes.
+    tmp = target.with_suffix(target.suffix + f".tmp.{os.getpid()}")
     with open(tmp, "w") as f:
         json.dump(payload, f, indent=2)
-    tmp.replace(target)
+    os.replace(tmp, target)
 
     print(
         f"[fixed_val_split] CREATED new split at {target} "

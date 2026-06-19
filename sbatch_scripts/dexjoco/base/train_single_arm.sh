@@ -1,14 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=nactlat_fm_dexjoco_single_arm_base_sbatch
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:b200:4
+#SBATCH --job-name=full_train_dexjoco_single_arm_nactlat_gr00t_n15_base
 #SBATCH --nodes=1
-#SBATCH --qos=preempt
-#SBATCH --requeue
-#SBATCH --signal=B:SIGTERM@120
-#SBATCH --time=72:00:00
-#SBATCH --output=/NHNHOME/data/wook/action-tokenizer/slurm/logs_1000/nactlat_fm_dexjoco_single_arm_base_sbatch_%j.out
-#SBATCH --error=/NHNHOME/data/wook/action-tokenizer/slurm/logs_1000/nactlat_fm_dexjoco_single_arm_base_sbatch_%j.err
+#SBATCH --gpus=2
+#SBATCH --partition=sjw_alinlab
+#SBATCH --output=out/%j-full_train_dexjoco_single_arm_gr00t_n15_base.out
+#SBATCH --error=out/%j-full_train_dexjoco_single_arm_gr00t_n15_base.err
 
 set -x
 export PATH="$HOME/.local/bin:$PATH"
@@ -16,24 +12,19 @@ export WANDB_PROJECT=Action-Tokenizer-DexJoCo-SingleArm
 export WANDB_API_KEY="66a73856614bc24a07523f3fbee42482fcbeffe3"
 export HF_TOKEN="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"
 
-BASE_DIR=/NHNHOME/data/wook/action-tokenizer
+BASE_DIR=/sjw_alinlab1/home/jungwook/action_tokenizer
 cd $BASE_DIR
 
-source /NHNHOME/data/wook/miniconda3/bin/activate gr00t-actlat
-export PATH="$CONDA_PREFIX/bin:$PATH"
-hash -r
-echo "[env-check] which python=$(which python)"
-echo "[env-check] CONDA_PREFIX=$CONDA_PREFIX"
-python -c "import sys, transformers; print('exe=', sys.executable, 'transformers=', transformers.__version__)"
+source /sjw_alinlab1/home/jungwook/miniconda3/bin/activate gr00t-actlat
 
 CKPT_DIR="checkpoints/vla_nactlat_fm_dexjoco_single_arm/base"
 # Glob expands to all 24 gr1_unified.* dataset dirs (each a LeRobot dataset root)
-DATA_DIR=("/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/click_mouse",
-"/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/hammer_nail",
-"/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/water_plant",
-"/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/fold_glasses",
-"/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/pick_bucket",
-"/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/pinch_tongs",
+DATA_DIR=("/sjw_alinlab1/home/jungwook/dataset/dexjoco_lerobot/v20/click_mouse"
+"/sjw_alinlab1/home/jungwook/dataset/dexjoco_lerobot/v20/hammer_nail"
+"/sjw_alinlab1/home/jungwook/dataset/dexjoco_lerobot/v20/water_plant"
+"/sjw_alinlab1/home/jungwook/dataset/dexjoco_lerobot/v20/fold_glasses"
+"/sjw_alinlab1/home/jungwook/dataset/dexjoco_lerobot/v20/pick_bucket"
+"/sjw_alinlab1/home/jungwook/dataset/dexjoco_lerobot/v20/pinch_tongs"
 )
 
 python scripts/gr00t_finetune_actlat_fm.py \

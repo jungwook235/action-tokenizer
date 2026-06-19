@@ -77,6 +77,11 @@ LE_ROBOT_INFO_FILENAME = "meta/info.json"
 LE_ROBOT_STATS_FILENAME = "meta/stats.json"
 LE_ROBOT_DATA_FILENAME = "data/*/*.parquet"
 ABS_TASK_INDEX_CUSTOM_LE_ROBOT_MODALITY_FILENAME = "/sjw_alinlab1/home/jungwook/Isaac-GR00T/gr00t/data/robocasa_kitchen_100demos/meta/modality.json"
+# Per-dimension statistics that are actually consumed downstream (must match the
+# fields declared by gr00t.data.schema.DatasetStatisticalValues). Any other stat
+# present in a LeRobot stats.json (e.g. the scalar `count`, or q10/q50/q90) is
+# dropped at metadata validation, so it is skipped during metadata construction.
+_REQUIRED_STAT_NAMES = ("min", "max", "mean", "std", "q01", "q99")
 
 def calculate_dataset_statistics(parquet_paths: list[Path]) -> dict:
     """Calculate the dataset statistics of all columns for a list of parquet files."""
@@ -388,6 +393,12 @@ class LeRobotSingleDataset(Dataset):
                 assert isinstance(state_action_meta, LeRobotStateActionMetadata)
                 le_modality = state_action_meta.original_key
                 for stat_name in le_statistics[le_modality]:
+                    # Only the per-dimension stats declared by DatasetStatisticalValues
+                    # survive metadata validation; others (e.g. LeRobot's scalar `count`
+                    # = total sample count, or q10/q50/q90) are dropped downstream. Skip
+                    # them here so a scalar `count` does not break the per-dim slice below.
+                    if stat_name not in _REQUIRED_STAT_NAMES:
+                        continue
                     indices = np.arange(
                         state_action_meta.start,
                         state_action_meta.end,

@@ -415,6 +415,10 @@ def main(config: ArgsConfig):
         # comparison works regardless of the active mode (min_max OR q99).
         def _fmt(st):
             def g(k):
+                # Rotation keys (e.g. rotation_6d) carry only min/max overrides,
+                # so q01/q99 may be absent — print NA instead of crashing.
+                if k not in st:
+                    return "NA"
                 v = st[k]
                 return v.tolist() if hasattr(v, "tolist") else list(v)
             return (

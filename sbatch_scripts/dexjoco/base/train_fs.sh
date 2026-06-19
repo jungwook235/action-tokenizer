@@ -1,14 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=nactlat_fm_gr1_1000demos_base_sbatch_fs
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:b200:8
+#SBATCH --job-name=full_train_dexjoco_recon_ln_bottleneck16_vae_fs
 #SBATCH --nodes=1
-#SBATCH --qos=preempt
-#SBATCH --requeue
-#SBATCH --signal=B:SIGTERM@120
-#SBATCH --time=72:00:00
-#SBATCH --output=/NHNHOME/data/wook/action-tokenizer/slurm/logs/nactlat_fm_gr1_1000demos_base_sbatch_fs_%j.out
-#SBATCH --error=/NHNHOME/data/wook/action-tokenizer/slurm/logs/nactlat_fm_gr1_1000demos_base_sbatch_fs_%j.err
+#SBATCH --gpus=2
+#SBATCH --partition=sjw_alinlab
+#SBATCH --output=out/%j-full_train_v3_gr1_100demos_recon_ln_bottleneck16_vae_fs.out
+#SBATCH --error=out/%j-full_train_v3_gr1_100demos_recon_ln_bottleneck16_vae_fs.err
 
 set -x
 export PATH="$HOME/.local/bin:$PATH"

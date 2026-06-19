@@ -30,7 +30,11 @@ class PreTransformedActionOnlyDatasetV3(Dataset):
         use_fixed_val: bool = True,
         fixed_val_path: Optional[str] = None,
     ):
-        source = ActionOnlyDatasetV3(
+        # Retain the source dataset (not just its cached actions) so merged
+        # normalization stats can be re-applied after construction — see
+        # ``set_transforms_metadata``. The source is a lightweight lazy dataset
+        # (no big tensors held), so keeping it around is cheap.
+        self._source = ActionOnlyDatasetV3(
             dataset_path=dataset_path,
             data_config_name=data_config_name,
             embodiment_tag=embodiment_tag,
@@ -41,24 +45,45 @@ class PreTransformedActionOnlyDatasetV3(Dataset):
             use_fixed_val=use_fixed_val,
             fixed_val_path=fixed_val_path,
         )
+        self._split = split
+        self._build_cache()
 
+    def _build_cache(self) -> None:
+        """Cache every (already-normalized) action from the source dataset.
+
+        Called once at construction, and again by ``set_transforms_metadata``
+        when merged cross-dataset normalization is applied (so the cache holds
+        the merged-normalized values, matching the on-the-fly / VLA paths).
+        """
+        source = self._source
         n = len(source)
-        assert n > 0, f"Dataset is empty: {dataset_path}"
+        assert n > 0, f"Dataset is empty: {source._dataset_path}"
 
         first = source[0]["action"]
         T, D = first.shape
 
         cache = torch.empty(n, T, D, dtype=torch.float32)
         cache[0] = first
-        for i in tqdm(range(1, n), desc=f"[PreTransform v3][{split}] Caching actions"):
+        for i in tqdm(range(1, n), desc=f"[PreTransform v3][{self._split}] Caching actions"):
             cache[i] = source[i]["action"]
 
         self._cache = cache
         print(
-            f"[PreTransformedActionOnlyDatasetV3][{split}] "
+            f"[PreTransformedActionOnlyDatasetV3][{self._split}] "
             f"Cached {n:,} samples, shape=({T}, {D}), "
             f"memory={cache.nbytes / 1024**2:.1f} MB"
         )
+
+    @property
+    def metadata(self):
+        """Delegate to the source so merge_norm_stats can read per-dataset stats."""
+        return self._source.metadata
+
+    def set_transforms_metadata(self, metadata) -> None:
+        """Apply (merged) normalization metadata, then rebuild the cache so the
+        cached actions reflect the updated statistics."""
+        self._source.set_transforms_metadata(metadata)
+        self._build_cache()
 
     def __len__(self) -> int:
         return self._cache.shape[0]
