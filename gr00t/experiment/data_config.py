@@ -4047,15 +4047,15 @@ class DexJoCoSingleArmDataConfig:
             ),
             
             # model-specific transform
-             # max_action_dim=22 (single-arm 실제 action_dim: pos3+rotvec3+hand16)
+            # max_action_dim=22 (single-arm 실제 action_dim: pos3+rotvec3+hand16)
             # → 토크나이저(action_dim=22) ↔ VLA encode/decode 정합. 기본 32로 두면
             # VLA 파이프라인이 22→32 패딩하여 tokenizer.action_proj(22→256)와 mismatch.
-              GR00TInferTransform(
-                  state_horizon=len(self.observation_indices),
-                  action_horizon=len(self.action_indices),
-                  max_state_dim=64,
-                 max_action_dim=22,
-              ),
+            GR00TInferTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=22,
+            ),
         ]
         return ComposedModalityTransform(transforms=transforms)
 
