@@ -153,3 +153,4 @@ test_pi0_fast_tokenizer.py
 test_vggt_integration.py
 thor.Dockerfile
 trm_H_init_stats.json
+sbatch_scripts/
