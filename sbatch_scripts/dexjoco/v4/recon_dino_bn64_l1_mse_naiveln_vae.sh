@@ -1,16 +1,16 @@
 #!/bin/bash
-#SBATCH --job-name=full_v4_gr1_recon_dino_bn64_l1_mse_naiveln_vae_256bs
+#SBATCH --job-name=full_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:b200:4
+#SBATCH --gres=gpu:b200:8
 #SBATCH --nodes=1
 #SBATCH --time=72:00:00
-#SBATCH --output=/NHNHOME/data/wook/action-tokenizer/slurm/logs_1000/full_v4_gr1_recon_dino_bn64_l1_mse_naiveln_vae_256bs_%j.out
-#SBATCH --error=/NHNHOME/data/wook/action-tokenizer/slurm/logs_1000/full_v4_gr1_recon_dino_bn64_l1_mse_naiveln_vae_256bs_%j.err
+#SBATCH --output=/NHNHOME/data/wook/action-tokenizer/slurm/logs_dexjoco/full_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae_%j.out
+#SBATCH --error=/NHNHOME/data/wook/action-tokenizer/slurm/logs_dexjoco/full_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae_%j.err
 
 
 set -ex  # -e: abort the whole job (skip Stage-2) if Stage-1 fails
 export PATH="$HOME/.local/bin:$PATH"
-export WANDB_PROJECT=Action-Tokenizer-GR1-1000demos
+export WANDB_PROJECT=Action-Tokenizer-DexJoCo-DualArm
 export WANDB_API_KEY="66a73856614bc24a07523f3fbee42482fcbeffe3"
 export HF_TOKEN="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"
 
@@ -27,9 +27,14 @@ python -c "import sys, transformers; print('exe=', sys.executable, 'transformers
 # robocasa_gr1_tabletop is a GR1 embodiment (same action keys + single video.ego_view),
 # so the same data-config (fourier_gr1_arms_waist) is reused; only the dataset path
 # and per-dataset normalization stats differ.
-DATA_DIR=(/NHNHOME/data/wook/dataset/gr00t_unified/gr1_unified.*)
-TOK_CKPT_DIR=checkpoints_action_tokenizer/gr1_1000demos_v4_recon_dino_bn64_l1_mse_naiveln_vae
-VLA_CKPT_DIR=checkpoints/vla_actlat_fm_gr1_1000demos/v4_recon_dino_bn64_l1_mse_naiveln_vae_256bs
+DATA_DIR=("/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/bimanual/bimanual_assembly"
+"/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/bimanual/bimanual_hanoi"
+"/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/bimanual/bimanual_microwave_cook"
+"/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/bimanual/bimanual_photograph"
+"/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/bimanual/bimanual_unlock_ipad"
+)
+TOK_CKPT_DIR=checkpoints_action_tokenizer/dexjoco_dual_arm_v4_recon_dino_bn64_l1_mse_naiveln_vae
+VLA_CKPT_DIR=checkpoints/vla_actlat_fm_dexjoco_dual_arm/v4_recon_dino_bn64_l1_mse_naiveln_vae
 TOK_STEP=100000
 ABS_TOK_CKPT="/NHNHOME/data/wook/action-tokenizer/$TOK_CKPT_DIR"
 
@@ -45,17 +50,17 @@ ABS_TOK_CKPT="/NHNHOME/data/wook/action-tokenizer/$TOK_CKPT_DIR"
 # This codebase is hard-pinned to transformers==4.51.3 (GR00T eagle2.5 backbone),
 # which predates DINOv3 — so we use the locally-cached facebook/dinov2-large
 # (hidden_size=1024). Force HF offline so the cached weights load directly.
-#export HF_HUB_OFFLINE=1
-#export TRANSFORMERS_OFFLINE=1
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
 python scripts/train_action_latent_tokenizer_v4.py \
     --dataset-path "${DATA_DIR[@]}" \
     --output-dir $TOK_CKPT_DIR \
     --no-resume \
-    --data-config fourier_gr1_arms_waist \
+    --data-config dexjoco_dual_arm_front \
     --embodiment-tag new_embodiment \
-    --run-name "actlat_v4_gr1_recon_dino_bn64_l1_mse_naiveln_vae_1000demos" \
-    --num-gpus 4 \
-    --batch-size 128 \
+    --run-name "actlat_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae" \
+    --num-gpus 8 \
+    --batch-size 64 \
     --max-steps $TOK_STEP \
     --save-steps 10000 \
     --save-total-limit 3 \
@@ -80,33 +85,10 @@ python scripts/train_action_latent_tokenizer_v4.py \
     --decoder-mode self_attention \
     --video-backend decord \
     --use-fixed-val \
-    --wandb-project "Action-Tokenizer-GR1-1000demos-tokenizer" \
+    --wandb-project "Action-Tokenizer-dexjoco-dual-arm-tokenizer" \
     --eval-steps 1000 \
     --report-to wandb
 
-# Re-enable HF network for Stage-2 (GR00T base / eagle may need download).
-unset HF_HUB_OFFLINE TRANSFORMERS_OFFLINE
 
-# === Stage 2: VLA Training ===
-# The wrapper auto-detects the VAE (and the naive final-norm) from the tokenizer
-# checkpoint markers and rebuilds the matching encoder; the VLA target is the
-# sampled latent z. Frames flow through unchanged.
-python scripts/gr00t_finetune_actlat_fm.py \
-    --dataset-path "${DATA_DIR[@]}" \
-    --output-dir $VLA_CKPT_DIR \
-    --data-config fourier_gr1_arms_waist_actlat_fm \
-    --embodiment-tag new_embodiment \
-    --base-model-path "nvidia/GR00T-N1.5-3B" \
-    --run-name "actlat_fm_v4_gr1_recon_dino_bn64_l1_mse_naiveln_vae_1000demos_256bs" \
-    --num-gpus 4 \
-    --batch-size 64 \
-    --max-steps 60000 \
-    --save-steps 5000 \
-    --save-total-limit 3 \
-    --eval-steps 1000 \
-    --actlat-tokenizer-path "$ABS_TOK_CKPT/checkpoint-$TOK_STEP" \
-    --actlat-target-tokens "all" \
-    --actlat-frames \
-    --val-ratio 0.003 \
-    --use-fixed-val \
-    --video-backend "decord"
+sbatch '/NHNHOME/data/wook/action-tokenizer/sbatch_scripts/dexjoco/v4/train_vla_recon_dino_bn64_l1_mse_naiveln_vae.sh'
+sbatch '/NHNHOME/data/wook/action-tokenizer/sbatch_scripts/dexjoco/v4/train_vla_recon_dino_bn64_l1_mse_naiveln_vae_fs.sh'

@@ -411,7 +411,48 @@ def main(config: ArgsConfig):
     # apply to train+val so the whole-mixture statistics are used. No-op for 1.
     from gr00t.data.merge_norm_stats import apply_merged_normalization_metadata
 
-    apply_merged_normalization_metadata(datasets_train, datasets_train + datasets_val)
+    merged_metadata = apply_merged_normalization_metadata(
+        datasets_train, datasets_train + datasets_val
+    )
+
+    # ---- DEBUG: print normalization stats ACTUALLY applied at train time ----
+    # Mirror of the Stage-2 VLA's [norm] logging (gr00t_finetune_actlat_fm.py) so
+    # Stage-1/Stage-2 normalization consistency can be checked by eye. APPLIED =
+    # the live Normalizers on the dataset's shared transform (ground truth of
+    # what gets applied at __getitem__ time); MERGED = the merged whole-mixture
+    # stats computed above (None for a single dataset, whose own stats already
+    # equal the mixture stats — nothing to merge).
+    if int(os.environ.get("RANK", 0)) == 0:
+        live_tf = datasets_train[0].transforms
+
+        def _aslist(v):
+            return v.tolist() if hasattr(v, "tolist") else list(v)
+
+        def _fmt(st):
+            def g(k):
+                # Rotation keys carry only min/max overrides → q01/q99 may be
+                # absent; print NA instead of crashing.
+                return _aslist(st[k]) if k in st else "NA"
+            return f"min={g('min')} max={g('max')} q01={g('q01')} q99={g('q99')}"
+
+        sa_tr = next(
+            (t for t in getattr(live_tf, "transforms", []) if hasattr(t, "_normalizers")),
+            None,
+        )
+        if sa_tr is None:
+            print("[norm] WARNING: no StateActionTransform with _normalizers found")
+        else:
+            for key, normd in sa_tr._normalizers.items():
+                print(f"[norm] APPLIED {key} mode={normd.mode} {_fmt(normd.statistics)}")
+
+        if merged_metadata is not None:
+            for subkey, v in merged_metadata.statistics.action.items():
+                print(
+                    f"[norm] MERGED action.{subkey} "
+                    f"min={_aslist(v.min)} max={_aslist(v.max)} "
+                    f"q01={_aslist(v.q01)} q99={_aslist(v.q99)}"
+                )
+    # ----------------------------------------------------------------------
 
     if len(datasets_train) == 1:
         train_dataset, val_dataset = datasets_train[0], datasets_val[0]

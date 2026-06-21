@@ -123,6 +123,12 @@ class ArgsConfig:
     frame_image_size: int = 224
     """Square resize for the V4 frame pair (must match V4 tokenizer training)."""
 
+    actlat_frame_video_key: str = ""
+    """Camera key fed to the V4 tokenizer for its (frame_x0, frame_x1) latent
+    target. Empty -> use the data-config's `tokenizer_frame_video_key`, else its
+    first video key. Lets VLA training keep the tokenizer single-camera (matching
+    its training) even when the backbone consumes multiple cameras."""
+
     # Validation
     val_ratio: float = 0.003
     """Fraction of episodes for validation."""
@@ -287,8 +293,24 @@ def main(config: ArgsConfig):
     # target → swap in the frame-pair dataset and pass the frame options.
     if config.actlat_frames:
         DatasetCls = LeRobotSingleDatasetActlatFMV4
+        # The V4 tokenizer was trained on a single camera, so its latent-target
+        # frame pair must come from that same camera even though the VLA backbone
+        # consumes all of `video_keys`. Priority: CLI override ->
+        # data-config's `tokenizer_frame_video_key` -> first video key (legacy).
+        frame_video_key = (
+            config.actlat_frame_video_key
+            or getattr(data_config_cls, "tokenizer_frame_video_key", None)
+            or data_config_cls.video_keys[0]
+        )
+        assert frame_video_key.startswith("video."), (
+            f"actlat frame_video_key must start with 'video.': {frame_video_key!r}"
+        )
+        print(
+            f"[actlat] tokenizer frame_video_key = {frame_video_key} "
+            f"(backbone video_keys = {data_config_cls.video_keys})"
+        )
         frame_kwargs = dict(
-            frame_video_key=data_config_cls.video_keys[0],
+            frame_video_key=frame_video_key,
             frame_image_size=config.frame_image_size,
             frame_action_horizon=len(data_config_cls.action_indices),
         )

@@ -3994,6 +3994,14 @@ class DexJoCoSingleArmDataConfig:
     observation_indices = [0]
     action_indices = list(range(16))
 
+    # Camera fed to the V4 action-latent tokenizer for its (frame_x0, frame_x1)
+    # latent target during VLA training. The tokenizer is trained single-camera
+    # (dexjoco_single_arm_front -> video.front), so its latent-target input must
+    # stay that one camera even though the VLA backbone consumes all of
+    # `video_keys`. gr00t_finetune_actlat_fm.py reads this; if unset it falls
+    # back to video_keys[0].
+    tokenizer_frame_video_key = "video.front"
+
     state_normalization_modes = {
         "state.arm_pos": "min_max",
         "state.arm_rot": "min_max",
@@ -4037,16 +4045,28 @@ class DexJoCoSingleArmDataConfig:
                 state_concat_order=self.state_keys,
                 action_concat_order=self.action_keys,
             ),
+            
             # model-specific transform
-            GR00TInferTransform(
-                state_horizon=len(self.observation_indices),
-                action_horizon=len(self.action_indices),
-                max_state_dim=64,
-                max_action_dim=32,
-            ),
+             # max_action_dim=22 (single-arm 실제 action_dim: pos3+rotvec3+hand16)
+            # → 토크나이저(action_dim=22) ↔ VLA encode/decode 정합. 기본 32로 두면
+            # VLA 파이프라인이 22→32 패딩하여 tokenizer.action_proj(22→256)와 mismatch.
+              GR00TInferTransform(
+                  state_horizon=len(self.observation_indices),
+                  action_horizon=len(self.action_indices),
+                  max_state_dim=64,
+                 max_action_dim=22,
+              ),
         ]
         return ComposedModalityTransform(transforms=transforms)
 
+
+class DexJoCoSingleArmFrontDataConfig(DexJoCoSingleArmDataConfig):
+    """Single-camera (front) variant of dexjoco_single_arm for the V4 action-latent
+    tokenizer, which is hard-pinned to one camera (dataset_action_frames_v4.py
+    asserts len(video_keys) == 1). State/action/language keys are inherited
+    unchanged; only the video modality is narrowed to video.front. The Stage-2
+    VLA training keeps using the full 2-camera dexjoco_single_arm config."""
+    video_keys = ["video.front"]
 
 
 class DexJoCoDualArmDataConfig:
@@ -4064,6 +4084,14 @@ class DexJoCoDualArmDataConfig:
     language_keys = ["annotation.human.action.task_description"]
     observation_indices = [0]
     action_indices = list(range(16))
+
+    # Camera fed to the V4 action-latent tokenizer for its (frame_x0, frame_x1)
+    # latent target during VLA training. The tokenizer is trained single-camera
+    # (dexjoco_dual_arm_front -> video.front), so its latent-target input must
+    # stay that one camera even though the VLA backbone consumes all of
+    # `video_keys`. gr00t_finetune_actlat_fm.py reads this; if unset it falls
+    # back to video_keys[0].
+    tokenizer_frame_video_key = "video.front"
 
     state_normalization_modes = {
         "state.right_arm_pos": "min_max",
@@ -4124,6 +4152,14 @@ class DexJoCoDualArmDataConfig:
         ]
         return ComposedModalityTransform(transforms=transforms)
 
+class DexJoCoDualArmFrontDataConfig(DexJoCoDualArmDataConfig):
+    """Single-camera (front) variant of dexjoco_dual_arm for the V4 action-latent
+    tokenizer, which is hard-pinned to one camera (dataset_action_frames_v4.py
+    asserts len(video_keys) == 1). State/action/language keys are inherited
+    unchanged; only the video modality is narrowed to video.front. The Stage-2
+    VLA training keeps using the full 3-camera dexjoco_dual_arm config."""
+    video_keys = ["video.front"]
+
 DATA_CONFIG_MAP = {
     "fourier_gr1_arms_waist_actlat_fm": FourierGr1ArmsWaistActlatFMDataConfig(),
     "fourier_gr1_arms_waist_actlat_fm_1000demos": FourierGr1ArmsWaistActlatFM1000DemosDataConfig(),
@@ -4166,5 +4202,7 @@ DATA_CONFIG_MAP = {
     "allex_rlwrld": AllexRLWRldDataConfig(),
     "debug_G0_franka_teleop": DebugG0FrankaTeleopDataConfig(),
     "dexjoco_single_arm": DexJoCoSingleArmDataConfig(),
+    "dexjoco_single_arm_front": DexJoCoSingleArmFrontDataConfig(),
     "dexjoco_dual_arm": DexJoCoDualArmDataConfig(),
+    "dexjoco_dual_arm_front": DexJoCoDualArmFrontDataConfig(),
 }

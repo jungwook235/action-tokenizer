@@ -406,6 +406,15 @@ class LeRobotSingleDataset(Dataset):
                     stat = np.array(le_statistics[le_modality][stat_name])
                     dataset_statistics[our_modality][subkey][stat_name] = stat[indices].tolist()
 
+        # 2.5. Optional: override state/action normalization statistics from an
+        # external stats file (GR00T DatasetMetadata format). Set the env var
+        # GR00T_STATS_OVERRIDE to a stats.json path to normalize state/action with
+        # externally-provided stats (e.g. unified-dataset stats) instead of this
+        # dataset's own per-file stats. Only state/action are affected.
+        override_path = os.environ.get("GR00T_STATS_OVERRIDE")
+        if override_path:
+            self._apply_stats_override(dataset_statistics, override_path, embodiment_tag)
+
         # 3. Full dataset metadata
         metadata = DatasetMetadata(
             statistics=dataset_statistics,  # type: ignore
@@ -414,6 +423,69 @@ class LeRobotSingleDataset(Dataset):
         )
 
         return metadata
+
+    def _apply_stats_override(
+        self,
+        dataset_statistics: dict,
+        override_path: str,
+        embodiment_tag: EmbodimentTag,
+    ) -> None:
+        """Override state/action normalization statistics from an external file.
+
+        The external file is expected to be in the GR00T DatasetMetadata format,
+        i.e. the same per-subkey shape produced above:
+            {state/action: {subkey: {min, max, mean, std, q01, q99: [...]}}}
+        The following wrapper layouts are also accepted and unwrapped automatically:
+            {<embodiment_tag>: {"statistics": {state/action: ...}}}
+            {"statistics": {state/action: ...}}
+
+        Only ``state`` and ``action`` are touched. Subkeys / stat names absent from
+        the override keep this dataset's own stats. A per-dimension length mismatch
+        raises, so a stats file built for a different embodiment fails loudly.
+        """
+        override_path = Path(override_path)
+        assert override_path.exists(), (
+            f"GR00T_STATS_OVERRIDE file does not exist: {override_path}"
+        )
+        with open(override_path, "r") as f:
+            override_raw = json.load(f)
+
+        # Locate the {state, action} statistics block across the accepted layouts.
+        tag = embodiment_tag.value
+        if isinstance(override_raw, dict) and tag in override_raw:
+            block = override_raw[tag]
+        elif (
+            isinstance(override_raw, dict)
+            and len(override_raw) == 1
+            and "state" not in override_raw
+            and "statistics" not in override_raw
+        ):
+            block = next(iter(override_raw.values()))
+        else:
+            block = override_raw
+        override_stats = block.get("statistics", block)
+
+        print(f"[stats-override] applying state/action stats from {override_path} (tag={tag})")
+        for modality in ["state", "action"]:
+            if modality not in override_stats:
+                continue
+            for subkey, sub_stats in dataset_statistics[modality].items():
+                if subkey not in override_stats[modality]:
+                    print(
+                        f"[stats-override] WARNING: {modality}.{subkey} missing in override; "
+                        f"keeping dataset stats"
+                    )
+                    continue
+                ov = override_stats[modality][subkey]
+                for stat_name, cur_values in sub_stats.items():
+                    if stat_name not in ov:
+                        continue
+                    assert len(ov[stat_name]) == len(cur_values), (
+                        f"[stats-override] dim mismatch for {modality}.{subkey}.{stat_name}: "
+                        f"dataset={len(cur_values)} override={len(ov[stat_name])}"
+                    )
+                    sub_stats[stat_name] = list(ov[stat_name])
+                print(f"[stats-override]   {modality}.{subkey} <- override")
 
     def _get_trajectories(self) -> tuple[np.ndarray, np.ndarray]:
         """Get the trajectories in the dataset."""

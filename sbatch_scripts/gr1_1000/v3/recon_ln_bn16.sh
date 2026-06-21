@@ -44,32 +44,32 @@ ABS_TOK_CKPT="/NHNHOME/data/wook/action-tokenizer/$TOK_CKPT_DIR"
 # latent_noise_std 는 default 0.0 (= noise 비활성). recon_loss_type mse, data-config
 # 도 v2 그대로 (q99 미사용). fixed val split 은 v3 컨벤션.
 # pure recon: no mask, no state-pred.
-#python scripts/train_action_latent_tokenizer_v3.py \
-#    --dataset-path "${DATA_DIR[@]}" \
-#    --output-dir $TOK_CKPT_DIR \
-#    --no-resume \
-#    --data-config fourier_gr1_arms_waist \
-#    --embodiment-tag new_embodiment \
-#    --run-name "actlat_v3_gr1_recon_ln_bn16_1000demos" \
-#    --num-gpus 4 \
-#    --batch-size 512 \
-#    --max-steps $TOK_STEP \
-#    --save-steps 10000 \
-#    --save-total-limit 3 \
-#    --no-cache-dataset \
-#    --dataloader-num-workers 16 \
-#    --num-global-tokens 0 \
-#    --num-hand-tokens 0 \
-#    --lambda-recon 1.0 \
-#    --recon-loss-type mse \
-#    --decoder-mode self_attention \
-#    --encoder-output-layernorm \
-#    --use-bottleneck \
-#    --token-dim 16 \
-#    --use-fixed-val \
-#    --wandb-project "Action-Tokenizer-GR1-1000demos-tokenizer" \
-#    --eval-steps 1000 \
-#    --report-to wandb
+python scripts/train_action_latent_tokenizer_v3.py \
+    --dataset-path "${DATA_DIR[@]}" \
+    --output-dir $TOK_CKPT_DIR \
+    --no-resume \
+    --data-config fourier_gr1_arms_waist \
+    --embodiment-tag new_embodiment \
+    --run-name "actlat_v3_gr1_recon_ln_bn16_1000demos" \
+    --num-gpus 4 \
+    --batch-size 512 \
+    --max-steps $TOK_STEP \
+    --save-steps 10000 \
+    --save-total-limit 3 \
+    --no-cache-dataset \
+    --dataloader-num-workers 16 \
+    --num-global-tokens 0 \
+    --num-hand-tokens 0 \
+    --lambda-recon 1.0 \
+    --recon-loss-type mse \
+    --decoder-mode self_attention \
+    --encoder-output-layernorm \
+    --use-bottleneck \
+    --token-dim 16 \
+    --use-fixed-val \
+    --wandb-project "Action-Tokenizer-GR1-1000demos-tokenizer" \
+    --eval-steps 1000 \
+    --report-to wandb
 
 # === Stage 2: VLA Training ===
 # wrapper 가 _is_v3 + encoder.output_down_proj 를 자동 감지하여
