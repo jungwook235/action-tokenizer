@@ -429,10 +429,13 @@ def main(config: ArgsConfig):
             live_tf = train_dataset.transforms
             print("[norm] reading LIVE transforms from single dataset")
 
-        sa_tr = next(
-            (t for t in getattr(live_tf, "transforms", []) if hasattr(t, "_normalizers")),
-            None,
-        )
+        # State and action are normalized by SEPARATE transforms in the GR00T
+        # pipeline, each carrying its own `_normalizers`. Collect ALL of them so
+        # the APPLIED log covers both state.* and action.* (a single `next()`
+        # would grab only the first, i.e. state).
+        sa_trs = [
+            t for t in getattr(live_tf, "transforms", []) if hasattr(t, "_normalizers")
+        ]
         # Helper: print both min/max and q01/q99 so the APPLIED-vs-MERGED
         # comparison works regardless of the active mode (min_max OR q99).
         def _fmt(st):
@@ -447,12 +450,13 @@ def main(config: ArgsConfig):
                 f"min={g('min')} max={g('max')} q01={g('q01')} q99={g('q99')}"
             )
 
-        if sa_tr is None:
+        if not sa_trs:
             print("[norm] WARNING: no StateActionTransform with _normalizers found")
         else:
-            for key, normd in sa_tr._normalizers.items():
-                # normd.statistics holds the FULL stat dict (model_dump) used.
-                print(f"[norm] APPLIED {key} mode={normd.mode} {_fmt(normd.statistics)}")
+            for sa_tr in sa_trs:
+                for key, normd in sa_tr._normalizers.items():
+                    # normd.statistics holds the FULL stat dict (model_dump) used.
+                    print(f"[norm] APPLIED {key} mode={normd.mode} {_fmt(normd.statistics)}")
 
         # For comparison: the MERGED metadata the mixture computed (intended).
         # If MERGED differs from APPLIED for the mode's stat (min/max when
