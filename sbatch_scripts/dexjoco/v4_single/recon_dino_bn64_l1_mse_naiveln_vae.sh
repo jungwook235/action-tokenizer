@@ -3,9 +3,6 @@
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:b200:8
 #SBATCH --nodes=1
-#SBATCH --qos=preempt
-#SBATCH --requeue
-#SBATCH --signal=B:SIGTERM@120
 #SBATCH --time=72:00:00
 #SBATCH --output=/NHNHOME/data/wook/action-tokenizer/slurm/logs_dexjoco/full_v4_dexjoco_single_arm_recon_dino_bn64_l1_mse_naiveln_vae_%j.out
 #SBATCH --error=/NHNHOME/data/wook/action-tokenizer/slurm/logs_dexjoco/full_v4_dexjoco_single_arm_recon_dino_bn64_l1_mse_naiveln_vae_%j.err
@@ -60,7 +57,7 @@ export TRANSFORMERS_OFFLINE=1
 python scripts/train_action_latent_tokenizer_v4.py \
     --dataset-path "${DATA_DIR[@]}" \
     --output-dir $TOK_CKPT_DIR \
-    --no-resume \
+    --resume \
     --data-config dexjoco_single_arm_front \
     --embodiment-tag new_embodiment \
     --run-name "actlat_v4_dexjoco_single_arm_recon_dino_bn64_l1_mse_naiveln_vae" \

@@ -49,11 +49,22 @@ class LeRobotSingleDatasetActlatFMV4(LeRobotSingleDatasetActlatFM):
         self._frame_action_horizon = int(frame_action_horizon)
 
     def _resize_to_chw_uint8(self, frame_hwc: np.ndarray) -> np.ndarray:
-        """[H, W, C] uint8 → [C, S, S] uint8 (bilinear resize to image_size)."""
-        t = torch.from_numpy(np.ascontiguousarray(frame_hwc)).permute(2, 0, 1).float().unsqueeze(0)
+        """[H, W, C] uint8 → [C, S, S] uint8 (bilinear resize to image_size).
+
+        Byte-matches the Stage-1 V4 tokenizer's frame preprocessing
+        (ActionFramesDatasetV4: VideoToTensor → VideoResize → VideoToNumpy), so
+        the frozen DINO sees the SAME pixels at VLA-training latent-target time as
+        it did during tokenizer training. The Stage-1 path resizes on a [0,1]
+        float tensor with torchvision T.Resize(bilinear, antialias=True) and
+        re-quantizes by truncation ((x*255).to(uint8), no clamp); we replicate
+        that exactly: F.interpolate(bilinear, antialias=True) shares the same aten
+        kernel and align_corners=False, and antialiased bilinear stays within
+        [0,1] (convex weights) so no clamp is needed.
+        """
+        t = torch.from_numpy(np.ascontiguousarray(frame_hwc)).permute(2, 0, 1).float().div(255.0).unsqueeze(0)
         s = self._frame_image_size
-        t = F.interpolate(t, size=(s, s), mode="bilinear", align_corners=False)
-        t = t.squeeze(0).round().clamp(0, 255).to(torch.uint8)
+        t = F.interpolate(t, size=(s, s), mode="bilinear", align_corners=False, antialias=True)
+        t = (t.squeeze(0) * 255.0).to(torch.uint8)  # truncate, matching VideoToNumpy
         return t.numpy()
 
     def _load_frame_pair(self, trajectory_id: int, base_index: int):
