@@ -1,11 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=full_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae
+#SBATCH --job-name=full_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae_fix_imagetransform
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:b200:4
 #SBATCH --nodes=1
+#SBATCH --qos=preempt
+#SBATCH --requeue
+#SBATCH --signal=B:SIGTERM@120
 #SBATCH --time=72:00:00
-#SBATCH --output=/NHNHOME/data/wook/action-tokenizer/slurm/logs_dexjoco/full_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae_%j.out
-#SBATCH --error=/NHNHOME/data/wook/action-tokenizer/slurm/logs_dexjoco/full_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae_%j.err
+#SBATCH --output=/NHNHOME/data/wook/action-tokenizer/slurm/logs_dexjoco/full_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae_fix_imagetransform_%j.out
+#SBATCH --error=/NHNHOME/data/wook/action-tokenizer/slurm/logs_dexjoco/full_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae_fix_imagetransform_%j.err
 
 
 set -ex  # -e: abort the whole job (skip Stage-2) if Stage-1 fails
@@ -34,7 +37,7 @@ DATA_DIR=("/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/bimanual/bimanual_asse
 "/NHNHOME/data/wook/dataset/dexjoco_lerobot/v20/bimanual/bimanual_unlock_ipad"
 )
 TOK_CKPT_DIR=checkpoints_action_tokenizer/dexjoco_dual_arm_v4_recon_dino_bn64_l1_mse_naiveln_vae
-VLA_CKPT_DIR=checkpoints/vla_actlat_fm_dexjoco_dual_arm/v4_recon_dino_bn64_l1_mse_naiveln_vae
+VLA_CKPT_DIR=checkpoints/vla_actlat_fm_dexjoco_dual_arm/v4_recon_dino_bn64_l1_mse_naiveln_vae_fix_imagetransform
 TOK_STEP=100000
 ABS_TOK_CKPT="/NHNHOME/data/wook/action-tokenizer/$TOK_CKPT_DIR"
 
@@ -52,7 +55,7 @@ python scripts/gr00t_finetune_actlat_fm.py \
     --data-config dexjoco_dual_arm \
     --embodiment-tag new_embodiment \
     --base-model-path "nvidia/GR00T-N1.5-3B" \
-    --run-name "actlat_fm_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae" \
+    --run-name "actlat_fm_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae_fix_imagetransform" \
     --num-gpus 4 \
     --batch-size 16 \
     --max-steps 60000 \

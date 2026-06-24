@@ -74,6 +74,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
         checkpoint_path: str,
         device: str = "cpu",
         head_dim_override: Optional[int] = None,
+        embodiment_id: Optional[str] = None,
     ):
         """Load full tokenizer from a HuggingFace Trainer checkpoint or raw .pt file.
 
@@ -87,6 +88,11 @@ class ActionLatentTokenizerWrapper(nn.Module):
                 training-time value and the heuristic is wrong (state_dict
                 cannot disambiguate head_dim — see error_notes.md 2026-04-29).
                 Default heuristic prefers 64 (the training default).
+            embodiment_id: REQUIRED iff the checkpoint is a multi-embodiment V4
+                joint tokenizer (``_is_v4_multiemb`` marker). Selects which
+                embodiment's action encoder/decoder to extract; the shared fusion
+                + (training-only) DINO decoder are common. Ignored for ordinary
+                single-embodiment checkpoints.
         """
         import os
 
@@ -111,6 +117,24 @@ class ActionLatentTokenizerWrapper(nn.Module):
                 state_dict = ckpt["model_state_dict"]
             else:
                 state_dict = ckpt
+
+        # Multi-embodiment joint V4 checkpoint: extract the requested embodiment
+        # into the standard single-embodiment V4 layout, then fall through to the
+        # ordinary V4 builder/loader unchanged.
+        if "_is_v4_multiemb" in state_dict:
+            if embodiment_id is None:
+                raise ValueError(
+                    "checkpoint is a multi-embodiment V4 tokenizer (_is_v4_multiemb); "
+                    "pass embodiment_id=<name> to select which embodiment to load."
+                )
+            from gr00t.model.action_latent_tokenizer_v4_multiemb import (
+                MultiEmbActionLatentTokenizerV4,
+            )
+
+            state_dict = MultiEmbActionLatentTokenizerV4.remap_to_single_embodiment(
+                state_dict, embodiment_id
+            )
+            print(f"[ActionLatentTokenizerWrapper] multi-emb checkpoint → embodiment_id={embodiment_id!r}")
 
         tokenizer = cls._build_from_state_dict(state_dict, head_dim_override=head_dim_override)
         # Filter state_dict to only keys present in the model.

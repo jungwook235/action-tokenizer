@@ -115,6 +115,11 @@ class ArgsConfig:
     actlat_target_tokens: str = "all"
     """Which tokens to use as target: 'time', 'global_time', 'time_hand', 'all'. (actlat_fm mode only)"""
 
+    embodiment_id: str = ""
+    """Which embodiment to select from a multi-embodiment joint V4 tokenizer
+    checkpoint (matches the JSON 'name', e.g. 'gr1' / 'dexjoco'). Leave empty for
+    ordinary single-embodiment tokenizers. (actlat_fm mode only)"""
+
     actlat_frames: bool = False
     """If True, use the V4 dataset that also yields (frame_x0, frame_x1) so the
     V4 (RLA-DINO) tokenizer can compute DINO-dependent latent targets. Required
@@ -276,6 +281,7 @@ def _load_model(config: ArgsConfig, data_action_horizon: int, data_action_dim: i
             resume=config.resume,
             actlat_tokenizer_path=config.actlat_tokenizer_path if config.actlat_tokenizer_path else None,
             actlat_target_tokens=config.actlat_target_tokens,
+            actlat_embodiment_id=config.embodiment_id if config.embodiment_id else None,
         )
 
     return model
@@ -578,6 +584,7 @@ def main(config: ArgsConfig):
             "embodiment_tag": config.embodiment_tag,
             "actlat_tokenizer_path": config.actlat_tokenizer_path,
             "actlat_target_tokens": config.actlat_target_tokens,
+            "embodiment_id": config.embodiment_id,
         }
         with open(exp_cfg_dir / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=4)

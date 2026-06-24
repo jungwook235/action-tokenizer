@@ -249,14 +249,21 @@ class GR00T_N1_5(PreTrainedModel):
         return backbone_inputs, action_inputs
 
     @classmethod
-    def _load_tokenizer(cls, actlat_tokenizer_path, actlat_target_tokens="all"):
-        """Load tokenizer and query dimensions."""
-        tokenizer = ActionLatentTokenizerWrapper.from_checkpoint(actlat_tokenizer_path)
+    def _load_tokenizer(cls, actlat_tokenizer_path, actlat_target_tokens="all", embodiment_id=None):
+        """Load tokenizer and query dimensions.
+
+        ``embodiment_id`` selects one embodiment when the checkpoint is a
+        multi-embodiment joint V4 tokenizer; None for ordinary checkpoints.
+        """
+        tokenizer = ActionLatentTokenizerWrapper.from_checkpoint(
+            actlat_tokenizer_path, embodiment_id=embodiment_id
+        )
         latent_dim = tokenizer.emb_dim
         num_tokens = tokenizer.get_num_tokens(actlat_target_tokens)
         print(
             f"[ActlatFM] Tokenizer: latent_dim={latent_dim}, "
-            f"num_tokens={num_tokens}, target={actlat_target_tokens}"
+            f"num_tokens={num_tokens}, target={actlat_target_tokens}, "
+            f"embodiment_id={embodiment_id}"
         )
         return tokenizer, latent_dim, num_tokens
 
@@ -285,6 +292,7 @@ class GR00T_N1_5(PreTrainedModel):
         # Action latent tokenizer config
         actlat_tokenizer_path = kwargs.pop("actlat_tokenizer_path", None)
         actlat_target_tokens = kwargs.pop("actlat_target_tokens", "all")
+        actlat_embodiment_id = kwargs.pop("actlat_embodiment_id", None)
 
         # Resolve model path
         try:
@@ -299,7 +307,7 @@ class GR00T_N1_5(PreTrainedModel):
         num_tokens = 16
         if actlat_tokenizer_path is not None:
             tokenizer, latent_dim, num_tokens = cls._load_tokenizer(
-                actlat_tokenizer_path, actlat_target_tokens
+                actlat_tokenizer_path, actlat_target_tokens, embodiment_id=actlat_embodiment_id
             )
 
         # Build action head config updates
@@ -422,6 +430,7 @@ class GR00T_N1_5(PreTrainedModel):
         # Action latent tokenizer config
         actlat_tokenizer_path = kwargs.pop("actlat_tokenizer_path", None)
         actlat_target_tokens = kwargs.pop("actlat_target_tokens", "all")
+        actlat_embodiment_id = kwargs.pop("actlat_embodiment_id", None)
 
         try:
             local_model_path = snapshot_download(pretrained_model_name_or_path, repo_type="model")
@@ -443,7 +452,7 @@ class GR00T_N1_5(PreTrainedModel):
         tokenizer = None
         if actlat_tokenizer_path is not None:
             tokenizer, latent_dim, num_tokens = cls._load_tokenizer(
-                actlat_tokenizer_path, actlat_target_tokens
+                actlat_tokenizer_path, actlat_target_tokens, embodiment_id=actlat_embodiment_id
             )
             update_action_head_cfg["action_dim"] = latent_dim
             update_action_head_cfg["action_horizon"] = num_tokens
