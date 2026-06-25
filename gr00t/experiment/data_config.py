@@ -4160,6 +4160,27 @@ class DexJoCoDualArmFrontDataConfig(DexJoCoDualArmDataConfig):
     VLA training keeps using the full 3-camera dexjoco_dual_arm config."""
     video_keys = ["video.front"]
 
+
+# === DexJoCo single-arm, action_horizon=24 ===
+# Identical to DexJoCoSingleArmDataConfig except the action chunk is 24 steps
+# instead of 16. action_horizon is fully data-driven (len(action_indices)):
+#   - Stage-1 tokenizer reads it from the action sample shape and builds 24 tokens.
+#   - Stage-2 VLA rebuilds the tokenizer from ckpt shapes and recreates the action
+#     head with len(action_indices) — so both stages stay consistent at 24.
+# Keep this as a separate class so existing 16-step dexjoco checkpoints/runs are
+# untouched (a 16-trained tokenizer cannot be mixed with a 24-horizon VLA).
+class DexJoCoSingleArmH24DataConfig(DexJoCoSingleArmDataConfig):
+    action_indices = list(range(24))
+
+
+class DexJoCoSingleArmFrontH24DataConfig(DexJoCoSingleArmH24DataConfig):
+    """Single-camera (front) variant of dexjoco_single_arm_h24 for the V4
+    action-latent tokenizer (asserts len(video_keys) == 1). Inherits the 24-step
+    action_indices from DexJoCoSingleArmH24DataConfig; only narrows the video
+    modality to video.front."""
+    video_keys = ["video.front"]
+
+
 DATA_CONFIG_MAP = {
     "fourier_gr1_arms_waist_actlat_fm": FourierGr1ArmsWaistActlatFMDataConfig(),
     "fourier_gr1_arms_waist_actlat_fm_1000demos": FourierGr1ArmsWaistActlatFM1000DemosDataConfig(),
@@ -4203,6 +4224,8 @@ DATA_CONFIG_MAP = {
     "debug_G0_franka_teleop": DebugG0FrankaTeleopDataConfig(),
     "dexjoco_single_arm": DexJoCoSingleArmDataConfig(),
     "dexjoco_single_arm_front": DexJoCoSingleArmFrontDataConfig(),
+    "dexjoco_single_arm_h24": DexJoCoSingleArmH24DataConfig(),
+    "dexjoco_single_arm_front_h24": DexJoCoSingleArmFrontH24DataConfig(),
     "dexjoco_dual_arm": DexJoCoDualArmDataConfig(),
     "dexjoco_dual_arm_front": DexJoCoDualArmFrontDataConfig(),
 }

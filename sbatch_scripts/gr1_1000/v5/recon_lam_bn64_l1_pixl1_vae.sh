@@ -30,7 +30,6 @@ python -c "import sys, transformers; print('exe=', sys.executable, 'transformers
 DATA_DIR=(/NHNHOME/data/wook/dataset/gr00t_unified/gr1_unified.*)
 TOK_CKPT_DIR=checkpoints_action_tokenizer/gr1_1000demos_v5_recon_lam_bn64_l1_pixl1_vae
 VLA_CKPT_DIR=checkpoints/vla_actlat_fm_gr1_1000demos/v5_recon_lam_bn64_l1_pixl1_vae
-
 TOK_STEP=100000
 ABS_TOK_CKPT="/NHNHOME/data/wook/action-tokenizer/$TOK_CKPT_DIR"
 
