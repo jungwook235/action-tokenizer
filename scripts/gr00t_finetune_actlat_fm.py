@@ -29,6 +29,7 @@ from gr00t.data.dataset_actlat_fm import (
     LeRobotSingleDatasetActlatFM,
 )
 from gr00t.data.dataset_actlat_fm_v4 import LeRobotSingleDatasetActlatFMV4
+from gr00t.data.dataset_actlat_fm_v4_cached import LeRobotSingleDatasetActlatFMV4Cached
 from gr00t.data.schema import EmbodimentTag
 from gr00t.experiment.data_config import DATA_CONFIG_MAP
 from gr00t.experiment.trainer_actlat_fm import ActlatFMTrainer
@@ -133,6 +134,20 @@ class ArgsConfig:
     target. Empty -> use the data-config's `tokenizer_frame_video_key`, else its
     first video key. Lets VLA training keep the tokenizer single-camera (matching
     its training) even when the backbone consumes multiple cameras."""
+
+    # ── Precomputed DINO cache (V4 + actlat_frames only) ──
+    use_dino_cache: bool = False
+    """If True, read precomputed DINO feats (x0_feat/x1_feat) from
+    <dataset>/dino_feature_cache/<key> instead of decoding the frame pair and
+    running DINO. Reuses the SAME cache built for Stage-1
+    (scripts/precompute_dino_features.py). Default False → unchanged frame path."""
+    dino_cache_model: str = "facebook/dinov2-large"
+    """DINO model id the cache was built with (cache-key component). Must match
+    the Stage-1 tokenizer / precompute run."""
+    dino_cache_final_norm: str = "naive"
+    """DINO final-norm the cache was built with ('naive' or 'affine')."""
+    dino_cache_feature_source: str = "dino"
+    """Feature source the cache was built with ('dino')."""
 
     # Validation
     val_ratio: float = 0.003
@@ -298,7 +313,11 @@ def main(config: ArgsConfig):
     # V4 (RLA-DINO) tokenizer needs the chunk start/end frames for its latent
     # target → swap in the frame-pair dataset and pass the frame options.
     if config.actlat_frames:
-        DatasetCls = LeRobotSingleDatasetActlatFMV4
+        DatasetCls = (
+            LeRobotSingleDatasetActlatFMV4Cached
+            if config.use_dino_cache
+            else LeRobotSingleDatasetActlatFMV4
+        )
         # The V4 tokenizer was trained on a single camera, so its latent-target
         # frame pair must come from that same camera even though the VLA backbone
         # consumes all of `video_keys`. Priority: CLI override ->
@@ -313,13 +332,22 @@ def main(config: ArgsConfig):
         )
         print(
             f"[actlat] tokenizer frame_video_key = {frame_video_key} "
-            f"(backbone video_keys = {data_config_cls.video_keys})"
+            f"(backbone video_keys = {data_config_cls.video_keys}) "
+            f"use_dino_cache={config.use_dino_cache}"
         )
         frame_kwargs = dict(
             frame_video_key=frame_video_key,
             frame_image_size=config.frame_image_size,
             frame_action_horizon=len(data_config_cls.action_indices),
         )
+        if config.use_dino_cache:
+            # Cache-key components — must match the precompute / Stage-1 config so
+            # the reader resolves to the existing cache directory.
+            frame_kwargs.update(
+                feature_source=config.dino_cache_feature_source,
+                dino_model=config.dino_cache_model,
+                dino_final_norm=config.dino_cache_final_norm,
+            )
     else:
         DatasetCls = LeRobotSingleDatasetActlatFM
         frame_kwargs = {}

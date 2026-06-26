@@ -33,6 +33,10 @@ from gr00t.data.dataset_action_frames_v4 import (
     ActionFramesCollatorV4,
     ActionFramesDatasetV4,
 )
+from gr00t.data.dataset_dino_cache_v4 import (
+    CachedActionFramesCollatorV4,
+    CachedActionFramesDatasetV4,
+)
 from gr00t.experiment.data_config import DATA_CONFIG_MAP
 from gr00t.experiment.trainer import BaseSampler
 from gr00t.model.action_latent_tokenizer_v4 import (
@@ -63,10 +67,18 @@ class ActionLatentV4Trainer(transformers.Trainer):
         vggt_image_size: int = 224,
         vggt_final_norm: str = "none",
         dino_final_norm: str = "affine",
+        use_dino_cache: bool = False,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.feature_source = feature_source
+        self.use_dino_cache = use_dino_cache
+        if use_dino_cache:
+            # Features come precomputed from the dataset (x0_feat/x1_feat) → no
+            # extractor is built at all (saves GPU memory + the DINO forward).
+            self.dino = None
+            self._dino_on_device = True
+            return
         if feature_source == "vggt":
             from gr00t.utils.vggt_feature import VGGTFeatureExtractor
 
@@ -105,8 +117,17 @@ class ActionLatentV4Trainer(transformers.Trainer):
 
     @torch.no_grad()
     def _extract_feats(self, inputs):
-        """frames (uint8 [B,3,H,W]) → DINO patch features [B, Lp, C] (fp32)."""
+        """frames (uint8 [B,3,H,W]) → DINO patch features [B, Lp, C] (fp32).
+
+        With ``use_dino_cache`` the dataset already supplies precomputed feats as
+        ``x0_feat``/``x1_feat``; we just move + cast them (mirroring the live
+        path's trailing ``.float()``) so cached training is value-identical."""
         device = self.model.device if hasattr(self.model, "device") else next(self.model.parameters()).device
+        if self.use_dino_cache:
+            return (
+                inputs["x0_feat"].to(device).float(),
+                inputs["x1_feat"].to(device).float(),
+            )
         if not self._dino_on_device:
             self.dino.to(device)
             self._dino_on_device = True
@@ -296,6 +317,15 @@ class ArgsConfig:
     wandb_project: str = "action-latent-tokenizer-v4"
     resume: bool = False
 
+    # ── Precomputed DINO cache ──
+    # If True, read precomputed DINO feats from
+    # <dataset>/dino_feature_cache/<key> (built by
+    # scripts/precompute_dino_features.py) instead of decoding video + running
+    # DINO on the fly. The cache <key> is derived from feature_source / dino_model
+    # / dino_final_norm / image_size / camera, so it MUST already exist for this
+    # exact config. Default False → unchanged on-the-fly behavior.
+    use_dino_cache: bool = False
+
     # ── Validation ──
     val_ratio: float = 0.003
     val_seed: int = 42
@@ -385,6 +415,23 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
 
 def main(config: ArgsConfig):
     def make_dataset(path, split):
+        if config.use_dino_cache:
+            return CachedActionFramesDatasetV4(
+                dataset_path=path,
+                data_config_name=config.data_config,
+                embodiment_tag=config.embodiment_tag,
+                split=split,
+                val_ratio=config.val_ratio,
+                val_seed=config.val_seed,
+                normalization_mode=config.normalization_mode,
+                image_size=config.image_size,
+                feature_source=config.feature_source,
+                dino_model=config.dino_model,
+                dino_final_norm=config.dino_final_norm,
+                use_fixed_val=config.use_fixed_val,
+                fixed_val_path=config.fixed_val_path,
+                video_backend=config.video_backend,
+            )
         return ActionFramesDatasetV4(
             dataset_path=path,
             data_config_name=config.data_config,
@@ -515,7 +562,7 @@ def main(config: ArgsConfig):
         f"micro_batch(global)={micro_batch_global:,} steps/epoch={steps_per_epoch:,}"
     )
 
-    collator = ActionFramesCollatorV4()
+    collator = CachedActionFramesCollatorV4() if config.use_dino_cache else ActionFramesCollatorV4()
 
     trainer = ActionLatentV4Trainer(
         model=model,
@@ -531,6 +578,7 @@ def main(config: ArgsConfig):
         vggt_image_size=config.vggt_image_size,
         vggt_final_norm=config.vggt_final_norm,
         dino_final_norm=config.dino_final_norm,
+        use_dino_cache=config.use_dino_cache,
     )
 
     if config.report_to == "wandb":

@@ -172,6 +172,10 @@ class GR00T_N1_5(PreTrainedModel):
             target_tokens=self.actlat_target_tokens,
             x0=inputs.get("frame_x0"),
             x1=inputs.get("frame_x1"),
+            # Precomputed DINO feats (V4 cache). Absent unless the cached dataset
+            # supplies them → None → the raw-frame path above is used unchanged.
+            x0_feat=inputs.get("x0_feat"),
+            x1_feat=inputs.get("x1_feat"),
         )
         # Set latent as the "action" for the action head
         input_1["action"] = latent_target.to(
