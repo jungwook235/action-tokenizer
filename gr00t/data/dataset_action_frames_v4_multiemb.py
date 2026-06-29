@@ -20,6 +20,7 @@ import numpy as np
 import torch
 
 from gr00t.data.dataset_action_frames_v4 import ActionFramesCollatorV4
+from gr00t.data.dataset_dino_cache_v4 import CachedActionFramesCollatorV4
 from gr00t.experiment.trainer import BaseSampler
 
 
@@ -54,10 +55,18 @@ class MultiEmbActionFramesCollator:
     Within a group, ``action`` tensors share ``action_dim`` so they stack cleanly;
     across groups ``action_dim`` may differ. Frame stacking reuses
     ``ActionFramesCollatorV4`` so frame handling stays identical to single-emb.
+
+    Mixed cache/live: an embodiment using a precomputed DINO cache yields items
+    with ``x0_feat``/``x1_feat`` (no frames). Each bucket is homogeneous (one
+    embodiment), so we pick the collator per bucket: ``CachedActionFramesCollatorV4``
+    for cached groups (emits ``x0_feat``/``x1_feat``), ``ActionFramesCollatorV4``
+    for live groups (emits ``frame_x0``/``frame_x1``). The trainer then either uses
+    the cached feats directly or runs DINO on the frames, per group.
     """
 
     def __init__(self):
         self._frame_collator = ActionFramesCollatorV4()
+        self._cached_collator = CachedActionFramesCollatorV4()
 
     def __call__(self, features: list[dict]) -> dict:
         buckets: dict[str, list[dict]] = {}
@@ -71,8 +80,12 @@ class MultiEmbActionFramesCollator:
 
         groups = {}
         for name, feats in buckets.items():
-            # ActionFramesCollatorV4 only reads action/frame_x0/frame_x1 keys.
-            groups[name] = self._frame_collator(feats)
+            # Cached items carry x0_feat (no frames); live items carry frame_x0.
+            # Both collators ignore the extra "embodiment" key.
+            if "x0_feat" in feats[0]:
+                groups[name] = self._cached_collator(feats)
+            else:
+                groups[name] = self._frame_collator(feats)
         return {"embodiment_order": order, "groups": groups}
 
 

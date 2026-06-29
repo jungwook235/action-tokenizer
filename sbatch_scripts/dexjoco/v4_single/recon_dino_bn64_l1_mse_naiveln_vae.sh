@@ -57,7 +57,6 @@ export TRANSFORMERS_OFFLINE=1
 python scripts/train_action_latent_tokenizer_v4.py \
     --dataset-path "${DATA_DIR[@]}" \
     --output-dir $TOK_CKPT_DIR \
-    --resume \
     --data-config dexjoco_single_arm_front \
     --embodiment-tag new_embodiment \
     --run-name "actlat_v4_dexjoco_single_arm_recon_dino_bn64_l1_mse_naiveln_vae" \

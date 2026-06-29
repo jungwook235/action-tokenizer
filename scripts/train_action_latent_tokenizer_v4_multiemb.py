@@ -41,6 +41,7 @@ from transformers import TrainingArguments
 
 import gr00t.experiment.data_config_v3  # noqa: F401  (register extra configs)
 from gr00t.data.dataset_action_frames_v4 import ActionFramesDatasetV4
+from gr00t.data.dataset_dino_cache_v4 import CachedActionFramesDatasetV4
 from gr00t.data.dataset_action_frames_v4_multiemb import (
     EmbodimentTaggedDataset,
     MultiEmbActionFramesCollator,
@@ -143,6 +144,19 @@ class MultiEmbActionLatentV4Trainer(transformers.Trainer):
         x1 = g1.flatten(2).transpose(1, 2).float()
         return x0, x1
 
+    def _group_feats(self, g):
+        """Return (x0_feat, x1_feat) [B, Lp, C] fp32 for one embodiment group.
+
+        Cached groups (collated by ``CachedActionFramesCollatorV4``) already carry
+        ``x0_feat``/``x1_feat``; we just move + cast them to fp32 — value-identical
+        to the live path's trailing ``.float()`` (the precompute stores the exact
+        tensor the trainer would feed the model). Live groups carry frames, so we
+        run DINO on them."""
+        if "x0_feat" in g:
+            device = self._device()
+            return g["x0_feat"].to(device).float(), g["x1_feat"].to(device).float()
+        return self._extract_feats_frames(g["frame_x0"], g["frame_x1"])
+
     def _build_groups_with_feats(self, inputs):
         """Turn the collated {embodiment_order, groups} batch into
         {embodiment_order, groups:{name:{action,x0_feat,x1_feat}}}."""
@@ -151,7 +165,7 @@ class MultiEmbActionLatentV4Trainer(transformers.Trainer):
             order = order[0]  # defensive: some collate paths wrap scalars
         groups = {}
         for name, g in inputs["groups"].items():
-            x0_feat, x1_feat = self._extract_feats_frames(g["frame_x0"], g["frame_x1"])
+            x0_feat, x1_feat = self._group_feats(g)
             groups[name] = {"action": g["action"], "x0_feat": x0_feat, "x1_feat": x1_feat}
         return {"embodiment_order": list(inputs["groups"].keys()), "groups": groups}
 
@@ -201,7 +215,7 @@ class MultiEmbActionLatentV4Trainer(transformers.Trainer):
             for batch in eval_dataloader:
                 batch = self._prepare_inputs(batch)
                 for name, g in batch["groups"].items():
-                    x0_feat, x1_feat = self._extract_feats_frames(g["frame_x0"], g["frame_x1"])
+                    x0_feat, x1_feat = self._group_feats(g)
                     dtype = core.action_encoders[name].action_proj.weight.dtype
                     actions = g["action"].to(device=x0_feat.device, dtype=dtype)
                     time_tok, _ = core.encode(name, actions, x0_feat, x1_feat)
@@ -332,7 +346,30 @@ def _load_embodiment_groups(config: ArgsConfig):
     groups = spec["embodiments"]
     assert len(groups) >= 1, "embodiments_config must list >=1 embodiment"
 
-    def make_dataset(path, data_config, embodiment_tag, split):
+    def make_dataset(path, data_config, embodiment_tag, split, use_cache=False):
+        # use_cache: look up precomputed DINO feats from <dataset>/dino_feature_cache
+        # (built by scripts/precompute_dino_features.py) instead of decoding video +
+        # running DINO live. The cache identity (model / final-norm / image-size /
+        # camera) MUST match these args, or the reader asserts on the meta. Mixed
+        # runs are fine: only the cached embodiment(s) read the cache; others stay
+        # live. Items become {action, x0_feat, x1_feat} (no frames).
+        if use_cache:
+            return CachedActionFramesDatasetV4(
+                dataset_path=path,
+                data_config_name=data_config,
+                embodiment_tag=embodiment_tag,
+                split=split,
+                val_ratio=config.val_ratio,
+                val_seed=config.val_seed,
+                normalization_mode=config.normalization_mode,
+                image_size=config.image_size,
+                feature_source=config.feature_source,
+                dino_model=config.dino_model,
+                dino_final_norm=config.dino_final_norm,
+                use_fixed_val=config.use_fixed_val,
+                fixed_val_path=config.fixed_val_path,
+                video_backend=config.video_backend,
+            )
         return ActionFramesDatasetV4(
             dataset_path=path,
             data_config_name=data_config,
@@ -357,6 +394,7 @@ def _load_embodiment_groups(config: ArgsConfig):
         data_config = g["data_config"]
         embodiment_tag = g.get("embodiment_tag", "new_embodiment")
         weight = float(g.get("weight", 1.0))
+        use_cache = bool(g.get("use_dino_cache", False))
 
         # glob-expand paths (GR1 uses a glob); preserve order, dedup.
         raw_paths = g["dataset_path"]
@@ -370,8 +408,8 @@ def _load_embodiment_groups(config: ArgsConfig):
         for p in paths:
             assert os.path.exists(p), f"[{name}] dataset path does not exist: {p}"
 
-        g_train = [make_dataset(p, data_config, embodiment_tag, "train") for p in paths]
-        g_val = [make_dataset(p, data_config, embodiment_tag, "val") for p in paths]
+        g_train = [make_dataset(p, data_config, embodiment_tag, "train", use_cache) for p in paths]
+        g_val = [make_dataset(p, data_config, embodiment_tag, "val", use_cache) for p in paths]
 
         # Merge normalization stats WITHIN this embodiment only (different
         # embodiments have different action keys/dims → cross-merge is invalid).
@@ -392,7 +430,8 @@ def _load_embodiment_groups(config: ArgsConfig):
         group_weights.append(weight)
         print(f"[group:{name}] data_config={data_config} action_dim={action_dim} "
               f"action_horizon={action_horizon} train={len(train_ds)} val={len(val_ds)} "
-              f"weight={weight} ({len(paths)} path(s))")
+              f"weight={weight} ({len(paths)} path(s)) "
+              f"dino_feats={'CACHED' if use_cache else 'live'}")
 
     # all embodiments must share action_horizon
     horizons = {s["action_horizon"] for s in embodiment_specs}
