@@ -42,6 +42,7 @@ from transformers import TrainingArguments
 import gr00t.experiment.data_config_v3  # noqa: F401  (register extra configs)
 from gr00t.data.dataset_action_frames_v4 import ActionFramesDatasetV4
 from gr00t.data.dataset_dino_cache_v4 import CachedActionFramesDatasetV4
+from gr00t.data.dataset_egodex_frames_v4 import EgoDexActionFramesDataset
 from gr00t.data.dataset_action_frames_v4_multiemb import (
     EmbodimentTaggedDataset,
     MultiEmbActionFramesCollator,
@@ -391,12 +392,12 @@ def _load_embodiment_groups(config: ArgsConfig):
 
     for g in groups:
         name = str(g["name"])
-        data_config = g["data_config"]
         embodiment_tag = g.get("embodiment_tag", "new_embodiment")
         weight = float(g.get("weight", 1.0))
-        use_cache = bool(g.get("use_dino_cache", False))
+        loader = str(g.get("loader", "lerobot")).lower()
 
-        # glob-expand paths (GR1 uses a glob); preserve order, dedup.
+        # glob-expand paths (GR1 uses a glob; EgoDex lists task folders directly);
+        # preserve order, dedup via extend.
         raw_paths = g["dataset_path"]
         if isinstance(raw_paths, str):
             raw_paths = [raw_paths]
@@ -408,18 +409,46 @@ def _load_embodiment_groups(config: ArgsConfig):
         for p in paths:
             assert os.path.exists(p), f"[{name}] dataset path does not exist: {p}"
 
-        g_train = [make_dataset(p, data_config, embodiment_tag, "train", use_cache) for p in paths]
-        g_val = [make_dataset(p, data_config, embodiment_tag, "val", use_cache) for p in paths]
+        if loader == "egodex":
+            # Non-LeRobot EgoDex reader: ONE dataset instance owns all task
+            # folders and self-normalizes (min_max over `action_key`), so there is
+            # no per-path ConcatDataset / cross-path stats merge. It emits the same
+            # {action, frame_x0, frame_x1} items as ActionFramesDatasetV4, with
+            # byte-identical frame preprocessing (decord RGB + Resize(linear)).
+            ek = dict(
+                dataset_paths=paths,
+                action_horizon=int(g.get("action_horizon", 16)),
+                action_key=str(g.get("action_key", "gr1_state")),
+                action_offset=int(g.get("action_offset", 0)),
+                stride=int(g["stride"]) if "stride" in g else None,
+                video_suffix=str(g.get("video_suffix", ".mp4")),
+                stats_max_episodes=g.get("stats_max_episodes", 3000),
+                image_size=config.image_size,
+                val_ratio=config.val_ratio,
+                val_seed=config.val_seed,
+                video_backend=config.video_backend,
+            )
+            train_ds = EgoDexActionFramesDataset(split="train", **ek)
+            val_ds = EgoDexActionFramesDataset(split="val", **ek)
+            desc = f"egodex:{ek['action_key']}"
+            feats_label = "live"
+        else:
+            data_config = g["data_config"]
+            use_cache = bool(g.get("use_dino_cache", False))
+            g_train = [make_dataset(p, data_config, embodiment_tag, "train", use_cache) for p in paths]
+            g_val = [make_dataset(p, data_config, embodiment_tag, "val", use_cache) for p in paths]
 
-        # Merge normalization stats WITHIN this embodiment only (different
-        # embodiments have different action keys/dims → cross-merge is invalid).
-        apply_merged_normalization_metadata(g_train, g_train + g_val)
+            # Merge normalization stats WITHIN this embodiment only (different
+            # embodiments have different action keys/dims → cross-merge is invalid).
+            apply_merged_normalization_metadata(g_train, g_train + g_val)
 
-        train_ds = g_train[0] if len(g_train) == 1 else torch.utils.data.ConcatDataset(g_train)
-        val_ds = g_val[0] if len(g_val) == 1 else torch.utils.data.ConcatDataset(g_val)
+            train_ds = g_train[0] if len(g_train) == 1 else torch.utils.data.ConcatDataset(g_train)
+            val_ds = g_val[0] if len(g_val) == 1 else torch.utils.data.ConcatDataset(g_val)
+            desc = f"data_config={data_config}"
+            feats_label = "CACHED" if use_cache else "live"
 
         # action_dim / action_horizon from a sample
-        sample = g_train[0][0]
+        sample = train_ds[0]
         action_horizon, action_dim = sample["action"].shape
         embodiment_specs.append({"name": name, "action_dim": int(action_dim),
                                  "action_horizon": int(action_horizon)})
@@ -428,10 +457,9 @@ def _load_embodiment_groups(config: ArgsConfig):
         val_wrapped.append(EmbodimentTaggedDataset(val_ds, name))
         train_group_sizes.append(len(train_ds))
         group_weights.append(weight)
-        print(f"[group:{name}] data_config={data_config} action_dim={action_dim} "
+        print(f"[group:{name}] {desc} action_dim={action_dim} "
               f"action_horizon={action_horizon} train={len(train_ds)} val={len(val_ds)} "
-              f"weight={weight} ({len(paths)} path(s)) "
-              f"dino_feats={'CACHED' if use_cache else 'live'}")
+              f"weight={weight} ({len(paths)} path(s)) dino_feats={feats_label}")
 
     # all embodiments must share action_horizon
     horizons = {s["action_horizon"] for s in embodiment_specs}
