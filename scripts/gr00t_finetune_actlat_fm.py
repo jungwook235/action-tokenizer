@@ -614,6 +614,17 @@ def main(config: ArgsConfig):
             "actlat_target_tokens": config.actlat_target_tokens,
             "embodiment_id": config.embodiment_id,
         }
+        # Persist the normalization statistics actually applied (whole-mixture
+        # merged stats for a LeRobotMixtureDataset) so inference can reuse them
+        # directly from metadata.json instead of re-reading and re-merging every
+        # source dataset's meta/stats.json. CheckpointFormatCallback copies this
+        # experiment_cfg dir into each checkpoint, so the stats travel with them.
+        if isinstance(train_dataset, LeRobotMixtureDataset):
+            stats_meta = next(iter(train_dataset.merged_metadata.values()))
+        else:
+            stats_meta = getattr(train_dataset, "metadata", None)
+        if stats_meta is not None:
+            metadata["statistics"] = stats_meta.statistics.model_dump(mode="json")
         with open(exp_cfg_dir / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=4)
 

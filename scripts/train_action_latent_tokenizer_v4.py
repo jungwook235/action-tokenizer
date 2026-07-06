@@ -456,11 +456,26 @@ def main(config: ArgsConfig):
     # dataset would normalize actions with its own single-dataset min/max.
     # Merge across all datasets (matching LeRobotMixtureDataset / the VLA) and
     # apply to train+val so the whole-mixture statistics are used. No-op for 1.
-    from gr00t.data.merge_norm_stats import apply_merged_normalization_metadata
+    from gr00t.data.merge_norm_stats import (
+        apply_merged_normalization_metadata,
+        save_normalization_stats,
+    )
 
     merged_metadata = apply_merged_normalization_metadata(
         datasets_train, datasets_train + datasets_val
     )
+
+    # Persist the merged (whole-mixture) normalization statistics next to the
+    # checkpoints so Stage-2 / inference can reuse the exact stats without
+    # re-reading and re-merging every source dataset's meta/stats.json. For a
+    # single dataset the merge is a no-op (merged_metadata is None), so fall
+    # back to that dataset's own metadata (already the whole-dataset stats).
+    if int(os.environ.get("RANK", 0)) == 0:
+        stats_meta = merged_metadata or datasets_train[0].metadata
+        stats_path = save_normalization_stats(
+            stats_meta, os.path.join(config.output_dir, "norm_stats.json")
+        )
+        print(f"[merge-stats] wrote normalization stats -> {stats_path}")
 
     # ---- DEBUG: print normalization stats ACTUALLY applied at train time ----
     # Mirror of the Stage-2 VLA's [norm] logging (gr00t_finetune_actlat_fm.py) so

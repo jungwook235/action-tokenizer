@@ -21,6 +21,8 @@ is harmless — it simply future-proofs configs that DO normalize state.
 """
 
 import copy
+import json
+from pathlib import Path
 
 from gr00t.data.dataset import LeRobotMixtureDataset
 from gr00t.data.schema import DatasetStatisticalValues
@@ -54,6 +56,7 @@ def apply_merged_normalization_metadata(
     merged_metadata = copy.deepcopy(datasets_for_stats[0].metadata)
 
     logged = []
+    merged_stats_by_modality = {}
     for modality in modalities:
         per_ds_stats = [
             getattr(d.metadata.statistics, modality, None) for d in datasets_for_stats
@@ -70,19 +73,27 @@ def apply_merged_normalization_metadata(
             dataset_sampling_weights=weights,
             percentile_mixing_method=percentile_mixing_method,
         )
-        setattr(
-            merged_metadata.statistics,
-            modality,
-            {k: DatasetStatisticalValues(**v) for k, v in merged.items()},
-        )
+        merged_stat = {k: DatasetStatisticalValues(**v) for k, v in merged.items()}
+        merged_stats_by_modality[modality] = merged_stat
+        setattr(merged_metadata.statistics, modality, merged_stat)
         first_key = next(iter(merged))
         logged.append(
             f"{modality}.{first_key} "
             f"min={merged[first_key]['min']} max={merged[first_key]['max']}"
         )
 
+    # Apply the merged STATISTICS to each dataset while PRESERVING that dataset's
+    # own modality metadata (video resolution, shapes, embodiment tag). Applying
+    # dataset[0]'s whole metadata to everyone clobbers each dataset's video
+    # resolution with dataset[0]'s — fatal when co-training datasets of different
+    # native video resolutions (e.g. a 1280x800 dataset mixed with 256x256 ones),
+    # because VideoToTensor.check_input then asserts the raw frames match
+    # dataset[0]'s resolution. We swap only the merged state/action statistics.
     for d in datasets_to_apply:
-        d.set_transforms_metadata(merged_metadata)
+        d_meta = copy.deepcopy(d.metadata)
+        for modality, merged_stat in merged_stats_by_modality.items():
+            setattr(d_meta.statistics, modality, merged_stat)
+        d.set_transforms_metadata(d_meta)
 
     # Concise verification log — compare against the VLA's [norm] MERGED line;
     # they must match for Stage-1/Stage-2 consistency.
@@ -91,3 +102,38 @@ def apply_merged_normalization_metadata(
         + " | ".join(logged)
     )
     return merged_metadata
+
+
+def save_normalization_stats(metadata, path):
+    """Persist a dataset's normalization statistics to ``path`` as JSON.
+
+    Writes the exact state/action ``min/max/mean/std/q01/q99`` that are actually
+    applied at ``__getitem__`` time (i.e. the whole-mixture merged stats when
+    training on multiple datasets) so inference / reproduction can reload them
+    directly, instead of re-reading every source dataset's ``meta/stats.json``
+    and re-running the mixture merge.
+
+    Args:
+        metadata: a ``DatasetMetadata`` (or any object exposing ``.statistics``
+            and, optionally, ``.embodiment_tag``) — e.g. the value returned by
+            :func:`apply_merged_normalization_metadata`, or a single dataset's
+            ``.metadata`` when the merge was a no-op.
+        path: destination file (parent dirs are created if missing).
+
+    Returns:
+        The ``Path`` written.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    emb = getattr(metadata, "embodiment_tag", None)
+    payload = {
+        # str value ("new_embodiment") rather than the EmbodimentTag repr.
+        "embodiment_tag": getattr(emb, "value", emb),
+        # DatasetStatisticalValues has a json field_serializer that turns the
+        # ndarrays into plain lists, so mode="json" yields a serializable dict.
+        "statistics": metadata.statistics.model_dump(mode="json"),
+    }
+    with open(path, "w") as f:
+        json.dump(payload, f, indent=2)
+    return path
