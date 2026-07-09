@@ -447,12 +447,25 @@ class ActionLatentTokenizerWrapper(nn.Module):
         # token_dim (= out_layer width) is unchanged, so downstream shapes match.
         use_vae = "_is_vae" in state_dict
 
+        # Optional 2-layer MLP action-token projection (fusion ``token_proj``). Self-
+        # describing from the state_dict: a single Linear stores ``encoder.joint.
+        # token_proj.weight``; the MLP variant stores ``token_proj.0.weight`` (hidden
+        # ← its row count) and ``token_proj.2.weight``. Absent → single Linear (the
+        # default), so existing checkpoints rebuild byte-identically.
+        action_proj_mlp = "encoder.joint.token_proj.0.weight" in state_dict
+        action_proj_hidden = (
+            int(state_dict["encoder.joint.token_proj.0.weight"].shape[0])
+            if action_proj_mlp
+            else None
+        )
+
         print(
             f"[timewise_v4] action_dim={action_dim}, action_horizon={action_horizon}, "
             f"emb_dim={emb_dim}, token_dim={token_dim}, dino_dim={dino_dim}, "
             f"fusion_width={fusion_width}, fusion_depth={fusion_depth}, "
             f"enc_depth={enc_depth}, dec_depth={dec_depth}, decoder_mode={decoder_mode}, "
-            f"num_global={num_global}, num_hand={num_hand}, use_vae={use_vae}"
+            f"num_global={num_global}, num_hand={num_hand}, use_vae={use_vae}, "
+            f"action_proj_mlp={action_proj_mlp}, action_proj_hidden={action_proj_hidden}"
         )
 
         encoder = TimeWiseEncoderV4(
@@ -470,6 +483,8 @@ class ActionLatentTokenizerWrapper(nn.Module):
             fusion_heads=fusion_heads,
             token_dim=token_dim,
             use_vae=use_vae,
+            action_proj_mlp=action_proj_mlp,
+            action_proj_hidden=action_proj_hidden,
         )
 
         recon_decoder = ReconDecoderV4(

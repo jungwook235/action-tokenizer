@@ -361,7 +361,7 @@ python scripts/precompute_dino_features.py \
 
 python scripts/precompute_dino_features.py \
   --dataset-path \
-    /sjw_alinlab1/home/jungwook/dataset/dexjoco_lerobot/v20/bimanual/bimanual_unlock_ipad \
+    /sjw_alinlab1/home/jungwook/dataset/dexjoco_lerobot/v20/bimanual/bimanual_photograph \
   --data-config dexjoco_dual_arm_front \
   --dino-model facebook/dinov2-large \
   --dino-final-norm naive \

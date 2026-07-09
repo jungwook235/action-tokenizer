@@ -293,6 +293,16 @@ class ArgsConfig:
     lambda_kl: float = 1e-6
     kl_free_bits: float = 0.0
 
+    # ── Action-token projection (fusion) ──
+    # The action latents are projected emb_dim → fusion_width right before the DINO
+    # feats are concatenated in the fusion transformer. Default (False) uses a single
+    # Linear (byte-identical to before). action_proj_mlp=True swaps it for a 2-layer
+    # MLP (Linear → GELU → Linear); action_proj_hidden sets the hidden width (None →
+    # defaults to fusion_width). The structure is shape-detectable at reload, so no
+    # checkpoint marker is needed and off-path checkpoints are unaffected.
+    action_proj_mlp: bool = False
+    action_proj_hidden: Optional[int] = None
+
     # ── Frames / DINO input ──
     image_size: int = 224
     video_backend: str = "decord"
@@ -355,6 +365,8 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         token_dim=config.token_dim,
         use_vae=config.use_vae,
         kl_free_bits=config.kl_free_bits,
+        action_proj_mlp=config.action_proj_mlp,
+        action_proj_hidden=config.action_proj_hidden,
     )
 
     recon_decoder = ReconDecoderV4(
@@ -636,6 +648,8 @@ def main(config: ArgsConfig):
                     "lambda_kl": config.lambda_kl,
                     "use_vae": config.use_vae,
                     "kl_free_bits": config.kl_free_bits,
+                    "action_proj_mlp": config.action_proj_mlp,
+                    "action_proj_hidden": config.action_proj_hidden,
                     "recon_loss_type": config.recon_loss_type,
                     "dino_loss_type": config.dino_loss_type,
                     "image_size": config.image_size,

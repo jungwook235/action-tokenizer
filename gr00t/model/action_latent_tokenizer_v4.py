@@ -376,6 +376,8 @@ class TimeWiseEncoderV4(nn.Module):
         token_dim: int = 64,
         use_vae: bool = False,
         kl_free_bits: float = 0.0,
+        action_proj_mlp: bool = False,
+        action_proj_hidden: Optional[int] = None,
     ):
         super().__init__()
         self.action_dim = action_dim
@@ -421,6 +423,12 @@ class TimeWiseEncoderV4(nn.Module):
         # action latents are injected as external tokens (token_channels=emb_dim).
         # out_channels=token_dim → the out_layer IS the bottleneck (norm_out is
         # the pre-bottleneck LayerNorm).
+        # ``action_proj_mlp`` (opt-in) turns the action-token projection (emb_dim →
+        # fusion_width, applied just before the DINO-feature concat) from a single
+        # Linear into a 2-layer MLP (Linear → GELU → Linear); ``action_proj_hidden``
+        # sets the hidden width (defaults to fusion_width). Default (False) is
+        # byte-identical to the original single-Linear fusion. Only the fusion
+        # projection is affected — the DINO decoder keeps its Linear token_proj.
         self.joint = SimpleTokenTransformer(
             in_channels=dino_dim,
             model_channels=fusion_width,
@@ -430,6 +438,8 @@ class TimeWiseEncoderV4(nn.Module):
             num_tokens=0,
             token_channels=emb_dim,
             use_fp16=False,
+            token_proj_mlp=action_proj_mlp,
+            token_proj_hidden=action_proj_hidden,
         )
 
     @property

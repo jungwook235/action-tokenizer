@@ -190,6 +190,8 @@ class SimpleTokenTransformer(nn.Module):
         zero_init: bool = False,
         token_channels: Optional[int] = None,
         norm_output_tokens: bool = False,
+        token_proj_mlp: bool = False,
+        token_proj_hidden: Optional[int] = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -205,7 +207,21 @@ class SimpleTokenTransformer(nn.Module):
         else:
             self.tokens = None
         if token_channels is not None and token_channels != model_channels:  # for input tokens
-            self.token_proj = nn.Linear(token_channels, model_channels)
+            if token_proj_mlp:
+                # Optional 2-layer MLP (Linear → GELU → Linear) instead of a single
+                # Linear. Opt-in only; when False the branch above/below is byte-
+                # identical to the original single-Linear projection. Hidden width
+                # defaults to model_channels when not given. State-dict keys become
+                # ``token_proj.0.*`` / ``token_proj.2.*`` (vs bare ``token_proj.*``),
+                # so the structure is self-describing and shape-detectable on reload.
+                hidden = int(token_proj_hidden) if token_proj_hidden else model_channels
+                self.token_proj = nn.Sequential(
+                    nn.Linear(token_channels, hidden),
+                    nn.GELU(),
+                    nn.Linear(hidden, model_channels),
+                )
+            else:
+                self.token_proj = nn.Linear(token_channels, model_channels)
         else:
             self.token_proj = None
         self.input_layer = nn.Linear(in_channels, model_channels)
