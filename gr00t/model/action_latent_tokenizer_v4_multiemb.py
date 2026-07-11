@@ -81,6 +81,7 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         vggt_model: Optional[str] = None,
         vggt_final_norm: str = "none",
         dino_final_norm: str = "affine",
+        use_embodiment_class_token: bool = False,
     ):
         super().__init__()
         assert len(embodiment_specs) >= 1, "need at least one embodiment"
@@ -180,6 +181,37 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
             use_fp16=False,
         )
 
+        # ---- per-embodiment (data-type) learnable class token (opt-in) ----
+        # When enabled, ONE learnable [dino_dim] vector per class-token id is prepended
+        # to the DINO feature sequence entering both the shared fusion encoder and the
+        # shared DINO decoder, so those shared modules can condition on the data type.
+        # Which token a group uses is declared explicitly by ``class_token_id`` in the
+        # embodiments JSON (groups may share a token by reusing an id). When disabled
+        # (default) NO params/buffers are registered → state_dict is byte-identical to
+        # before and the forward path is unchanged.
+        self.use_embodiment_class_token = bool(use_embodiment_class_token)
+        if self.use_embodiment_class_token:
+            class_token_ids = {}
+            for s in embodiment_specs:
+                nm = str(s["name"])
+                assert "class_token_id" in s, (
+                    f"[{nm}] class_token_id is required in every embodiment spec when "
+                    f"use_embodiment_class_token=True (set it in the embodiments JSON)."
+                )
+                cid = int(s["class_token_id"])
+                assert cid >= 0, f"[{nm}] class_token_id must be >= 0; got {cid}"
+                class_token_ids[nm] = cid
+            self.class_token_ids = class_token_ids
+            num_class_tokens = max(class_token_ids.values()) + 1
+            self.embodiment_class_token = nn.Parameter(
+                torch.randn(num_class_tokens, dino_dim) * 0.02
+            )
+            # Buffers so remap_to_single_embodiment (which only sees the state_dict) can
+            # resolve name → id and slice out the right row for Stage-2.
+            self.register_buffer("_use_emb_class_token", torch.tensor(True))
+            for nm, cid in class_token_ids.items():
+                self.register_buffer(f"_class_token_id__{nm}", torch.tensor(cid))
+
         # ---- detection / metadata buffers ----
         # _is_v4_multiemb routes ActionLatentTokenizerWrapper.from_checkpoint to the
         # remap path. The single-embodiment marker _is_v4 is added by remap, NOT here.
@@ -238,6 +270,14 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
 
     # ---- encode / decode (single embodiment per call) ----
 
+    def _prepend_class_token(self, name: str, x: torch.Tensor) -> torch.Tensor:
+        """Prepend ``name``'s learnable data-type class token as an extra
+        ``dino_dim``-channel patch: [B,Lp,dino_dim] → [B,1+Lp,dino_dim]."""
+        cid = self.class_token_ids[name]
+        ct = self.embodiment_class_token[cid].to(dtype=x.dtype)   # [dino_dim]
+        ct = ct.view(1, 1, -1).expand(x.shape[0], 1, -1)          # [B,1,dino_dim]
+        return torch.cat([ct, x], dim=1)
+
     def encode(self, name: str, actions: torch.Tensor, x0_feat: torch.Tensor, x1_feat: torch.Tensor):
         """Route ``name``'s action encoder → shared fusion → time latent [B,T,token_dim].
 
@@ -250,6 +290,10 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
 
         _, t256, _ = action_encoder(actions)               # [B,T,emb_dim]
         dino_diff = x1_feat - x0_feat                       # [B,Lp,dino_dim]
+        if self.use_embodiment_class_token:
+            # Extra class-token patch lands in the discarded (visual) half of the
+            # fusion output; the kept action-token positions are unchanged in shape.
+            dino_diff = self._prepend_class_token(name, dino_diff)  # [B,1+Lp,dino_dim]
         tokens_out, _ = self.joint(x=dino_diff, tokens=t256)  # [B,T,token_dim]
 
         kl = None
@@ -268,8 +312,14 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
     def decode(self, name: str, time_tok: torch.Tensor) -> torch.Tensor:
         return self.recon_decoders[name](time_tok)
 
-    def decode_dino(self, time_tok: torch.Tensor, x0_feat: torch.Tensor) -> torch.Tensor:
+    def decode_dino(self, time_tok: torch.Tensor, x0_feat: torch.Tensor,
+                    name: Optional[str] = None) -> torch.Tensor:
+        if self.use_embodiment_class_token:
+            assert name is not None, "decode_dino needs `name` when use_embodiment_class_token=True"
+            x0_feat = self._prepend_class_token(name, x0_feat)   # [B,1+Lp,dino_dim]
         _, visuals = self.dino_decoder(x=x0_feat, tokens=time_tok)
+        if self.use_embodiment_class_token:
+            visuals = visuals[:, 1:]                              # drop class-token slot
         return visuals
 
     def forward(self, batch: dict = None, **kwargs) -> dict:
@@ -320,7 +370,7 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
             loss_recon = torch.zeros((), device=device)
 
         if self.lambda_dino > 0:
-            pred_x1 = self.decode_dino(time_tok, x0_feat.to(dtype=time_tok.dtype))
+            pred_x1 = self.decode_dino(time_tok, x0_feat.to(dtype=time_tok.dtype), name=name)
             loss_dino, dino_sub = self._dino_loss(pred_x1, x1_feat)
         else:
             loss_dino = torch.zeros((), device=device)
@@ -348,9 +398,26 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         ``encoder.joint.*`` and ``logvar_head.*`` → ``encoder.logvar_head.*``.
         Drops ``dino_decoder.*`` (Stage-2 wrapper builds it as None). Adds the
         ``_is_v4`` marker so ``_build_from_state_dict`` routes to the v4 builder.
+
+        When the joint tokenizer was trained with per-embodiment class tokens
+        (``_use_emb_class_token`` present), slices ``embodiment_class_token`` down to
+        this embodiment's single row (via ``_class_token_id__<name>``) and emits it as
+        ``encoder.embodiment_class_token`` so Stage-2's ``TimeWiseEncoderV4`` prepends
+        the same token. The multiemb-only class-token keys are dropped.
         """
         pfx_ae = f"action_encoders.{name}."
         pfx_rd = f"recon_decoders.{name}."
+
+        # Per-embodiment class token → single-embodiment encoder buffer.
+        emb_class_token = None
+        if "_use_emb_class_token" in state_dict:
+            id_key = f"_class_token_id__{name}"
+            assert id_key in state_dict, (
+                f"class-token checkpoint missing {id_key!r} for embodiment {name!r}"
+            )
+            cid = int(state_dict[id_key].item())
+            emb_class_token = state_dict["embodiment_class_token"][cid].clone()
+
         out: dict = {}
         found = False
         for k, v in state_dict.items():
@@ -381,5 +448,7 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
                 f"embodiment_id {name!r} not found in checkpoint; "
                 f"available: {sorted(set(available))}"
             )
+        if emb_class_token is not None:
+            out["encoder.embodiment_class_token"] = emb_class_token
         out["_is_v4"] = torch.tensor(True)
         return out

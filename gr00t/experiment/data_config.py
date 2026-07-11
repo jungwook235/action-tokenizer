@@ -4268,6 +4268,113 @@ class Gr1ActionnetDataConfig(BaseDataConfig):
         return ComposedModalityTransform(transforms=transforms)
 
 
+class EgoDexCameraHandUnitDataConfig:
+    """DexJoCo dual-arm dexterous-hand config (e.g. hammer_nail, water_plant).
+
+    LeRobot layout: observation.state (23) = [pos3, quat4, hand16];
+    action (22) = [pos3, rotvec3, hand16]; cameras = front, wrist. No gripper /
+    discrete action dims (the 16-DoF hand is continuous). Fetches a 64-step action
+    sequence (multi-horizon) so the MoE action head can compute compressed losses;
+    the baseline head simply uses the first 16. State quaternion -> rotation_6d.
+    """
+    video_keys = ["video.ego_view"]
+    state_keys = [
+        "state.camera_pos",
+        "state.camera_rot",
+        "state.rightHand_pos",
+        "state.rightHand_rot",
+        "state.rightThumbTip_pos",
+        "state.rightIndexFingerTip_pos",
+        "state.rightMiddleFingerTip_pos",
+        "state.rightRingFingerTip_pos",
+        "state.rightLittleFingerTip_pos",
+        "state.leftHand_pos",
+        "state.leftHand_rot",
+        "state.leftThumbTip_pos",
+        "state.leftIndexFingerTip_pos",
+        "state.leftMiddleFingerTip_pos",
+        "state.leftRingFingerTip_pos",
+        "state.leftLittleFingerTip_pos",
+    ]
+    action_keys = [
+        "action.camera_pos",
+        "action.camera_rot",
+        "action.rightHand_pos",
+        "action.rightHand_rot",
+        "action.rightThumbTip_pos",
+        "action.rightIndexFingerTip_pos",
+        "action.rightMiddleFingerTip_pos",
+        "action.rightRingFingerTip_pos",
+        "action.rightLittleFingerTip_pos",
+        "action.leftHand_pos",
+        "action.leftHand_rot",
+        "action.leftThumbTip_pos",
+        "action.leftIndexFingerTip_pos",
+        "action.leftMiddleFingerTip_pos",
+        "action.leftRingFingerTip_pos",
+        "action.leftLittleFingerTip_pos",
+    ]
+    language_keys = ["annotation.human.coarse_action"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+
+    # Camera fed to the V4 action-latent tokenizer for its (frame_x0, frame_x1)
+    # latent target during VLA training. The tokenizer is trained single-camera
+    # (dexjoco_dual_arm_front -> video.front), so its latent-target input must
+    # stay that one camera even though the VLA backbone consumes all of
+    # `video_keys`. gr00t_finetune_actlat_fm.py reads this; if unset it falls
+    # back to video_keys[0].
+    tokenizer_frame_video_key = "video.ego_view"
+
+    # Every state/action key is normalized with min_max. Built from the actual
+    # key lists so all dims are covered (the leftmost iterable of a class-body
+    # comprehension is evaluated in the enclosing scope, so state_keys /
+    # action_keys are visible here).
+    state_normalization_modes = {k: "min_max" for k in state_keys}
+    action_normalization_modes = {k: "min_max" for k in action_keys}
+
+    def modality_config(self):
+        return {
+            "video": ModalityConfig(delta_indices=self.observation_indices, modality_keys=self.video_keys),
+            "state": ModalityConfig(delta_indices=self.observation_indices, modality_keys=self.state_keys),
+            "action": ModalityConfig(delta_indices=self.action_indices, modality_keys=self.action_keys),
+            "language": ModalityConfig(delta_indices=self.observation_indices, modality_keys=self.language_keys),
+        }
+
+    def transform(self):
+        transforms = [
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(apply_to=self.video_keys, brightness=0.3, contrast=0.4, saturation=0.5, hue=0.08),
+            VideoToNumpy(apply_to=self.video_keys),
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes=self.state_normalization_modes,
+                target_rotations=self.state_target_rotations,
+            ),
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes=self.action_normalization_modes,
+            ),
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TInferTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=57,
+                max_action_dim=57,
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+
+
 DATA_CONFIG_MAP = {
     "fourier_gr1_arms_waist_actlat_fm": FourierGr1ArmsWaistActlatFMDataConfig(),
     "fourier_gr1_arms_waist_actlat_fm_1000demos": FourierGr1ArmsWaistActlatFM1000DemosDataConfig(),
@@ -4316,4 +4423,5 @@ DATA_CONFIG_MAP = {
     "dexjoco_dual_arm": DexJoCoDualArmDataConfig(),
     "dexjoco_dual_arm_front": DexJoCoDualArmFrontDataConfig(),
     "gr1_actionnet": Gr1ActionnetDataConfig(),
+    "human_egodex_camera_hand_unit": EgoDexCameraHandUnitDataConfig(),
 }

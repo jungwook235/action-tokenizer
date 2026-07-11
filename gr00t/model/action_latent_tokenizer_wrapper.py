@@ -459,13 +459,19 @@ class ActionLatentTokenizerWrapper(nn.Module):
             else None
         )
 
+        # Per-embodiment (data-type) class token: present only when the (joint) tokenizer
+        # was trained with it and remapped for this embodiment. Self-describing from the
+        # state_dict; absent → standard V4, byte-identical rebuild.
+        use_embodiment_class_token = "encoder.embodiment_class_token" in state_dict
+
         print(
             f"[timewise_v4] action_dim={action_dim}, action_horizon={action_horizon}, "
             f"emb_dim={emb_dim}, token_dim={token_dim}, dino_dim={dino_dim}, "
             f"fusion_width={fusion_width}, fusion_depth={fusion_depth}, "
             f"enc_depth={enc_depth}, dec_depth={dec_depth}, decoder_mode={decoder_mode}, "
             f"num_global={num_global}, num_hand={num_hand}, use_vae={use_vae}, "
-            f"action_proj_mlp={action_proj_mlp}, action_proj_hidden={action_proj_hidden}"
+            f"action_proj_mlp={action_proj_mlp}, action_proj_hidden={action_proj_hidden}, "
+            f"use_embodiment_class_token={use_embodiment_class_token}"
         )
 
         encoder = TimeWiseEncoderV4(
@@ -485,6 +491,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
             use_vae=use_vae,
             action_proj_mlp=action_proj_mlp,
             action_proj_hidden=action_proj_hidden,
+            use_embodiment_class_token=use_embodiment_class_token,
         )
 
         recon_decoder = ReconDecoderV4(

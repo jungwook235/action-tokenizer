@@ -287,6 +287,13 @@ class ArgsConfig:
     # ── DINO decoder ──
     dino_decoder_depth: int = 12
 
+    # ── Per-embodiment (data-type) class token ──
+    # When True, a learnable [dino_dim] class token per JSON ``class_token_id`` is
+    # prepended to the DINO features entering the shared fusion + DINO decoder, so the
+    # shared modules can condition on the data type. Requires ``class_token_id`` in every
+    # embodiment group. Default False = byte-identical to the original behavior.
+    use_embodiment_class_token: bool = False
+
     # ── Loss ──
     lambda_recon: float = 1.0
     lambda_dino: float = 1.0
@@ -450,16 +457,25 @@ def _load_embodiment_groups(config: ArgsConfig):
         # action_dim / action_horizon from a sample
         sample = train_ds[0]
         action_horizon, action_dim = sample["action"].shape
-        embodiment_specs.append({"name": name, "action_dim": int(action_dim),
-                                 "action_horizon": int(action_horizon)})
+        spec_entry = {"name": name, "action_dim": int(action_dim),
+                      "action_horizon": int(action_horizon)}
+        if config.use_embodiment_class_token:
+            assert "class_token_id" in g, (
+                f"[{name}] class_token_id is required in the embodiments JSON when "
+                f"--use-embodiment-class-token is set."
+            )
+            spec_entry["class_token_id"] = int(g["class_token_id"])
+        embodiment_specs.append(spec_entry)
 
         train_wrapped.append(EmbodimentTaggedDataset(train_ds, name))
         val_wrapped.append(EmbodimentTaggedDataset(val_ds, name))
         train_group_sizes.append(len(train_ds))
         group_weights.append(weight)
+        ct_label = (f" class_token_id={spec_entry['class_token_id']}"
+                    if config.use_embodiment_class_token else "")
         print(f"[group:{name}] {desc} action_dim={action_dim} "
               f"action_horizon={action_horizon} train={len(train_ds)} val={len(val_ds)} "
-              f"weight={weight} ({len(paths)} path(s)) dino_feats={feats_label}")
+              f"weight={weight} ({len(paths)} path(s)) dino_feats={feats_label}{ct_label}")
 
     # all embodiments must share action_horizon
     horizons = {s["action_horizon"] for s in embodiment_specs}
@@ -512,6 +528,7 @@ def _build_model(config: ArgsConfig, embodiment_specs, action_horizon):
         vggt_model=config.vggt_model,
         vggt_final_norm=config.vggt_final_norm,
         dino_final_norm=config.dino_final_norm,
+        use_embodiment_class_token=config.use_embodiment_class_token,
     )
 
 
@@ -608,7 +625,23 @@ def main(config: ArgsConfig):
         os.environ["WANDB_PROJECT"] = config.wandb_project
         os.environ["WANDB_DIR"] = config.output_dir
 
-    trainer.train(resume_from_checkpoint=config.resume)
+    # --resume should be a no-op when there is no checkpoint yet: HF Trainer
+    # raises if resume_from_checkpoint=True but output_dir has no checkpoint.
+    resume_from_checkpoint = config.resume
+    if config.resume:
+        last_checkpoint = transformers.trainer_utils.get_last_checkpoint(
+            config.output_dir
+        ) if os.path.isdir(config.output_dir) else None
+        if last_checkpoint is None:
+            print(
+                f"[resume] no checkpoint found in {config.output_dir}; "
+                "starting from scratch."
+            )
+            resume_from_checkpoint = False
+        else:
+            print(f"[resume] resuming from {last_checkpoint}")
+
+    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
     rank = int(os.environ.get("RANK", 0))
     if rank == 0:
@@ -646,6 +679,7 @@ def main(config: ArgsConfig):
                     "recon_loss_type": config.recon_loss_type,
                     "dino_loss_type": config.dino_loss_type,
                     "image_size": config.image_size,
+                    "use_embodiment_class_token": config.use_embodiment_class_token,
                 },
             },
             save_path,

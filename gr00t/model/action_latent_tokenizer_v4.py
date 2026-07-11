@@ -378,6 +378,7 @@ class TimeWiseEncoderV4(nn.Module):
         kl_free_bits: float = 0.0,
         action_proj_mlp: bool = False,
         action_proj_hidden: Optional[int] = None,
+        use_embodiment_class_token: bool = False,
     ):
         super().__init__()
         self.action_dim = action_dim
@@ -387,6 +388,16 @@ class TimeWiseEncoderV4(nn.Module):
         self.dino_dim = dino_dim
         self.num_global_tokens = num_global_tokens
         self.num_hand_tokens = num_hand_tokens
+
+        # ---- per-embodiment (data-type) class token (opt-in; Stage-2 side) ----
+        # Set for tokenizers trained (jointly) with per-embodiment class tokens. At
+        # Stage-2 this holds THIS embodiment's single [dino_dim] token (loaded from the
+        # remapped checkpoint as a frozen buffer) and is prepended to ``dino_diff``
+        # before the fusion encoder, matching Stage-1. Default False registers no
+        # buffer, so the state_dict stays byte-identical to standard V4 checkpoints.
+        self.use_embodiment_class_token = bool(use_embodiment_class_token)
+        if self.use_embodiment_class_token:
+            self.register_buffer("embodiment_class_token", torch.zeros(dino_dim))
 
         # ---- SD-style VAE bottleneck (opt-in) ----
         # When ``use_vae`` is False this branch adds NO parameters/buffers and the
@@ -454,6 +465,14 @@ class TimeWiseEncoderV4(nn.Module):
 
         g256, t256, h256 = self.action_encoder(actions)          # [B,*,256]
         act_tokens = torch.cat([g256, t256, h256], dim=1)         # [B, Ng+T+Nh, 256]
+
+        if self.use_embodiment_class_token:
+            # Prepend the data-type class token as an extra dino_dim patch. It lands in
+            # the discarded (visual) half of the fusion output, so the kept action-token
+            # positions below are unchanged in shape.
+            ct = self.embodiment_class_token.to(dtype=dino_diff.dtype)  # [dino_dim]
+            ct = ct.view(1, 1, -1).expand(dino_diff.shape[0], 1, -1)    # [B,1,dino_dim]
+            dino_diff = torch.cat([ct, dino_diff], dim=1)               # [B,1+Lp,dino_dim]
 
         tokens_out, _ = self.joint(x=dino_diff, tokens=act_tokens)  # [B, Ng+T+Nh, 64]
 
