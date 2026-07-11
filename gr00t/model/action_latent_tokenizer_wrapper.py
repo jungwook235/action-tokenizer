@@ -446,6 +446,13 @@ class ActionLatentTokenizerWrapper(nn.Module):
         # encoder has a logvar_head and ``encode`` returns a reparameterized sample z;
         # token_dim (= out_layer width) is unchanged, so downstream shapes match.
         use_vae = "_is_vae" in state_dict
+        # VAE sampling toggle. The ``_vae_no_sample`` marker is registered only when a
+        # VAE tokenizer was trained with sampling disabled (encode returns μ). Absent
+        # ⇒ sampling ON (the default), so ordinary VAE checkpoints rebuild unchanged.
+        # Rebuilding with the matching flag makes Stage-2 latent targets / inference
+        # deterministic exactly when the tokenizer was, and keeps the strict load
+        # consistent (the encoder re-registers the same marker set).
+        vae_sample = "_vae_no_sample" not in state_dict
 
         # Optional 2-layer MLP action-token projection (fusion ``token_proj``). Self-
         # describing from the state_dict: a single Linear stores ``encoder.joint.
@@ -470,6 +477,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
             f"fusion_width={fusion_width}, fusion_depth={fusion_depth}, "
             f"enc_depth={enc_depth}, dec_depth={dec_depth}, decoder_mode={decoder_mode}, "
             f"num_global={num_global}, num_hand={num_hand}, use_vae={use_vae}, "
+            f"vae_sample={vae_sample}, "
             f"action_proj_mlp={action_proj_mlp}, action_proj_hidden={action_proj_hidden}, "
             f"use_embodiment_class_token={use_embodiment_class_token}"
         )
@@ -489,6 +497,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
             fusion_heads=fusion_heads,
             token_dim=token_dim,
             use_vae=use_vae,
+            vae_sample=vae_sample,
             action_proj_mlp=action_proj_mlp,
             action_proj_hidden=action_proj_hidden,
             use_embodiment_class_token=use_embodiment_class_token,

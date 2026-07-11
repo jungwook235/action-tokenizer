@@ -290,7 +290,15 @@ class ArgsConfig:
     #   matching SD latent-diffusion). lambda_kl weights KL(N(0,I)); SD uses a tiny
     #   KL (~1e-6). kl_free_bits floors per-dim KL (0 = off).
     use_vae: bool = False
+    # Sampling toggle for the VAE bottleneck (only meaningful with --use-vae).
+    # True (default) → reparameterize z = μ + σ·ε (existing behavior). Pass
+    # --no-vae-sample to keep the full VAE (logvar head + KL) but return the
+    # posterior mean μ instead of a sample. The choice is baked into the checkpoint
+    # (a _vae_no_sample marker) so Stage-2 latent targets / inference inherit it.
+    vae_sample: bool = True
+    # KL(N(0,I)) weight (SD regime ~1e-6); ignored when use_vae=False.
     lambda_kl: float = 1e-6
+    # Per-dim KL free-bits floor (0 = off); ignored when use_vae=False.
     kl_free_bits: float = 0.0
 
     # ── Action-token projection (fusion) ──
@@ -364,6 +372,7 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         fusion_heads=config.fusion_heads,
         token_dim=config.token_dim,
         use_vae=config.use_vae,
+        vae_sample=config.vae_sample,
         kl_free_bits=config.kl_free_bits,
         action_proj_mlp=config.action_proj_mlp,
         action_proj_hidden=config.action_proj_hidden,
@@ -612,7 +621,27 @@ def main(config: ArgsConfig):
         os.environ["WANDB_PROJECT"] = config.wandb_project
         os.environ["WANDB_DIR"] = config.output_dir
 
-    trainer.train(resume_from_checkpoint=config.resume)
+    # Resolve --resume gracefully: only resume if a checkpoint actually exists.
+    # transformers.Trainer raises ValueError when resume_from_checkpoint=True but
+    # output_dir has no checkpoint (e.g. the very first run), so fall back to
+    # training from scratch in that case.
+    resume_from_checkpoint = False
+    if config.resume:
+        from transformers.trainer_utils import get_last_checkpoint
+
+        last_ckpt = None
+        if os.path.isdir(config.output_dir):
+            last_ckpt = get_last_checkpoint(config.output_dir)
+        if last_ckpt is not None:
+            print(f"[resume] Resuming from checkpoint: {last_ckpt}")
+            resume_from_checkpoint = last_ckpt
+        else:
+            print(
+                f"[resume] --resume set but no checkpoint found in "
+                f"'{config.output_dir}'; starting training from scratch."
+            )
+
+    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
     rank = int(os.environ.get("RANK", 0))
     if rank == 0:
@@ -647,6 +676,7 @@ def main(config: ArgsConfig):
                     "lambda_dino": config.lambda_dino,
                     "lambda_kl": config.lambda_kl,
                     "use_vae": config.use_vae,
+                    "vae_sample": config.vae_sample,
                     "kl_free_bits": config.kl_free_bits,
                     "action_proj_mlp": config.action_proj_mlp,
                     "action_proj_hidden": config.action_proj_hidden,

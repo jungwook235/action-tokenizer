@@ -375,6 +375,7 @@ class TimeWiseEncoderV4(nn.Module):
         fusion_heads: int = 16,
         token_dim: int = 64,
         use_vae: bool = False,
+        vae_sample: bool = True,
         kl_free_bits: float = 0.0,
         action_proj_mlp: bool = False,
         action_proj_hidden: Optional[int] = None,
@@ -408,6 +409,13 @@ class TimeWiseEncoderV4(nn.Module):
         # ``out_layer`` is unchanged (still → token_dim), so latent dim / decoder /
         # downstream shapes are all unaffected.
         self.use_vae = bool(use_vae)
+        # Sampling toggle (only meaningful when use_vae). True (default) → the
+        # encoder reparameterizes z = μ + σ·ε (existing behavior, byte-identical
+        # path). False → the encoder returns the posterior mean μ directly
+        # (deterministic latent) while STILL computing KL, so the logvar head keeps
+        # training and stays in the graph (DDP-safe). Stored as a plain attribute
+        # (not a buffer) so the ON default leaves the state_dict unchanged.
+        self.vae_sample = bool(vae_sample)
         self.kl_free_bits = float(kl_free_bits)
         self.kl_logvar_min = -8.0
         self.kl_logvar_max = 8.0
@@ -477,13 +485,20 @@ class TimeWiseEncoderV4(nn.Module):
         tokens_out, _ = self.joint(x=dino_diff, tokens=act_tokens)  # [B, Ng+T+Nh, 64]
 
         if self.use_vae:
-            # SD-style VAE: fusion output = posterior mean μ; reparameterize z.
-            # Sampling runs whenever use_vae is set (including frozen/eval) so the
-            # VLA target is a sample z, matching SD latent-diffusion practice.
+            # SD-style VAE: fusion output = posterior mean μ. When ``vae_sample`` is
+            # True (default) reparameterize z = μ + σ·ε (runs in train/frozen/eval
+            # alike, so the VLA target is a sample z, matching SD latent-diffusion
+            # practice). When False, return μ directly (deterministic latent). Either
+            # way KL is still computed below, so the logvar head keeps training and
+            # stays in the graph (DDP-safe). The choice is recorded as a checkpoint
+            # marker so Stage-2 / inference inherit it identically.
             mu = tokens_out
             logvar = self.logvar_head(mu).clamp(self.kl_logvar_min, self.kl_logvar_max)
-            std = torch.exp(0.5 * logvar)
-            tokens_out = mu + torch.randn_like(std) * std
+            if self.vae_sample:
+                std = torch.exp(0.5 * logvar)
+                tokens_out = mu + torch.randn_like(std) * std
+            else:
+                tokens_out = mu
             # Per-dim KL to N(0,I), averaged over batch+tokens; optional free-bits
             # floors each dim so it cannot collapse below the budget.
             kl_dim = -0.5 * (1.0 + logvar - mu.pow(2) - logvar.exp())  # [B,N,token_dim]
@@ -665,6 +680,10 @@ class ActionLatentTokenizerV4(nn.Module):
         # (with logvar_head). When unset, NO buffer is registered → state_dict stays
         # byte-identical to the deterministic V4.
         self.use_vae = bool(getattr(encoder, "use_vae", False))
+        # Whether the VAE encoder reparameterizes (True, default) or returns μ
+        # (False). Mirrored from the encoder; recorded below only when disabled so
+        # the ON default keeps the state_dict byte-identical to existing VAE ckpts.
+        self.vae_sample = bool(getattr(encoder, "vae_sample", True))
 
         self.dino_terms = self._parse_dino_loss_type(dino_loss_type)
         w = {"l1": 1.0, "mse": 1.0, "cosine": 1.0}
@@ -683,6 +702,13 @@ class ActionLatentTokenizerV4(nn.Module):
         # VAE detection marker (only when enabled → off-path state_dict unchanged).
         if self.use_vae:
             self.register_buffer("_is_vae", torch.tensor(True))
+            # Sampling-off marker. Registered ONLY when a VAE tokenizer disables
+            # sampling (returns μ). Absence ⇒ sampling ON (the default), so ordinary
+            # VAE checkpoints stay byte-identical and load strict without injection.
+            # The inference wrapper reads this to rebuild the matching encoder, so
+            # Stage-2 latent targets and any tokenizer inference use μ consistently.
+            if not self.vae_sample:
+                self.register_buffer("_vae_no_sample", torch.tensor(True))
 
         # Visual feature source. Default "dino" registers NO extra buffers, so the
         # state_dict / forward of DINO-trained models is byte-identical to before.

@@ -761,6 +761,14 @@ class SinglePandaGripperDataConfig(BimanualPandaGripperDataConfig):
 
         return ComposedModalityTransform(transforms=transforms)
 
+class SinglePandaGripperFrontDataConfig(SinglePandaGripperDataConfig):
+    """Single-camera (front) variant of dexjoco_dual_arm for the V4 action-latent
+    tokenizer, which is hard-pinned to one camera (dataset_action_frames_v4.py
+    asserts len(video_keys) == 1). State/action/language keys are inherited
+    unchanged; only the video modality is narrowed to video.front. The Stage-2
+    VLA training keeps using the full 3-camera dexjoco_dual_arm config."""
+    video_keys = ["video.left_view"]
+
 
 class SinglePandaGripperFLAREDataConfig(BimanualPandaGripperDataConfig):
     video_keys = [
@@ -822,7 +830,7 @@ class SinglePandaGripperActlatFMDataConfig(SinglePandaGripperDataConfig):
     나머지 속성은 모두 부모 상속. Tokenizer pretransform 이 이 속성들을 respect 하므로
     VLA 와 동일한 action/state 표현으로 aux loss 학습.
     """
-
+    tokenizer_frame_video_key = "video.left_view"
     def transform(self):
         transforms = [
             VideoToTensor(apply_to=self.video_keys),
@@ -4384,6 +4392,7 @@ DATA_CONFIG_MAP = {
     "bimanual_panda_gripper": BimanualPandaGripperDataConfig(),
     "bimanual_panda_hand": BimanualPandaHandDataConfig(),
     "single_panda_gripper": SinglePandaGripperDataConfig(),
+    "single_panda_gripper_front": SinglePandaGripperFrontDataConfig(),
     "single_panda_gripper_actlat_fm": SinglePandaGripperActlatFMDataConfig(),
     "so100": So100DataConfig(),
     "so100_dualcam": So100DualCamDataConfig(),
