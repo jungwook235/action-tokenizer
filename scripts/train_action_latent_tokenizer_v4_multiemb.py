@@ -221,7 +221,7 @@ class MultiEmbActionLatentV4Trainer(transformers.Trainer):
                     actions = g["action"].to(device=x0_feat.device, dtype=dtype)
                     time_tok, _ = core.encode(name, actions, x0_feat, x1_feat)
                     preds = core.decode(name, time_tok)
-                    pred_x1 = core.decode_dino(time_tok, x0_feat.to(dtype=time_tok.dtype))
+                    pred_x1 = core.decode_dino(time_tok, x0_feat.to(dtype=time_tok.dtype), name=name)
 
                     B = actions.shape[0]
                     a = acc.setdefault(name, {"mse": 0.0, "l1": 0.0, "dino_l1": 0.0, "dino_cos": 0.0, "n": 0})
