@@ -294,6 +294,21 @@ class ArgsConfig:
     # embodiment group. Default False = byte-identical to the original behavior.
     use_embodiment_class_token: bool = False
 
+    # ── Tokenizer finetuning (add a NEW embodiment to a pretrained joint tokenizer) ──
+    # All default-off → byte-identical to a normal joint-training run. When
+    # ``tokenizer_finetuning_mode`` is True, the model is built with the (new) embodiment(s)
+    # in ``embodiments_config``, then the pretrained checkpoint at
+    # ``finetuning_pretrained_path`` is loaded with strict=False: shared fusion + DINO
+    # decoder + any shared embodiments load; the new embodiment's action encoder/decoder
+    # stay randomly-init'd. ``new_class_token`` (>0) adds that many NEW learnable embodiment
+    # class tokens (see model). ``finetuning_freeze_mode`` freezes every param that WAS in
+    # the pretrained checkpoint, leaving only the newly-added params (new enc/dec + new class
+    # tokens) trainable.
+    tokenizer_finetuning_mode: bool = False
+    finetuning_freeze_mode: bool = False
+    new_class_token: int = 0
+    finetuning_pretrained_path: Optional[str] = None
+
     # ── Loss ──
     lambda_recon: float = 1.0
     lambda_dino: float = 1.0
@@ -494,7 +509,35 @@ def _load_embodiment_groups(config: ArgsConfig):
 # =====================================================================
 
 
-def _build_model(config: ArgsConfig, embodiment_specs, action_horizon):
+def _load_pretrained_state_dict(path: str, device: str = "cpu") -> dict:
+    """Load a pretrained joint-tokenizer state_dict for finetuning.
+
+    Accepts an HF Trainer checkpoint dir (model.safetensors / pytorch_model.bin) or a raw
+    .pt file (``model_state_dict`` / ``state_dict`` / bare dict). Mirrors the resolution in
+    ``ActionLatentTokenizerWrapper.from_checkpoint``.
+    """
+    if os.path.isdir(path):
+        safetensors_path = os.path.join(path, "model.safetensors")
+        pt_path = os.path.join(path, "pytorch_model.bin")
+        if os.path.exists(safetensors_path):
+            from safetensors.torch import load_file
+
+            return load_file(safetensors_path, device=device)
+        if os.path.exists(pt_path):
+            return torch.load(pt_path, map_location=device, weights_only=False)
+        raise FileNotFoundError(
+            f"No model.safetensors or pytorch_model.bin found in {path}"
+        )
+    ckpt = torch.load(path, map_location=device, weights_only=False)
+    if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
+        return ckpt["model_state_dict"]
+    if isinstance(ckpt, dict) and "state_dict" in ckpt:
+        return ckpt["state_dict"]
+    return ckpt
+
+
+def _build_model(config: ArgsConfig, embodiment_specs, action_horizon,
+                 num_pretrain_class_tokens: int = 0):
     return MultiEmbActionLatentTokenizerV4(
         embodiment_specs=embodiment_specs,
         action_horizon=action_horizon,
@@ -529,6 +572,9 @@ def _build_model(config: ArgsConfig, embodiment_specs, action_horizon):
         vggt_final_norm=config.vggt_final_norm,
         dino_final_norm=config.dino_final_norm,
         use_embodiment_class_token=config.use_embodiment_class_token,
+        tokenizer_finetuning_mode=config.tokenizer_finetuning_mode,
+        new_class_token=config.new_class_token,
+        num_pretrain_class_tokens=num_pretrain_class_tokens,
     )
 
 
@@ -538,11 +584,71 @@ def _build_model(config: ArgsConfig, embodiment_specs, action_horizon):
 
 
 def main(config: ArgsConfig):
+    # Finetuning-mode arg validation (no-op off the finetuning path).
+    if config.tokenizer_finetuning_mode:
+        assert config.finetuning_pretrained_path, (
+            "tokenizer_finetuning_mode requires --finetuning-pretrained-path "
+            "(the pretrained joint tokenizer checkpoint to adapt)."
+        )
+    if config.finetuning_freeze_mode:
+        assert config.tokenizer_finetuning_mode, (
+            "finetuning_freeze_mode requires tokenizer_finetuning_mode."
+        )
+
     (train_dataset, val_dataset, embodiment_specs, train_group_sizes,
      group_weights, any_weight_set) = _load_embodiment_groups(config)
 
     action_horizon = embodiment_specs[0]["action_horizon"]
-    model = _build_model(config, embodiment_specs, action_horizon)
+
+    # Finetuning: read the pretrained checkpoint up front so the model's base class-token
+    # parameter is sized to match (loads strict), and to compute the new-param set below.
+    pretrained_sd = None
+    num_pretrain_class_tokens = 0
+    if config.tokenizer_finetuning_mode:
+        pretrained_sd = _load_pretrained_state_dict(config.finetuning_pretrained_path)
+        if config.use_embodiment_class_token:
+            assert "embodiment_class_token" in pretrained_sd, (
+                "finetuning with --use-embodiment-class-token requires "
+                "'embodiment_class_token' in the pretrained checkpoint."
+            )
+            num_pretrain_class_tokens = int(pretrained_sd["embodiment_class_token"].shape[0])
+
+    model = _build_model(config, embodiment_specs, action_horizon, num_pretrain_class_tokens)
+
+    # Whether HF will resume from an existing finetuning checkpoint in output_dir (in which
+    # case that checkpoint — already carrying the new params — is loaded by trainer.train,
+    # so we must NOT overwrite it with the pretrained weights here).
+    is_resuming = bool(
+        config.resume
+        and os.path.isdir(config.output_dir)
+        and transformers.trainer_utils.get_last_checkpoint(config.output_dir) is not None
+    )
+
+    if config.tokenizer_finetuning_mode:
+        # New params = model params absent from the pretrained checkpoint (new embodiment's
+        # action encoder/decoder + finetuning_class_token). Everything else must be shared /
+        # loadable; a shared param going "missing" signals a config mismatch → fail loud.
+        new_param_names = [n for n, _ in model.named_parameters() if n not in pretrained_sd]
+        for n in new_param_names:
+            assert n.startswith(("action_encoders.", "recon_decoders.")) or n == "finetuning_class_token", (
+                f"[finetune] unexpected new (missing-from-checkpoint) param {n!r}; the "
+                f"pretrained checkpoint likely has a different config (fusion/decoder/etc.)."
+            )
+        if not is_resuming:
+            missing, unexpected = model.load_state_dict(pretrained_sd, strict=False)
+            print(f"[finetune] loaded pretrained weights from {config.finetuning_pretrained_path}")
+            print(f"[finetune] new trainable params ({len(new_param_names)} tensors): {new_param_names}")
+            print(f"[finetune] skipped {len(unexpected)} unexpected (other-embodiment) checkpoint keys")
+        else:
+            print(f"[finetune] resuming finetuning checkpoint in {config.output_dir}; "
+                  "skipping pretrained load (HF resume restores all params).")
+        if config.finetuning_freeze_mode:
+            trainable = set(new_param_names)
+            for n, p in model.named_parameters():
+                p.requires_grad = n in trainable
+            print(f"[finetune] freeze mode ON: only {len(trainable)} newly-added param "
+                  "tensors train; all pretrained/shared modules frozen.")
+
     total_params = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Total params: {total_params:,} | Trainable: {trainable:,}")
@@ -680,6 +786,11 @@ def main(config: ArgsConfig):
                     "dino_loss_type": config.dino_loss_type,
                     "image_size": config.image_size,
                     "use_embodiment_class_token": config.use_embodiment_class_token,
+                    "tokenizer_finetuning_mode": config.tokenizer_finetuning_mode,
+                    "finetuning_freeze_mode": config.finetuning_freeze_mode,
+                    "new_class_token": config.new_class_token,
+                    "num_pretrain_class_tokens": num_pretrain_class_tokens,
+                    "finetuning_pretrained_path": config.finetuning_pretrained_path,
                 },
             },
             save_path,

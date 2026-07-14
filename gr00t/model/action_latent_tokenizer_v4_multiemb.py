@@ -82,6 +82,9 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         vggt_final_norm: str = "none",
         dino_final_norm: str = "affine",
         use_embodiment_class_token: bool = False,
+        tokenizer_finetuning_mode: bool = False,
+        new_class_token: int = 0,
+        num_pretrain_class_tokens: int = 0,
     ):
         super().__init__()
         assert len(embodiment_specs) >= 1, "need at least one embodiment"
@@ -189,6 +192,31 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         # embodiments JSON (groups may share a token by reusing an id). When disabled
         # (default) NO params/buffers are registered → state_dict is byte-identical to
         # before and the forward path is unchanged.
+        # ---- tokenizer finetuning mode (opt-in; adds a NEW embodiment to a
+        # pretrained joint tokenizer) ----
+        # When enabled the per-embodiment action encoder/decoder for a new embodiment
+        # (built above from ``embodiment_specs``) are trained on top of a loaded
+        # pretrained checkpoint (the shared fusion + DINO decoder + old embodiments load
+        # via ``load_state_dict(strict=False)``; the new enc/dec stay randomly-init'd).
+        # ``new_class_token`` (>0) adds that many NEW learnable class tokens in a SEPARATE
+        # ``finetuning_class_token`` parameter (so the base ``embodiment_class_token`` keeps
+        # its pretrained name/shape and loads strict, and a freeze can target only the new
+        # rows). ``num_pretrain_class_tokens`` (= rows in the pretrained
+        # ``embodiment_class_token``) is the boundary between base and finetuning ids.
+        # Default (False/0) is byte-identical to the original construction below.
+        self.tokenizer_finetuning_mode = bool(tokenizer_finetuning_mode)
+        self.new_class_token = int(new_class_token)
+        self.num_pretrain_class_tokens = int(num_pretrain_class_tokens)
+        assert self.new_class_token >= 0, "new_class_token must be >= 0"
+        if self.new_class_token > 0:
+            assert use_embodiment_class_token, (
+                "new_class_token > 0 requires use_embodiment_class_token=True "
+                "(new class tokens ARE embodiment class tokens)."
+            )
+            assert self.tokenizer_finetuning_mode, (
+                "new_class_token > 0 is only valid in tokenizer_finetuning_mode."
+            )
+
         self.use_embodiment_class_token = bool(use_embodiment_class_token)
         if self.use_embodiment_class_token:
             class_token_ids = {}
@@ -202,10 +230,39 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
                 assert cid >= 0, f"[{nm}] class_token_id must be >= 0; got {cid}"
                 class_token_ids[nm] = cid
             self.class_token_ids = class_token_ids
-            num_class_tokens = max(class_token_ids.values()) + 1
-            self.embodiment_class_token = nn.Parameter(
-                torch.randn(num_class_tokens, dino_dim) * 0.02
-            )
+
+            if self.tokenizer_finetuning_mode:
+                # Base param sized to the pretrained token count so its key loads strict;
+                # new ids (>= base) live in a separate learnable ``finetuning_class_token``.
+                base_n = self.num_pretrain_class_tokens
+                assert base_n >= 1, (
+                    "tokenizer_finetuning_mode with class tokens requires "
+                    "num_pretrain_class_tokens >= 1 (read it from the pretrained checkpoint)."
+                )
+                total = base_n + self.new_class_token
+                max_cid = max(class_token_ids.values())
+                assert max_cid < total, (
+                    f"class_token_id {max_cid} out of range: base={base_n} + "
+                    f"new_class_token={self.new_class_token} = {total} slots."
+                )
+                for nm, cid in class_token_ids.items():
+                    if cid >= base_n:
+                        assert self.new_class_token > 0, (
+                            f"[{nm}] class_token_id={cid} >= num_pretrain_class_tokens="
+                            f"{base_n} requires new_class_token > 0."
+                        )
+                self.embodiment_class_token = nn.Parameter(
+                    torch.randn(base_n, dino_dim) * 0.02
+                )
+                if self.new_class_token > 0:
+                    self.finetuning_class_token = nn.Parameter(
+                        torch.randn(self.new_class_token, dino_dim) * 0.02
+                    )
+            else:
+                num_class_tokens = max(class_token_ids.values()) + 1
+                self.embodiment_class_token = nn.Parameter(
+                    torch.randn(num_class_tokens, dino_dim) * 0.02
+                )
             # Buffers so remap_to_single_embodiment (which only sees the state_dict) can
             # resolve name → id and slice out the right row for Stage-2.
             self.register_buffer("_use_emb_class_token", torch.tensor(True))
@@ -270,11 +327,26 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
 
     # ---- encode / decode (single embodiment per call) ----
 
+    def _class_token_row(self, name: str) -> torch.Tensor:
+        """Return ``name``'s [dino_dim] class-token row.
+
+        Finetuning ids at/above ``num_pretrain_class_tokens`` come from the separate
+        ``finetuning_class_token`` parameter; everything else from the base
+        ``embodiment_class_token``. Off the finetuning path this is exactly
+        ``embodiment_class_token[cid]``."""
+        cid = self.class_token_ids[name]
+        if (
+            self.tokenizer_finetuning_mode
+            and self.new_class_token > 0
+            and cid >= self.num_pretrain_class_tokens
+        ):
+            return self.finetuning_class_token[cid - self.num_pretrain_class_tokens]
+        return self.embodiment_class_token[cid]
+
     def _prepend_class_token(self, name: str, x: torch.Tensor) -> torch.Tensor:
         """Prepend ``name``'s learnable data-type class token as an extra
         ``dino_dim``-channel patch: [B,Lp,dino_dim] → [B,1+Lp,dino_dim]."""
-        cid = self.class_token_ids[name]
-        ct = self.embodiment_class_token[cid].to(dtype=x.dtype)   # [dino_dim]
+        ct = self._class_token_row(name).to(dtype=x.dtype)       # [dino_dim]
         ct = ct.view(1, 1, -1).expand(x.shape[0], 1, -1)          # [B,1,dino_dim]
         return torch.cat([ct, x], dim=1)
 
@@ -409,6 +481,10 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         pfx_rd = f"recon_decoders.{name}."
 
         # Per-embodiment class token → single-embodiment encoder buffer.
+        # Finetuning checkpoints keep the pretrained ``embodiment_class_token`` (base rows)
+        # plus a separate ``finetuning_class_token`` (new rows). Ids at/above the base row
+        # count resolve into the finetuning parameter; the emitted single row is identical
+        # in shape/meaning either way, so Stage-2 stays unchanged.
         emb_class_token = None
         if "_use_emb_class_token" in state_dict:
             id_key = f"_class_token_id__{name}"
@@ -416,7 +492,11 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
                 f"class-token checkpoint missing {id_key!r} for embodiment {name!r}"
             )
             cid = int(state_dict[id_key].item())
-            emb_class_token = state_dict["embodiment_class_token"][cid].clone()
+            base_n = state_dict["embodiment_class_token"].shape[0]
+            if "finetuning_class_token" in state_dict and cid >= base_n:
+                emb_class_token = state_dict["finetuning_class_token"][cid - base_n].clone()
+            else:
+                emb_class_token = state_dict["embodiment_class_token"][cid].clone()
 
         out: dict = {}
         found = False
