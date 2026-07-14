@@ -253,14 +253,19 @@ class GR00T_N1_5(PreTrainedModel):
         return backbone_inputs, action_inputs
 
     @classmethod
-    def _load_tokenizer(cls, actlat_tokenizer_path, actlat_target_tokens="all", embodiment_id=None):
+    def _load_tokenizer(cls, actlat_tokenizer_path, actlat_target_tokens="all", embodiment_id=None,
+                        vae_sample_override=None):
         """Load tokenizer and query dimensions.
 
         ``embodiment_id`` selects one embodiment when the checkpoint is a
         multi-embodiment joint V4 tokenizer; None for ordinary checkpoints.
+        ``vae_sample_override`` (None/True/False) forces the VAE sampling behavior of
+        the latent target regardless of the checkpoint marker; None = use the
+        checkpoint's setting.
         """
         tokenizer = ActionLatentTokenizerWrapper.from_checkpoint(
-            actlat_tokenizer_path, embodiment_id=embodiment_id
+            actlat_tokenizer_path, embodiment_id=embodiment_id,
+            vae_sample_override=vae_sample_override,
         )
         latent_dim = tokenizer.emb_dim
         num_tokens = tokenizer.get_num_tokens(actlat_target_tokens)
@@ -297,6 +302,9 @@ class GR00T_N1_5(PreTrainedModel):
         actlat_tokenizer_path = kwargs.pop("actlat_tokenizer_path", None)
         actlat_target_tokens = kwargs.pop("actlat_target_tokens", "all")
         actlat_embodiment_id = kwargs.pop("actlat_embodiment_id", None)
+        # Force deterministic-mu latent target regardless of the tokenizer's checkpoint
+        # marker (None/False here → use the checkpoint setting).
+        actlat_vae_no_sample = kwargs.pop("actlat_vae_no_sample", False)
 
         # Resolve model path
         try:
@@ -311,7 +319,8 @@ class GR00T_N1_5(PreTrainedModel):
         num_tokens = 16
         if actlat_tokenizer_path is not None:
             tokenizer, latent_dim, num_tokens = cls._load_tokenizer(
-                actlat_tokenizer_path, actlat_target_tokens, embodiment_id=actlat_embodiment_id
+                actlat_tokenizer_path, actlat_target_tokens, embodiment_id=actlat_embodiment_id,
+                vae_sample_override=(False if actlat_vae_no_sample else None),
             )
 
         # Build action head config updates
@@ -435,6 +444,9 @@ class GR00T_N1_5(PreTrainedModel):
         actlat_tokenizer_path = kwargs.pop("actlat_tokenizer_path", None)
         actlat_target_tokens = kwargs.pop("actlat_target_tokens", "all")
         actlat_embodiment_id = kwargs.pop("actlat_embodiment_id", None)
+        # Force deterministic-mu latent target regardless of the tokenizer's checkpoint
+        # marker (None/False here → use the checkpoint setting).
+        actlat_vae_no_sample = kwargs.pop("actlat_vae_no_sample", False)
 
         try:
             local_model_path = snapshot_download(pretrained_model_name_or_path, repo_type="model")
@@ -456,7 +468,8 @@ class GR00T_N1_5(PreTrainedModel):
         tokenizer = None
         if actlat_tokenizer_path is not None:
             tokenizer, latent_dim, num_tokens = cls._load_tokenizer(
-                actlat_tokenizer_path, actlat_target_tokens, embodiment_id=actlat_embodiment_id
+                actlat_tokenizer_path, actlat_target_tokens, embodiment_id=actlat_embodiment_id,
+                vae_sample_override=(False if actlat_vae_no_sample else None),
             )
             update_action_head_cfg["action_dim"] = latent_dim
             update_action_head_cfg["action_horizon"] = num_tokens

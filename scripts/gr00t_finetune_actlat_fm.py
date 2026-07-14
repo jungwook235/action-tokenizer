@@ -116,6 +116,12 @@ class ArgsConfig:
     actlat_target_tokens: str = "all"
     """Which tokens to use as target: 'time', 'global_time', 'time_hand', 'all'. (actlat_fm mode only)"""
 
+    actlat_vae_no_sample: bool = False
+    """If True, force the VAE tokenizer to produce a DETERMINISTIC posterior-mean (μ)
+    latent target, regardless of whether the tokenizer checkpoint was trained with
+    sampling. Default False = use the tokenizer checkpoint's own setting. Only affects
+    VAE tokenizers. (actlat_fm mode only)"""
+
     embodiment_id: str = ""
     """Which embodiment to select from a multi-embodiment joint V4 tokenizer
     checkpoint (matches the JSON 'name', e.g. 'gr1' / 'dexjoco'). Leave empty for
@@ -297,6 +303,7 @@ def _load_model(config: ArgsConfig, data_action_horizon: int, data_action_dim: i
             actlat_tokenizer_path=config.actlat_tokenizer_path if config.actlat_tokenizer_path else None,
             actlat_target_tokens=config.actlat_target_tokens,
             actlat_embodiment_id=config.embodiment_id if config.embodiment_id else None,
+            actlat_vae_no_sample=config.actlat_vae_no_sample,
         )
 
     return model
@@ -612,6 +619,7 @@ def main(config: ArgsConfig):
             "embodiment_tag": config.embodiment_tag,
             "actlat_tokenizer_path": config.actlat_tokenizer_path,
             "actlat_target_tokens": config.actlat_target_tokens,
+            "actlat_vae_no_sample": config.actlat_vae_no_sample,
             "embodiment_id": config.embodiment_id,
         }
         # Persist the normalization statistics actually applied (whole-mixture

@@ -320,6 +320,11 @@ class ArgsConfig:
 
     # ── VAE bottleneck ──
     use_vae: bool = False
+    # Sampling toggle (only meaningful with --use-vae). True (default) → encoder
+    # reparameterizes z = μ + σ·ε (existing behavior). --no-vae-sample → encoder returns μ
+    # (deterministic latent) while still computing KL. Recorded as a checkpoint marker only
+    # when disabled, so the ON default keeps VAE checkpoints byte-identical; Stage-2 inherits.
+    vae_sample: bool = True
     lambda_kl: float = 1e-6
     kl_free_bits: float = 0.0
 
@@ -554,6 +559,7 @@ def _build_model(config: ArgsConfig, embodiment_specs, action_horizon,
         fusion_heads=config.fusion_heads,
         dino_decoder_depth=config.dino_decoder_depth,
         use_vae=config.use_vae,
+        vae_sample=config.vae_sample,
         kl_free_bits=config.kl_free_bits,
         lambda_recon=config.lambda_recon,
         lambda_dino=config.lambda_dino,
@@ -607,11 +613,20 @@ def main(config: ArgsConfig):
     if config.tokenizer_finetuning_mode:
         pretrained_sd = _load_pretrained_state_dict(config.finetuning_pretrained_path)
         if config.use_embodiment_class_token:
-            assert "embodiment_class_token" in pretrained_sd, (
-                "finetuning with --use-embodiment-class-token requires "
-                "'embodiment_class_token' in the pretrained checkpoint."
+            # Base class-token count from the pretrained checkpoint. If the pretrained
+            # tokenizer had NO class tokens (base=0), every class token is newly added via
+            # finetuning_class_token — a prompt-tuning-style adaptation where the frozen
+            # fusion learns to attend to a brand-new learnable token. That requires
+            # --new-class-token > 0.
+            num_pretrain_class_tokens = int(
+                pretrained_sd["embodiment_class_token"].shape[0]
+                if "embodiment_class_token" in pretrained_sd else 0
             )
-            num_pretrain_class_tokens = int(pretrained_sd["embodiment_class_token"].shape[0])
+            if num_pretrain_class_tokens == 0:
+                assert config.new_class_token > 0, (
+                    "pretrained checkpoint has no class tokens ('embodiment_class_token' "
+                    "absent); forcing class tokens in finetuning requires --new-class-token > 0."
+                )
 
     model = _build_model(config, embodiment_specs, action_horizon, num_pretrain_class_tokens)
 
@@ -781,6 +796,7 @@ def main(config: ArgsConfig):
                     "lambda_dino": config.lambda_dino,
                     "lambda_kl": config.lambda_kl,
                     "use_vae": config.use_vae,
+                    "vae_sample": config.vae_sample,
                     "kl_free_bits": config.kl_free_bits,
                     "recon_loss_type": config.recon_loss_type,
                     "dino_loss_type": config.dino_loss_type,

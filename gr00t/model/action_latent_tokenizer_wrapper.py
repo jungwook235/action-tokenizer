@@ -75,6 +75,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
         device: str = "cpu",
         head_dim_override: Optional[int] = None,
         embodiment_id: Optional[str] = None,
+        vae_sample_override: Optional[bool] = None,
     ):
         """Load full tokenizer from a HuggingFace Trainer checkpoint or raw .pt file.
 
@@ -93,6 +94,15 @@ class ActionLatentTokenizerWrapper(nn.Module):
                 embodiment's action encoder/decoder to extract; the shared fusion
                 + (training-only) DINO decoder are common. Ignored for ordinary
                 single-embodiment checkpoints.
+            vae_sample_override: override the VAE encoder's sampling behavior at
+                inference REGARDLESS of the checkpoint's ``_vae_no_sample`` marker.
+                None (default) = use the checkpoint's setting (byte-identical to
+                before). False = force the deterministic posterior mean μ (no
+                reparameterized sample) — e.g. to make the Stage-2 VLA latent target
+                deterministic even when the tokenizer was trained WITH sampling.
+                True = force sampling. Applied AFTER the strict state_dict load as a
+                plain attribute (not a param/buffer), so it never affects loading.
+                Ignored (with a message) for non-VAE tokenizers.
         """
         import os
 
@@ -149,6 +159,27 @@ class ActionLatentTokenizerWrapper(nn.Module):
         tokenizer.load_state_dict(filtered_sd, strict=True)
 
         wrapper = cls(tokenizer)
+
+        # Optional inference-time VAE sampling override. vae_sample is a plain attribute
+        # (not a param/buffer), so setting it here — after the strict load — never affects
+        # loading; it only changes whether encode() returns a reparameterized sample z or
+        # the deterministic mean μ. Lets Stage-2 force a deterministic latent target even
+        # when the tokenizer checkpoint was trained with sampling on.
+        if vae_sample_override is not None:
+            enc = getattr(wrapper.tokenizer, "encoder", None)
+            if enc is not None and getattr(enc, "use_vae", False):
+                enc.vae_sample = bool(vae_sample_override)
+                if hasattr(wrapper.tokenizer, "vae_sample"):
+                    wrapper.tokenizer.vae_sample = bool(vae_sample_override)
+                print(
+                    f"[ActionLatentTokenizerWrapper] vae_sample override -> "
+                    f"{bool(vae_sample_override)} (latent target = "
+                    f"{'sampled z' if vae_sample_override else 'deterministic mu'})"
+                )
+            else:
+                print("[ActionLatentTokenizerWrapper] vae_sample_override ignored "
+                      "(tokenizer is not a VAE).")
+
         wrapper.to(device)
         wrapper.eval()
         print(f"[ActionLatentTokenizerWrapper] Loaded from {checkpoint_path}")

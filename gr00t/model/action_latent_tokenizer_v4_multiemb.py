@@ -68,6 +68,7 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         fusion_heads: int = 16,
         dino_decoder_depth: int = 12,
         use_vae: bool = False,
+        vae_sample: bool = True,
         kl_free_bits: float = 0.0,
         lambda_recon: float = 1.0,
         lambda_dino: float = 1.0,
@@ -106,6 +107,13 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         self.lambda_kl = float(lambda_kl)
         self.recon_loss_type = recon_loss_type
         self.use_vae = bool(use_vae)
+        # VAE sampling toggle (only meaningful when use_vae). True (default) →
+        # reparameterize z = μ + σ·ε (existing behavior, byte-identical path). False →
+        # return the posterior mean μ (deterministic latent) while STILL computing KL, so
+        # the logvar head stays in the graph (DDP-safe). Recorded as a checkpoint marker
+        # (``_vae_no_sample``) below only when disabled, so the ON default keeps the
+        # state_dict byte-identical to existing VAE checkpoints; Stage-2 rebuilds to match.
+        self.vae_sample = bool(vae_sample)
         self.kl_free_bits = float(kl_free_bits)
         self.kl_logvar_min = -8.0
         self.kl_logvar_max = 8.0
@@ -234,12 +242,16 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
             if self.tokenizer_finetuning_mode:
                 # Base param sized to the pretrained token count so its key loads strict;
                 # new ids (>= base) live in a separate learnable ``finetuning_class_token``.
+                # base_n == 0 means the pretrained tokenizer had NO class tokens: there is no
+                # base param at all and EVERY class token is new (prompt-tuning-style — the
+                # frozen fusion/DINO-decoder learn to attend to a brand-new learnable token).
                 base_n = self.num_pretrain_class_tokens
-                assert base_n >= 1, (
-                    "tokenizer_finetuning_mode with class tokens requires "
-                    "num_pretrain_class_tokens >= 1 (read it from the pretrained checkpoint)."
-                )
+                assert base_n >= 0, "num_pretrain_class_tokens must be >= 0"
                 total = base_n + self.new_class_token
+                assert total >= 1, (
+                    "tokenizer_finetuning_mode with class tokens needs >= 1 total token "
+                    "(num_pretrain_class_tokens + new_class_token)."
+                )
                 max_cid = max(class_token_ids.values())
                 assert max_cid < total, (
                     f"class_token_id {max_cid} out of range: base={base_n} + "
@@ -251,9 +263,12 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
                             f"[{nm}] class_token_id={cid} >= num_pretrain_class_tokens="
                             f"{base_n} requires new_class_token > 0."
                         )
-                self.embodiment_class_token = nn.Parameter(
-                    torch.randn(base_n, dino_dim) * 0.02
-                )
+                # Base param only when the pretrained ckpt actually had class tokens; it then
+                # loads strict against them. base_n == 0 → skip it entirely (no empty param).
+                if base_n > 0:
+                    self.embodiment_class_token = nn.Parameter(
+                        torch.randn(base_n, dino_dim) * 0.02
+                    )
                 if self.new_class_token > 0:
                     self.finetuning_class_token = nn.Parameter(
                         torch.randn(self.new_class_token, dino_dim) * 0.02
@@ -275,6 +290,12 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         self.register_buffer("_is_v4_multiemb", torch.tensor(True))
         if self.use_vae:
             self.register_buffer("_is_vae", torch.tensor(True))
+            # Sampling-off marker: registered ONLY when a VAE tokenizer disables sampling
+            # (encode returns μ). Absence ⇒ sampling ON (default), so ordinary VAE
+            # checkpoints stay byte-identical. Carried through remap so Stage-2 rebuilds
+            # the matching (deterministic-μ) encoder.
+            if not self.vae_sample:
+                self.register_buffer("_vae_no_sample", torch.tensor(True))
 
         self.feature_source = feature_source
         if feature_source == "vggt":
@@ -370,10 +391,16 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
 
         kl = None
         if self.use_vae:
+            # SD-style VAE: fusion output = posterior mean μ. vae_sample True (default)
+            # reparameterizes z = μ + σ·ε; False returns μ (deterministic). KL is computed
+            # either way, so the logvar head stays trained / in-graph (DDP-safe).
             mu = tokens_out
             logvar = self.logvar_head(mu).clamp(self.kl_logvar_min, self.kl_logvar_max)
-            std = torch.exp(0.5 * logvar)
-            tokens_out = mu + torch.randn_like(std) * std
+            if self.vae_sample:
+                std = torch.exp(0.5 * logvar)
+                tokens_out = mu + torch.randn_like(std) * std
+            else:
+                tokens_out = mu
             kl_dim = -0.5 * (1.0 + logvar - mu.pow(2) - logvar.exp())  # [B,T,token_dim]
             kl_dim = kl_dim.mean(dim=(0, 1))                           # [token_dim]
             if self.kl_free_bits > 0:
@@ -492,7 +519,8 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
                 f"class-token checkpoint missing {id_key!r} for embodiment {name!r}"
             )
             cid = int(state_dict[id_key].item())
-            base_n = state_dict["embodiment_class_token"].shape[0]
+            base_n = (state_dict["embodiment_class_token"].shape[0]
+                      if "embodiment_class_token" in state_dict else 0)
             if "finetuning_class_token" in state_dict and cid >= base_n:
                 emb_class_token = state_dict["finetuning_class_token"][cid - base_n].clone()
             else:
@@ -516,7 +544,7 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
                 continue  # training-only; Stage-2 wrapper uses dino_decoder=None
             elif k == "_is_v4_multiemb":
                 continue  # replaced by _is_v4 below
-            elif k in ("_is_vae", "_dino_final_norm", "_feature_source",
+            elif k in ("_is_vae", "_vae_no_sample", "_dino_final_norm", "_feature_source",
                        "_vggt_token_source", "_vggt_image_size", "_vggt_model",
                        "_vggt_final_norm"):
                 out[k] = v  # top-level detection markers carry over unchanged
