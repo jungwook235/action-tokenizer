@@ -5,6 +5,8 @@ Extends DualBrainTrainer with:
 - Custom evaluation with full denoising + tokenizer decode
 """
 
+import math
+
 import torch
 import torch.nn.functional as F
 
@@ -61,16 +63,36 @@ class ActlatFMTrainer(DualBrainTrainer):
 
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
 
-        action_mse_sum = 0.0
-        action_l1_sum = 0.0
-        latent_mse_sum = 0.0
-        latent_l1_sum = 0.0
-        n_batches = 0
-        max_eval_batches = 50
+        # ── Fixed evaluation budget ────────────────────────────────────────
+        # Evaluate a CONSTANT number of samples per eval, independent of GPU
+        # count and (per-device) batch size. The old code capped by *batches*
+        # (50), so the sample count scaled with batch size, and accelerate
+        # shards the eval dataloader across ranks without any cross-rank
+        # reduction — both made the effective sample count depend on the
+        # training config. Here we instead:
+        #   1. cap by SAMPLES (not batches),
+        #   2. give each rank an equal share of the global budget, and
+        #   3. pool element-wise error SUMS + COUNTS across ranks at the end,
+        # so the logged metric is computed over exactly MAX_EVAL_SAMPLES
+        # samples total (or the whole val set if it is smaller).
+        MAX_EVAL_SAMPLES = 3200
+        world_size = max(1, getattr(self.accelerator, "num_processes", 1))
+        per_rank_samples = math.ceil(MAX_EVAL_SAMPLES / world_size)
+
+        # Element-wise sums of squared / absolute errors and element counts.
+        # Pooling sums+counts (rather than averaging per-batch means) makes the
+        # cross-rank aggregate exact even when the final batch is trimmed.
+        action_se = 0.0
+        action_ae = 0.0
+        action_elems = 0
+        latent_se = 0.0
+        latent_ae = 0.0
+        latent_elems = 0
+        n_samples = 0  # samples processed on THIS rank
 
         with torch.no_grad():
-            for step, inputs in enumerate(eval_dataloader):
-                if step >= max_eval_batches:
+            for inputs in eval_dataloader:
+                if n_samples >= per_rank_samples:
                     break
 
                 for k, v in inputs.items():
@@ -78,6 +100,9 @@ class ActlatFMTrainer(DualBrainTrainer):
                         inputs[k] = v.to(unwrapped.device)
 
                 real_actions = inputs["action"].float()  # [B, T, D]
+                # Trim the final batch so this rank stops at exactly its share:
+                # keeps the total sample count independent of batch size.
+                take = min(real_actions.shape[0], per_rank_samples - n_samples)
 
                 # Single-observation input for inference (no future index)
                 infer_input = {
@@ -117,8 +142,11 @@ class ActlatFMTrainer(DualBrainTrainer):
                     latent_target_dev = latent_target.to(
                         device=raw_pred.device, dtype=raw_pred.dtype
                     )
-                    latent_mse_sum += F.mse_loss(raw_pred, latent_target_dev).item()
-                    latent_l1_sum += F.l1_loss(raw_pred, latent_target_dev).item()
+                    pred_l = raw_pred[:take]
+                    tgt_l = latent_target_dev[:take]
+                    latent_se += F.mse_loss(pred_l, tgt_l, reduction="sum").item()
+                    latent_ae += F.l1_loss(pred_l, tgt_l, reduction="sum").item()
+                    latent_elems += pred_l.numel()
 
                     # Decode latent → action for action-space comparison
                     predicted_action = tokenizer.decode_latent(
@@ -129,21 +157,54 @@ class ActlatFMTrainer(DualBrainTrainer):
                     predicted_action = raw_pred
 
                 real_actions_dev = real_actions.to(device=predicted_action.device)
-                action_mse_sum += F.mse_loss(predicted_action, real_actions_dev).item()
-                action_l1_sum += F.l1_loss(predicted_action, real_actions_dev).item()
+                pred_a = predicted_action[:take]
+                real_a = real_actions_dev[:take]
+                action_se += F.mse_loss(pred_a, real_a, reduction="sum").item()
+                action_ae += F.l1_loss(pred_a, real_a, reduction="sum").item()
+                action_elems += pred_a.numel()
 
-                n_batches += 1
+                n_samples += take
 
-        if n_batches == 0:
+        # Pool sums + counts across ranks so the metric covers the whole budget
+        # (a single collective after the loop → no deadlock on uneven shards).
+        if (
+            world_size > 1
+            and torch.distributed.is_available()
+            and torch.distributed.is_initialized()
+        ):
+            agg = torch.tensor(
+                [
+                    action_se,
+                    action_ae,
+                    float(action_elems),
+                    latent_se,
+                    latent_ae,
+                    float(latent_elems),
+                ],
+                device=unwrapped.device,
+                dtype=torch.float64,
+            )
+            torch.distributed.all_reduce(agg, op=torch.distributed.ReduceOp.SUM)
+            (
+                action_se,
+                action_ae,
+                action_elems,
+                latent_se,
+                latent_ae,
+                latent_elems,
+            ) = agg.tolist()
+
+        if action_elems == 0:
+            model.train()
             return {}
 
         metrics = {
-            f"{metric_key_prefix}/action_mse": action_mse_sum / n_batches,
-            f"{metric_key_prefix}/action_l1": action_l1_sum / n_batches,
+            f"{metric_key_prefix}/action_mse": action_se / action_elems,
+            f"{metric_key_prefix}/action_l1": action_ae / action_elems,
         }
-        if is_actlat:
-            metrics[f"{metric_key_prefix}/latent_mse"] = latent_mse_sum / n_batches
-            metrics[f"{metric_key_prefix}/latent_l1"] = latent_l1_sum / n_batches
+        if is_actlat and latent_elems > 0:
+            metrics[f"{metric_key_prefix}/latent_mse"] = latent_se / latent_elems
+            metrics[f"{metric_key_prefix}/latent_l1"] = latent_ae / latent_elems
 
         self.log(metrics)
         model.train()
