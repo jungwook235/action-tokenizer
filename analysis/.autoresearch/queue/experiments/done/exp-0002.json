@@ -1,0 +1,15 @@
+{
+  "id": "exp-0002",
+  "section": "semantic-geometry",
+  "placeholder": null,
+  "desc": "S4 semantic-geometry (CACHE-ONLY). On analysis/output/visual_sep_gr1/cache.npz (gr1, 24 tasks) AND the dexjoco cache, for each representation {raw flat, PCA-k (k=latent budget), v3 Z3, v4 Z4mu}: (a) NN retrieval precision@k by TASK label (query a chunk, retrieve k nearest by cosine/L2 in that rep, precision = frac of same-task neighbors), report P@1/P@5/P@10; (b) unsupervised clustering (KMeans with n_clusters=#tasks, and/or agglomerative) then NMI and ARI vs task labels. Report a raw/PCA/v3/v4 table per dataset. Frame prior finding as evidence: gr1 raw-action clusters barely match task (ARI~0.05) = low semantic geometry in raw. Placeholder IDs for S4 are still being drafted by Writing — record results in .autoresearch/results/<expid>/ keyed by (dataset,rep,metric); Writing will map to placeholders. run_meta.json required. CPU-only, gr00t-actlat, thread caps=8.",
+  "priority": "normal",
+  "state": "done",
+  "created": "2026-07-21T05:58:44Z",
+  "claimed_by": "experiment",
+  "claimed_at": "2026-07-21T05:59:44Z",
+  "done_at": "2026-07-21T06:54:45Z",
+  "summary": "S4 semantic geometry: v4 strongest. gr1 cross-episode P@10 (leak-free, base~0.042): v4 0.273>v3 0.251>raw~=pca 0.228; KMeans ARI v4 0.127>v3 0.101>raw 0.085; NMI v4 0.384>v3 0.335>raw 0.328. Naive P@1 inflated by same-episode adjacency (report cross-ep). dexjoco control: P@k ceiling, ARI v3 0.595>v4 0.413>raw 0.389 (action~=task). Fixed a PCA double-standardization(whitening) bug pre-final. results.json keyed by (dataset,rep,metric).",
+  "result_file": "results/exp-0002/results.json",
+  "outcome": "match"
+}

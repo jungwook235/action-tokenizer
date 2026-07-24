@@ -1,0 +1,12 @@
+{
+  "id": "ver-0004",
+  "section": "label-noise-shortcut",
+  "claim": "S3 copycat/label-noise (gr1): raw action chunks are highly predictable from action history alone (blind ridge R² 0.980), and v3 is too (0.982) — so pure compression doesn't reduce copycat-predictability; but v4 drops to 0.915, is ~3× harder to naive-copy (NMSE 0.104 vs raw 0.035), and has lower temporal autocorrelation (lag1 0.941 vs raw/v3 ~0.99). Also v4 has whiter spectrum (low-freq power frac 0.387 vs raw 0.600). The 'denoising=smoother' hypothesis is REFUTED (v4 reconstruction HF-frac ratio 1.56× raw, not smoother; decode L1 0.0014) → reframed as spectral de-correlation. Conclusion: v4 is a less copycat/shortcut-prone SUPERVISION target. Numbers in .autoresearch/results/exp-0004/cacheonly_gr1.json (signals) + recon_gr1.json.",
+  "exp": "exp-0004",
+  "state": "done",
+  "created": "2026-07-21T08:13:18Z",
+  "claimed_at": "2026-07-21T08:14:21Z",
+  "verdict": "pass",
+  "note": "Independently re-derived. Blind-predict is legit held-out 5-fold CV ridge R^2 (fit train / r2_score test); features [a_{t-1},a_{t-2}] strictly precede target a_t => no target leakage; n_transitions 56112=(16-2)*4008 confirms construction. All headline values match cacheonly_gr1.json: blind R^2 raw0.980/v30.982/v40.915, naive-NMSE raw0.035/v40.104 (3.0x), autocorr lag1 raw0.989/v30.990/v40.941, low-freq raw0.600/v40.387. Denoising REFUTED correctly: recon_gr1 HF-frac ratio v4=1.56x raw (recon NOT smoother), decode L1 0.0014 (faithful) -> spectral de-correlation reframe honest. Ordering raw~v3 high, v4 lower holds; v3~raw confirms compression alone doesn't cut copycat. Minor non-blocking note: KFold shuffles pooled (not episode-grouped) transitions, but global linear AR map cannot memorize timesteps so held-out R^2 is not inflated and relative ordering is robust (identical method across raw/v3/v4).",
+  "done_at": "2026-07-21T08:15:36Z"
+}

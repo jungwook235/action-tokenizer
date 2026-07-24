@@ -1,0 +1,32 @@
+{
+  "group_id": "4cb173b8-1df1-42ed-8969-b9cefcfb9f06",
+  "workspace": "w1",
+  "master_pane": "w1:p1",
+  "agents": {
+    "master": {
+      "pane": "w1:p1",
+      "label": "master-4cb173b8",
+      "model": "'claude-opus-4-8[1m]'"
+    },
+    "monitoring": {
+      "pane": "w1:p2",
+      "label": "monitoring-4cb173b8",
+      "model": "claude-haiku-4-5-20251001"
+    },
+    "writing": {
+      "pane": "w1:p4",
+      "label": "writing-4cb173b8",
+      "model": "'claude-opus-4-8[1m]'"
+    },
+    "experiment": {
+      "pane": "w1:p3",
+      "label": "experiment-4cb173b8",
+      "model": "'claude-opus-4-8[1m]'"
+    },
+    "verification": {
+      "pane": "w1:p5",
+      "label": "verification-4cb173b8",
+      "model": "'claude-opus-4-8[1m]'"
+    }
+  }
+}

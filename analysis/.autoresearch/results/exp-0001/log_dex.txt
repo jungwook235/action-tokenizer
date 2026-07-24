@@ -1,0 +1,19 @@
+[dex] raw/linear: acc=1.000 CNA=1.000 F1=1.000 (309.2s)
+[dex] raw/mlp: acc=1.000 CNA=1.000 F1=1.000 (111.4s)
+[dex] v3/linear: acc=1.000 CNA=1.000 F1=1.000 (184.5s)
+[dex] v3/mlp: acc=0.999 CNA=0.998 F1=0.999 (36.7s)
+[dex] v4/linear: acc=1.000 CNA=1.000 F1=1.000 (308.9s)
+[dex] v4/mlp: acc=1.000 CNA=1.000 F1=1.000 (20.5s)
+[dex] pca/linear: acc=0.995 CNA=0.994 F1=0.994 (133.7s)
+[dex] pca/mlp: acc=0.906 CNA=0.882 F1=0.890 (7.5s)
+[dex] pca-2: lin CNA=0.444 mlp CNA=0.707
+[dex] pca-4: lin CNA=0.989 mlp CNA=0.975
+[dex] pca-8: lin CNA=0.996 mlp CNA=0.983
+[dex] pca-16: lin CNA=0.999 mlp CNA=0.994
+[dex] pca-32: lin CNA=1.000 mlp CNA=0.998
+[dex] pca-64: lin CNA=1.000 mlp CNA=0.996
+[dex] pca-128: lin CNA=1.000 mlp CNA=0.964
+[dex] pca-256: lin CNA=0.994 mlp CNA=0.882
+[dex] pca-512: lin CNA=0.960 mlp CNA=0.707
+WROTE .autoresearch/results/exp-0001/results_dex.json
+#### INTENT PROBE DONE ####

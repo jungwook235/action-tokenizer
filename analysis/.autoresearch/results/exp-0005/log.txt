@@ -1,0 +1,10 @@
+[s2ctrl] full29 (dim 464): lin CNA=0.298 mlp CNA=0.328
+[s2ctrl] arm (dim 224): lin CNA=0.285 mlp CNA=0.325
+[s2ctrl] hands (dim 192): lin CNA=0.061 mlp CNA=0.056
+[s2ctrl] waist (dim 48): lin CNA=0.039 mlp CNA=0.117
+[s2ctrl] pca-4: lin CNA=0.120 mlp CNA=0.157
+[s2ctrl] pca-6: lin CNA=0.166 mlp CNA=0.239
+[s2ctrl] pca-10: lin CNA=0.214 mlp CNA=0.243
+[s2ctrl] pca-18: lin CNA=0.273 mlp CNA=0.285
+WROTE .autoresearch/results/exp-0005/results.json
+#### S2 CONTROL DONE ####

@@ -1,0 +1,26 @@
+{
+  "exp_id": "exp-0004",
+  "section": "label-noise-shortcut",
+  "group_id": "4cb173b8-1df1-42ed-8969-b9cefcfb9f06",
+  "git": {
+    "branch": "master",
+    "commit_short": "f6e29c1",
+    "dirty": true
+  },
+  "env": "gr00t-actlat",
+  "python": "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin/python",
+  "hardware": "login-node1 CPU (decode via CPU forward, CUDA_VISIBLE_DEVICES='')",
+  "seed": 0,
+  "scripts": [
+    "analysis/label_noise_probe.py",
+    "analysis/label_noise_recon.py"
+  ],
+  "commands": [
+    "python label_noise_probe.py --cache output/visual_sep_gr1/cache.npz --tag gr1 --latents --out .autoresearch/results/exp-0004/cacheonly_gr1.json",
+    "python label_noise_probe.py --cache output/visual_sep/cache.npz --tag dex --latents --out .autoresearch/results/exp-0004/cacheonly_dex.json",
+    "CUDA_VISIBLE_DEVICES='' python label_noise_recon.py --cache output/visual_sep_gr1/cache.npz --tag gr1 --out .autoresearch/results/exp-0004/recon_gr1.json",
+    "CUDA_VISIBLE_DEVICES='' python label_noise_recon.py --cache output/visual_sep/cache.npz --tag dex --out .autoresearch/results/exp-0004/recon_dex.json"
+  ],
+  "metrics": "(a) HF power fraction + mean-sq jerk, raw vs decode(Z) recon; (b) blind history-only multi-output Ridge R^2 + AR1/AR2 copycat R^2 + naive-copy nMSE, raw vs v3/v4 seq; (c) lag-k temporal autocorrelation raw vs v3/v4 seq",
+  "note": "part(a) decode uses tok.decode(zero_g, Z, zero_g) on CPU (Ng=Nh=0); no GPU/DINO needed for decode."
+}

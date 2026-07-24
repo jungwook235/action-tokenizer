@@ -1,0 +1,13 @@
+{
+  "id": "exp-0006",
+  "section": "intent-probe",
+  "placeholder": null,
+  "desc": "S1 ENDPOINT: robocasa (LOW-DoF, ~14-19 dim). Build a NEW val-chunk cache (model on how output/visual_sep_gr1/cache.npz was made): encode val chunks -> npz with raw actions A, v3 latent Z3, v4 latent Z4(mu), task ids. Use the robocasa tokenizer ckpt (robocasa_100demos_v3_* and v4_* under checkpoints_action_tokenizer, or the joint model's robocasa class token). v4 needs DINO+encoder forward -> GPU via ONE srun --gpus=1 --nodes=1 --comment 'train gr00t on robocasa' session; batch, release when done. Reproduce val split with ActionFramesDatasetV4(split=val,use_fixed_val=True,val_seed=42,val_ratio=0.003). Then run analysis/intent_probe.py (episode-level/LOEPTO split, chance-norm acc+macro-F1, raw/PCA-k/v3/v4) -> fills S1 robocasa placeholders + robocasa DoF/ntask. results+run_meta under .autoresearch/results/<expid>/.",
+  "priority": "high",
+  "state": "done",
+  "created": "2026-07-21T07:12:15Z",
+  "done_at": "2026-07-21T08:25:25Z",
+  "summary": "S1 robocasa endpoint (DoF=12, 161 pick-place tasks, leak-free LOEPTO-3, GPU-built cache 7728 chunks). CNA: v4 0.039lin/0.058mlp > v3 0.030/0.053 ~ raw 0.021/0.053 > PCA 0.018. v4 leads. DoF-SCALING: absolute v4-over-raw gap +0.018(lin) < gr1 +0.049 => grows with DoF (supports hypothesis). CAVEATS: absolute CNA low (161 fine tasks); task-count differs vs gr1 (161 vs 24) = confound; relative lift inverted (robocasa 1.88x > gr1 1.16x). EgoDex(44) is decisive 3rd point. results.json .placeholders + .dof_scaling.",
+  "result_file": "results/exp-0006/results.json",
+  "outcome": "match"
+}

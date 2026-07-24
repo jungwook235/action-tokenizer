@@ -1,0 +1,22 @@
+{
+  "exp_id": "exp-0003",
+  "section": "dof-redundancy",
+  "group_id": "4cb173b8-1df1-42ed-8969-b9cefcfb9f06",
+  "git": {
+    "branch": "master",
+    "commit_short": "f6e29c1",
+    "dirty": true
+  },
+  "env": "gr00t-actlat (numpy 1.26.4, sklearn 1.5.2, scipy 1.15.3)",
+  "python": "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin/python",
+  "hardware": "login-node1 CPU, thread caps=4",
+  "seed": 0,
+  "scripts": [
+    "analysis/effdim_dof.py"
+  ],
+  "commands": [
+    "python effdim_dof.py --cache output/visual_sep_gr1/cache.npz --tag gr1 --out .autoresearch/results/exp-0003/results_gr1.json",
+    "python effdim_dof.py --cache output/visual_sep/cache.npz --tag dex --out .autoresearch/results/exp-0003/results_dex.json"
+  ],
+  "metrics": "PR=(sum l)^2/sum l^2, n_pc90/95/99, redundancy=nominal/PR on z-scored cov; between/total task-variance vs PCA rank"
+}

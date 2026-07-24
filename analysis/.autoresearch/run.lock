@@ -1,0 +1,13 @@
+{
+  "group_id": "4cb173b8-1df1-42ed-8969-b9cefcfb9f06",
+  "workspace": "w1",
+  "master_pane": "w1:p1",
+  "labels": {
+    "master": "master-4cb173b8",
+    "monitoring": "monitoring-4cb173b8",
+    "writing": "writing-4cb173b8",
+    "experiment": "experiment-4cb173b8",
+    "verification": "verification-4cb173b8"
+  },
+  "pid": 3416346
+}

@@ -1,0 +1,6 @@
+[dex] raw: P@1=1.000 P@10=1.000 P@10x=0.0 ARI=0.389 NMI=0.532 (2.1s)
+[dex] pca: P@1=0.961 P@10=0.865 P@10x=0.0 ARI=0.015 NMI=0.135 (2.1s)
+[dex] v3: P@1=1.000 P@10=1.000 P@10x=0.0 ARI=0.595 NMI=0.708 (1.3s)
+[dex] v4: P@1=1.000 P@10=1.000 P@10x=0.0 ARI=0.413 NMI=0.546 (3.5s)
+WROTE .autoresearch/results/exp-0002/results_dex.json
+#### SEMANTIC GEOMETRY DONE ####

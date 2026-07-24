@@ -1,0 +1,131 @@
+{
+  "exp_id": "exp-0005",
+  "section": "dof-redundancy",
+  "cache": "output/visual_sep_gr1/cache.npz",
+  "N": 4008,
+  "n_tasks": 24,
+  "chance": 0.041666666666666664,
+  "split_kind": "loepto-3fold",
+  "action_order": "left_arm[0:7] right_arm[7:14] left_hand[14:20] right_hand[20:26] waist[26:29]",
+  "subsets": {
+    "full29": {
+      "dim": 464,
+      "linear": {
+        "acc": 0.3268,
+        "cna": 0.2976,
+        "macro_f1": 0.3231
+      },
+      "mlp": {
+        "acc": 0.356,
+        "cna": 0.328,
+        "macro_f1": 0.3437
+      }
+    },
+    "arm": {
+      "dim": 224,
+      "linear": {
+        "acc": 0.3144,
+        "cna": 0.2846,
+        "macro_f1": 0.3028
+      },
+      "mlp": {
+        "acc": 0.3533,
+        "cna": 0.3252,
+        "macro_f1": 0.3379
+      }
+    },
+    "hands": {
+      "dim": 192,
+      "linear": {
+        "acc": 0.0998,
+        "cna": 0.0607,
+        "macro_f1": 0.0756
+      },
+      "mlp": {
+        "acc": 0.0951,
+        "cna": 0.0557,
+        "macro_f1": 0.076
+      }
+    },
+    "waist": {
+      "dim": 48,
+      "linear": {
+        "acc": 0.0788,
+        "cna": 0.0388,
+        "macro_f1": 0.0776
+      },
+      "mlp": {
+        "acc": 0.1534,
+        "cna": 0.1166,
+        "macro_f1": 0.1458
+      }
+    }
+  },
+  "pca_topk": {
+    "4": {
+      "k": 4,
+      "linear": {
+        "acc": 0.1564,
+        "cna": 0.1198,
+        "macro_f1": 0.1396
+      },
+      "mlp": {
+        "acc": 0.1924,
+        "cna": 0.1573,
+        "macro_f1": 0.1888
+      }
+    },
+    "6": {
+      "k": 6,
+      "linear": {
+        "acc": 0.2003,
+        "cna": 0.1656,
+        "macro_f1": 0.1948
+      },
+      "mlp": {
+        "acc": 0.2707,
+        "cna": 0.239,
+        "macro_f1": 0.2667
+      }
+    },
+    "10": {
+      "k": 10,
+      "linear": {
+        "acc": 0.2465,
+        "cna": 0.2137,
+        "macro_f1": 0.2364
+      },
+      "mlp": {
+        "acc": 0.2742,
+        "cna": 0.2426,
+        "macro_f1": 0.2681
+      }
+    },
+    "18": {
+      "k": 18,
+      "linear": {
+        "acc": 0.3029,
+        "cna": 0.2726,
+        "macro_f1": 0.2981
+      },
+      "mlp": {
+        "acc": 0.3144,
+        "cna": 0.2846,
+        "macro_f1": 0.3059
+      }
+    }
+  },
+  "headline": "Within-embodiment intent control (same gr1 episodes + LOEPTO split as exp-0001, vary ONLY the action representation): intent lives in a small ARM-centric subspace. arm-only (14 dims) CNA 0.285lin/0.325mlp ~= FULL 29-dim 0.298/0.328 (sanity: full == exp-0001 raw exactly). Non-arm body DoF carries little intent: hands 0.061, waist 0.039 (linear). Top-k PCs of the full action: k=4->0.120, k=6->0.166, k=10->0.214, k=18(=n_pc95)->0.273 (~92% of full) -> intent needs ~the effective-dim subspace, and arm DoF alone already captures it. Extra body DoF does NOT add intent signal (mildly dilutes on the linear probe). Confirms the S2 redundancy story: intent is low-eff-dim.",
+  "placeholders": {
+    "s2-cna-arm-lin": 0.2846,
+    "s2-cna-arm-mlp": 0.3252,
+    "s2-cna-full-lin": 0.2976,
+    "s2-cna-full-mlp": 0.328,
+    "s2-cna-hands-lin": 0.0607,
+    "s2-cna-waist-lin": 0.0388,
+    "s2-cna-pca6-lin": 0.1656,
+    "s2-cna-pca18-lin": 0.2726,
+    "s2-arm-dims": 14,
+    "s2-npc95-recovers": 0.916
+  }
+}

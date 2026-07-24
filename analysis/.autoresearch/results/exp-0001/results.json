@@ -1,0 +1,401 @@
+{
+  "exp_id": "exp-0001",
+  "section": "intent-probe",
+  "placeholder": "s1-gate-verdict",
+  "headline": "gr1 leak-free LOEPTO 3-fold: v4 latent gives the highest task-intent decodability (CNA 0.35 linear/mlp), above raw (0.30/0.33) and v3 (0.30/0.32); v3 approx raw (action-only latent adds no intent over raw); PCA peaks at k=32 (CNA 0.32) then declines to 0.25 at latent-budget k=256. Absolute decodability is LOW (chance=1/24): a single action chunk weakly determines the task. dexjoco disjoint-action control: all reps at ceiling (~1.00), off-curve.",
+  "split": {
+    "gr1": "loepto-3fold",
+    "dex": "stratified-chunk-FALLBACK",
+    "dex_leak_warning": true,
+    "note": "dexjoco has 1 val episode/task so leave-one-episode-out is infeasible; chunk-level fallback used (control only, intent trivially separable)."
+  },
+  "chance": {
+    "gr1": 0.0417,
+    "dex": 0.2
+  },
+  "majority": {
+    "gr1": 0.0417,
+    "dex": 0.2584
+  },
+  "placeholders": {
+    "s1-lin-gr1-raw": 0.2976,
+    "s1-lin-gr1-pca": 0.245,
+    "s1-lin-gr1-v3": 0.3012,
+    "s1-lin-gr1-v4": 0.3468,
+    "s1-mlp-gr1-raw": 0.328,
+    "s1-mlp-gr1-pca": 0.2403,
+    "s1-mlp-gr1-v3": 0.321,
+    "s1-mlp-gr1-v4": 0.3442,
+    "s1-f1-gr1-raw": 0.3231,
+    "s1-f1-gr1-v4": 0.3622,
+    "s1-perdim-gr1": 0.0609,
+    "s1-perdim-gr1-channel": 6,
+    "s1-ntask-gr1": 24,
+    "s1-lin-dex-raw": 1.0,
+    "s1-lin-dex-pca": 1.0,
+    "s1-lin-dex-v3": 1.0,
+    "s1-lin-dex-v4": 1.0,
+    "s1-mlp-dex-raw": 1.0,
+    "s1-mlp-dex-pca": 0.9542,
+    "s1-mlp-dex-v3": 0.9984,
+    "s1-mlp-dex-v4": 1.0,
+    "s1-ntask-dex": 5
+  },
+  "acc_cna_f1_table": {
+    "gr1-raw-linear": {
+      "acc": 0.3268,
+      "cna": 0.2976,
+      "macro_f1": 0.3231,
+      "dim": 464
+    },
+    "gr1-raw-mlp": {
+      "acc": 0.356,
+      "cna": 0.328,
+      "macro_f1": 0.3437,
+      "dim": 464
+    },
+    "gr1-pca-linear": {
+      "acc": 0.2764,
+      "cna": 0.245,
+      "macro_f1": 0.2842,
+      "dim": 256
+    },
+    "gr1-pca-mlp": {
+      "acc": 0.272,
+      "cna": 0.2403,
+      "macro_f1": 0.2739,
+      "dim": 256
+    },
+    "gr1-v3-linear": {
+      "acc": 0.3303,
+      "cna": 0.3012,
+      "macro_f1": 0.3247,
+      "dim": 256
+    },
+    "gr1-v3-mlp": {
+      "acc": 0.3493,
+      "cna": 0.321,
+      "macro_f1": 0.3349,
+      "dim": 256
+    },
+    "gr1-v4-linear": {
+      "acc": 0.374,
+      "cna": 0.3468,
+      "macro_f1": 0.3622,
+      "dim": 1024
+    },
+    "gr1-v4-mlp": {
+      "acc": 0.3715,
+      "cna": 0.3442,
+      "macro_f1": 0.3524,
+      "dim": 1024
+    },
+    "dex-raw-linear": {
+      "acc": 1.0,
+      "cna": 1.0,
+      "macro_f1": 1.0,
+      "dim": 704
+    },
+    "dex-raw-mlp": {
+      "acc": 1.0,
+      "cna": 1.0,
+      "macro_f1": 1.0,
+      "dim": 704
+    },
+    "dex-pca-linear": {
+      "acc": 1.0,
+      "cna": 1.0,
+      "macro_f1": 1.0,
+      "dim": 256
+    },
+    "dex-pca-mlp": {
+      "acc": 0.9634,
+      "cna": 0.9542,
+      "macro_f1": 0.9535,
+      "dim": 256
+    },
+    "dex-v3-linear": {
+      "acc": 1.0,
+      "cna": 1.0,
+      "macro_f1": 1.0,
+      "dim": 256
+    },
+    "dex-v3-mlp": {
+      "acc": 0.9987,
+      "cna": 0.9984,
+      "macro_f1": 0.999,
+      "dim": 256
+    },
+    "dex-v4-linear": {
+      "acc": 1.0,
+      "cna": 1.0,
+      "macro_f1": 1.0,
+      "dim": 1024
+    },
+    "dex-v4-mlp": {
+      "acc": 1.0,
+      "cna": 1.0,
+      "macro_f1": 1.0,
+      "dim": 1024
+    }
+  },
+  "pca_sweep_gr1": {
+    "2": {
+      "dim": 2,
+      "linear": {
+        "acc": 0.07634730538922156,
+        "cna": 0.03618849258005728,
+        "macro_f1": 0.05131931446570287
+      },
+      "mlp": {
+        "acc": 0.11951097804391217,
+        "cna": 0.08122884665451706,
+        "macro_f1": 0.10572309227255335
+      }
+    },
+    "4": {
+      "dim": 4,
+      "linear": {
+        "acc": 0.156437125748503,
+        "cna": 0.11976047904191617,
+        "macro_f1": 0.13964379449825973
+      },
+      "mlp": {
+        "acc": 0.19236526946107785,
+        "cna": 0.15725071595938558,
+        "macro_f1": 0.18881695483744323
+      }
+    },
+    "8": {
+      "dim": 8,
+      "linear": {
+        "acc": 0.24575848303393213,
+        "cna": 0.21296537360062484,
+        "macro_f1": 0.23944441094310265
+      },
+      "mlp": {
+        "acc": 0.29466067864271456,
+        "cna": 0.26399375162718036,
+        "macro_f1": 0.2872907375192095
+      }
+    },
+    "16": {
+      "dim": 16,
+      "linear": {
+        "acc": 0.3203592814371258,
+        "cna": 0.29080968497787035,
+        "macro_f1": 0.3118237201899791
+      },
+      "mlp": {
+        "acc": 0.3250998003992016,
+        "cna": 0.29575631346003645,
+        "macro_f1": 0.31525595861968614
+      }
+    },
+    "32": {
+      "dim": 32,
+      "linear": {
+        "acc": 0.3473053892215569,
+        "cna": 0.3189273626659724,
+        "macro_f1": 0.33996414096059774
+      },
+      "mlp": {
+        "acc": 0.3500499001996008,
+        "cna": 0.32179120020827906,
+        "macro_f1": 0.3366902382092034
+      }
+    },
+    "64": {
+      "dim": 64,
+      "linear": {
+        "acc": 0.3253493013972056,
+        "cna": 0.29601666232751883,
+        "macro_f1": 0.31948395271716906
+      },
+      "mlp": {
+        "acc": 0.3458083832335329,
+        "cna": 0.3173652694610778,
+        "macro_f1": 0.3322928623312888
+      }
+    },
+    "128": {
+      "dim": 128,
+      "linear": {
+        "acc": 0.31511976047904194,
+        "cna": 0.2853423587607394,
+        "macro_f1": 0.3172502146049803
+      },
+      "mlp": {
+        "acc": 0.31636726546906185,
+        "cna": 0.28664410309815147,
+        "macro_f1": 0.31318673628043364
+      }
+    },
+    "256": {
+      "dim": 256,
+      "linear": {
+        "acc": 0.27644710578842313,
+        "cna": 0.24498828430096325,
+        "macro_f1": 0.28419507393330234
+      },
+      "mlp": {
+        "acc": 0.2719560878243513,
+        "cna": 0.24030200468627963,
+        "macro_f1": 0.27386894904688636
+      }
+    },
+    "512": {
+      "dim": 464,
+      "linear": {
+        "acc": 0.2986526946107784,
+        "cna": 0.2681593335068992,
+        "macro_f1": 0.3016489023115928
+      },
+      "mlp": {
+        "acc": 0.311127744510978,
+        "cna": 0.2811767768810205,
+        "macro_f1": 0.3033304142175976
+      }
+    }
+  },
+  "pca_sweep_dex": {
+    "2": {
+      "dim": 2,
+      "linear": {
+        "acc": 0.5564168819982773,
+        "cna": 0.4455211024978466,
+        "macro_f1": 0.48296386021206505
+      },
+      "mlp": {
+        "acc": 0.7097329888027563,
+        "cna": 0.6371662360034452,
+        "macro_f1": 0.6072571181967302
+      }
+    },
+    "4": {
+      "dim": 4,
+      "linear": {
+        "acc": 0.991817398794143,
+        "cna": 0.9897717484926788,
+        "macro_f1": 0.9934887959345626
+      },
+      "mlp": {
+        "acc": 0.9823428079242033,
+        "cna": 0.9779285099052539,
+        "macro_f1": 0.9822815656469641
+      }
+    },
+    "8": {
+      "dim": 8,
+      "linear": {
+        "acc": 0.9961240310077519,
+        "cna": 0.9951550387596899,
+        "macro_f1": 0.9969999479157625
+      },
+      "mlp": {
+        "acc": 0.987510766580534,
+        "cna": 0.9843884582256676,
+        "macro_f1": 0.990118375062371
+      }
+    },
+    "16": {
+      "dim": 16,
+      "linear": {
+        "acc": 0.9991386735572783,
+        "cna": 0.9989233419465978,
+        "macro_f1": 0.9993333314814763
+      },
+      "mlp": {
+        "acc": 0.9948320413436692,
+        "cna": 0.9935400516795864,
+        "macro_f1": 0.9958013411515132
+      }
+    },
+    "32": {
+      "dim": 32,
+      "linear": {
+        "acc": 1.0,
+        "cna": 1.0,
+        "macro_f1": 1.0
+      },
+      "mlp": {
+        "acc": 0.9987080103359173,
+        "cna": 0.9983850129198965,
+        "macro_f1": 0.9985360314138406
+      }
+    },
+    "64": {
+      "dim": 64,
+      "linear": {
+        "acc": 1.0,
+        "cna": 1.0,
+        "macro_f1": 1.0
+      },
+      "mlp": {
+        "acc": 0.9991386735572783,
+        "cna": 0.9989233419465978,
+        "macro_f1": 0.9989190405015386
+      }
+    },
+    "128": {
+      "dim": 128,
+      "linear": {
+        "acc": 1.0,
+        "cna": 1.0,
+        "macro_f1": 1.0
+      },
+      "mlp": {
+        "acc": 0.9900947459086994,
+        "cna": 0.9876184323858741,
+        "macro_f1": 0.9874925567292259
+      }
+    },
+    "256": {
+      "dim": 256,
+      "linear": {
+        "acc": 1.0,
+        "cna": 1.0,
+        "macro_f1": 1.0
+      },
+      "mlp": {
+        "acc": 0.9633936261843239,
+        "cna": 0.9542420327304049,
+        "macro_f1": 0.9535441942293781
+      }
+    },
+    "512": {
+      "dim": 512,
+      "linear": {
+        "acc": 0.9987080103359173,
+        "cna": 0.9983850129198965,
+        "macro_f1": 0.9983949212901612
+      },
+      "mlp": {
+        "acc": 0.8652024117140397,
+        "cna": 0.8315030146425495,
+        "macro_f1": 0.8540860710955741
+      }
+    }
+  },
+  "per_dim_best_raw_gr1": {
+    "channel": 6,
+    "cna": 0.0609216349908878,
+    "acc": 0.1000499001996008,
+    "macro_f1": 0.09455357606481522
+  },
+  "pca_correction": {
+    "issue": "original intent_probe.py fit PCA on the FULL dataset before CV (mild unsupervised leak of held-out X into the PCA basis). raw/v3/v4 rows were never affected (per-fold StandardScaler only).",
+    "fix": "PCA rows (canonical + rank sweep) recomputed with StandardScaler+PCA fit PER-FOLD on TRAIN only (intent_probe_pcafix.py); leak-free.",
+    "effect": "negligible \u2014 PCA-256 CNA gr1 lin 0.246->0.245, mlp 0.238->0.240; sweep peak k=32 lin 0.316->0.319. Gate ranking unchanged (v4 0.347 > v3 0.301 ~= raw 0.298 > PCA). Distinct from the S4 whitening bug, which only affected distance-based NN/KMeans (exp-0002).",
+    "original_values": {
+      "s1-lin-gr1-pca": 0.246,
+      "s1-mlp-gr1-pca": 0.2377,
+      "s1-lin-dex-pca": 0.9941,
+      "s1-mlp-dex-pca": 0.8821
+    },
+    "leakfree_files": [
+      "results/exp-0001/pca_leakfree_gr1.json",
+      "results/exp-0001/pca_leakfree_dex.json"
+    ]
+  }
+}

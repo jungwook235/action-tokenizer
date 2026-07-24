@@ -1,0 +1,145 @@
+{
+  "exp_id": "exp-0006",
+  "section": "intent-probe (S1 endpoint)",
+  "dataset": "robocasa (single_panda_gripper_front, DoF=12)",
+  "headline": "robocasa low-DoF endpoint (12-dim, 161 pick-place tasks, leak-free LOEPTO-3). Intent decodability CNA: v4 0.039lin/0.058mlp > v3 0.030/0.053 ~ raw 0.021/0.053 > PCA 0.018. Absolute CNA is LOW (161 fine tasks) but v4 still leads. v4-over-raw abs gap +0.018 (lin) < gr1's +0.049 -> DoF-scaling trend holds (gap grows with DoF); EgoDex (DoF44) pending as decisive point.",
+  "split": "loepto-3fold",
+  "N": 7728,
+  "n_tasks": 161,
+  "chance": 0.00621,
+  "placeholders": {
+    "s1-lin-robocasa-raw": 0.0208,
+    "s1-lin-robocasa-pca": 0.018,
+    "s1-lin-robocasa-v3": 0.0302,
+    "s1-lin-robocasa-v4": 0.0391,
+    "s1-mlp-robocasa-raw": 0.0531,
+    "s1-mlp-robocasa-pca": 0.0215,
+    "s1-mlp-robocasa-v3": 0.0529,
+    "s1-mlp-robocasa-v4": 0.0581,
+    "s1-f1-robocasa-raw": 0.023,
+    "s1-f1-robocasa-v4": 0.0453,
+    "s1-perdim-robocasa": 0.0072,
+    "s1-ntask-robocasa": 161,
+    "s1-dof-robocasa": 12
+  },
+  "dof_scaling": {
+    "note": "v4-over-raw intent-decodability gap vs nominal action DoF. ABSOLUTE gap (linear CNA): robocasa(DoF12,161tasks)=+0.018, gr1(DoF29,24tasks)=+0.049 -> larger at higher DoF (supports hypothesis). CONFOUND: task count differs (161 vs 24), so absolute CNA magnitudes are not directly comparable; relative lift v4/raw is robocasa 1.88x vs gr1 1.17x. EgoDex(DoF44) is the decisive third point.",
+    "points": {
+      "robocasa": {
+        "dof": 12,
+        "n_tasks": 161,
+        "raw_lin": 0.0208,
+        "v4_lin": 0.0391,
+        "abs_gap": 0.0183,
+        "rel_lift": 1.88
+      },
+      "gr1": {
+        "dof": 29,
+        "n_tasks": 24,
+        "raw_lin": 0.2976,
+        "v4_lin": 0.3468,
+        "abs_gap": 0.0492,
+        "rel_lift": 1.165
+      }
+    }
+  },
+  "pca_sweep": {
+    "2": {
+      "dim": 2,
+      "linear": {
+        "acc": 0.01358695652173913,
+        "cna": 0.0074218750000000005,
+        "macro_f1": 0.00406375070055603
+      },
+      "mlp": {
+        "acc": 0.018245341614906832,
+        "cna": 0.012109375,
+        "macro_f1": 0.00533324294782319
+      }
+    },
+    "4": {
+      "dim": 4,
+      "linear": {
+        "acc": 0.020703933747412008,
+        "cna": 0.014583333333333334,
+        "macro_f1": 0.00555088069881697
+      },
+      "mlp": {
+        "acc": 0.03597308488612837,
+        "cna": 0.02994791666666667,
+        "macro_f1": 0.01850419141768641
+      }
+    },
+    "8": {
+      "dim": 8,
+      "linear": {
+        "acc": 0.028856107660455488,
+        "cna": 0.022786458333333336,
+        "macro_f1": 0.01245830738000934
+      },
+      "mlp": {
+        "acc": 0.05344202898550725,
+        "cna": 0.04752604166666667,
+        "macro_f1": 0.03614394385094107
+      }
+    },
+    "16": {
+      "dim": 16,
+      "linear": {
+        "acc": 0.026268115942028984,
+        "cna": 0.020182291666666668,
+        "macro_f1": 0.014138551741027072
+      },
+      "mlp": {
+        "acc": 0.0542184265010352,
+        "cna": 0.048307291666666675,
+        "macro_f1": 0.04253229965986707
+      }
+    },
+    "32": {
+      "dim": 32,
+      "linear": {
+        "acc": 0.02096273291925466,
+        "cna": 0.014843750000000003,
+        "macro_f1": 0.015086024195308769
+      },
+      "mlp": {
+        "acc": 0.035196687370600416,
+        "cna": 0.02916666666666667,
+        "macro_f1": 0.02653941874533108
+      }
+    },
+    "64": {
+      "dim": 64,
+      "linear": {
+        "acc": 0.02406832298136646,
+        "cna": 0.01796875,
+        "macro_f1": 0.019924085472642534
+      },
+      "mlp": {
+        "acc": 0.027562111801242236,
+        "cna": 0.021484375,
+        "macro_f1": 0.021746088345322483
+      }
+    },
+    "128": {
+      "dim": 128,
+      "linear": {
+        "acc": 0.025879917184265012,
+        "cna": 0.019791666666666666,
+        "macro_f1": 0.023468141970133676
+      },
+      "mlp": {
+        "acc": 0.030538302277432712,
+        "cna": 0.02447916666666667,
+        "macro_f1": 0.026629297902492507
+      }
+    }
+  },
+  "per_dim_best_raw": {
+    "channel": 6,
+    "cna": 0.007161458333333334,
+    "acc": 0.01332815734989648,
+    "macro_f1": 0.0019471437948239156
+  }
+}

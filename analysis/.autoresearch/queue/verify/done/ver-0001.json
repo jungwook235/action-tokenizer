@@ -1,0 +1,12 @@
+{
+  "id": "ver-0001",
+  "section": "intent-probe",
+  "claim": "S1 GATE (gr1, leak-free LOEPTO 3-fold, 24 tasks, chance=1/24): intent-decodability chance-normalized-accuracy ordering is v4 > raw ≈ v3 > PCA. Specifically v4 CNA=0.347(linear)/0.344(mlp) exceeds raw 0.298/0.328 and v3 0.301/0.321; PCA-canonical (k=latent budget) 0.246/0.238 is at/below raw (PCA-best over k-sweep ≈0.320 at k=32). v4-over-raw margin is MODEST (~+0.02-0.05). dexjoco is a disjoint-action control at raw=v3=v4 acc=1.00 (off-curve). Numbers live in .autoresearch/results/exp-0001/results_gr1.json + results_dex.json + run_meta.json.",
+  "exp": "exp-0001",
+  "state": "done",
+  "created": "2026-07-21T06:53:59Z",
+  "claimed_at": "2026-07-21T06:55:03Z",
+  "verdict": "pass",
+  "note": "INDEPENDENT PASS. (1) LEAK-FREE SPLIT verified from source, not framing: fold_loepto=episode_rank; loepto_folds puts all chunks of rank-f episode into test. Empirically on cache: 72 episodes, uniform 3/task (min=max=3), ZERO episodes straddle folds, ZERO train/test episode overlap in all 3 folds, every fold's test covers all 24 tasks. Recovery in recover_episode_ids.py replicates dataset EXACTLY: get_fixed_split_for_split sel.sort() (fixed_val_split.py:167) + _get_all_steps episode-by-episode expansion (dataset.py:503-521); assert loc.max()<n_steps passed. split_leak_warning=false correct. (2) CNA MATH recomputed from raw acc, chance=1/24: v4=0.347/0.344, raw=0.298/0.328, v3=0.301/0.321, PCA-canon(k256)=0.246/0.238 — all match file+claim to 3dp. (3) ORDERING holds: v4>raw~=v3>PCA. raw~=v3 (cross over lin/mlp within fold-std). v4-over-raw margin lin +0.049, mlp +0.016 — 'MODEST' fair, though mlp margin (0.016) is a hair below the claim's stated '+0.02' lower bound; not overstated. (4) PCA FAIR: swept k up to full rank of raw (raw_dim=464; k=512 clamped), PCA-best=k32~=0.320 reported, v4 exceeds PCA at every k so canonical choice immaterial. NOTE: pca_canonical=256 matches v3 budget (16*16) not v4's 16*64=1024 as brief loosely stated — immaterial. (5) CONTROL: dexjoco raw=v3=v4 acc~=1.00 (v3 mlp 0.9987), split_kind=stratified-chunk-FALLBACK, split_leak_warning=true, labeled control-only (LOEPTO infeasible @1 val ep/task), 5 disjoint datasets, correctly off-curve. Two minor framing nits noted, none block the gate.",
+  "done_at": "2026-07-21T07:00:53Z"
+}

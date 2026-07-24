@@ -1,0 +1,29 @@
+{
+  "tag": "dex",
+  "cache": "output/visual_sep/cache.npz",
+  "N": 2322,
+  "v3_ckpt": "/sjw_alinlab1/home/jungwook/action_tokenizer/checkpoints_action_tokenizer/dexjoco_dual_arm_v3_recon_ln_bn16/checkpoint-100000",
+  "v4_ckpt": "/sjw_alinlab1/home/jungwook/action_tokenizer/checkpoints_action_tokenizer/dexjoco_dual_arm_v4_recon_dino_bn64_l1_mse_naiveln_vae/checkpoint-100000",
+  "raw": {
+    "HF_frac": 0.10464331269178027,
+    "jerk_ms": 0.003473522920111189
+  },
+  "recon": {
+    "v4": {
+      "HF_frac": 0.09809055313314682,
+      "jerk_ms": 0.003269960097280358,
+      "decode_l1_vs_gt": 0.005171163731868687,
+      "seconds": 6.1,
+      "HF_frac_ratio_recon_over_raw": 0.9373800447347119,
+      "jerk_ratio_recon_over_raw": 0.9413958599226083
+    },
+    "v3": {
+      "HF_frac": 0.09332351927930661,
+      "jerk_ms": 0.0034324806498822087,
+      "decode_l1_vs_gt": 0.016372308322195515,
+      "seconds": 2.3,
+      "HF_frac_ratio_recon_over_raw": 0.891824970729786,
+      "jerk_ratio_recon_over_raw": 0.9881842520803489
+    }
+  }
+}

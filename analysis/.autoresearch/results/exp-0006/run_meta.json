@@ -1,0 +1,30 @@
+{
+  "exp_id": "exp-0006",
+  "section": "intent-probe",
+  "dataset": "robocasa",
+  "group_id": "4cb173b8-1df1-42ed-8969-b9cefcfb9f06",
+  "git": {
+    "branch": "master",
+    "commit_short": "f6e29c1",
+    "dirty": true
+  },
+  "env": "gr00t-actlat",
+  "python": "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin/python",
+  "hardware": "collection: 1x GPU via srun --partition=debug (200s, released); probe: login-node CPU caps=6",
+  "seed": 0,
+  "tokenizers": {
+    "v3": "Isaac-GR00T/.../robocasa_100demos_v3_recon_ln_bn16/checkpoint-100000",
+    "v4": "action_tokenizer/.../robocasa_100demos_v4_recon_dino_bn64_l1_mse_naiveln_vae/checkpoint-70000"
+  },
+  "dataset_path": "/storage1/sjw_dataset/dataset/huggingface/lerobot/shared/robocasa_preprocessed/robocasa_mg_gr00t_100",
+  "data_config": "single_panda_gripper_front",
+  "scripts": [
+    "analysis/collect_cache_taskep.py",
+    "analysis/intent_probe.py"
+  ],
+  "sampling": "split=all; 161 tasks with >=3 eps; max_eps=3, chunks_per_ep=16 -> 7728 chunks; LOEPTO-3 leak-free by episode. NOTE: fixed-val split has only 7 eps total (val_ratio 0.003) so a balanced sample from all episodes was used; the tokenizer saw these episodes in training (representation-geometry probe, not generalization).",
+  "commands": [
+    "srun --partition=debug --gpus=1 python analysis/collect_cache_taskep.py --dataset-path <robocasa> --data-config single_panda_gripper_front --v3-ckpt <..> --v4-ckpt <..> --min-eps 3 --max-eps 3 --chunks-per-ep 16 --out output/actlat_robocasa/cache.npz",
+    "python intent_probe.py --cache output/actlat_robocasa/cache.npz --episode-ids output/actlat_robocasa/episode_ids.npz --tag robocasa --per-dim --pca-canonical 64 --pca-dims 2,4,8,16,32,64,128 --out .autoresearch/results/exp-0006/results_robocasa.json"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "exp-0003",
+  "section": "dof-redundancy",
+  "placeholder": null,
+  "desc": "S2 effective-DoF metrics (CACHE-ONLY). On gr1 cache (analysis/output/visual_sep_gr1/cache.npz) and dexjoco cache: for RAW actions compute nominal DoF (D) vs effective DoF = participation ratio PR=(sum lambda_i)^2/sum(lambda_i^2) and n_pc95 (#PCs for 95% var) from the action covariance; report per dataset. Also intent-variance decomposition: fraction of raw-action variance that is task-predictive = between-task var / total var, and how it grows with PCA rank (per-rank cumulative). This quantifies redundancy motivating compression. Also report same PR/n_pc95 for v3 and v4 latents for comparison. S2 real placeholder IDs still being drafted by Writing — store results under .autoresearch/results/<expid>/ keyed by (dataset,rep,metric); Writing maps later. run_meta.json required. CPU-only, gr00t-actlat, thread caps=8.",
+  "priority": "normal",
+  "state": "done",
+  "created": "2026-07-21T05:58:44Z",
+  "claimed_by": "experiment",
+  "claimed_at": "2026-07-21T05:59:45Z",
+  "done_at": "2026-07-21T06:54:49Z",
+  "summary": "S2 effective-DoF: raw actions massively redundant. gr1 raw_chunk nominal 464->PR 9.5 (n_pc95=18, 48.7x redundancy); raw_perstep 29->PR 8.5 (joint DoF ~8-9); v3 PR 11.0 (n_pc95=15); v4 PR 19.2 (n_pc95=82, ~2x more effective dims => encodes visual beyond action). Only 23% of raw-action var is task-predictive (between/total=0.229) => explains weak S1 decodability. dexjoco raw_chunk PR 7.3, between/total=0.430. intent-var-vs-PCA-rank curve saved. results.json keyed by (dataset,rep,metric).",
+  "result_file": "results/exp-0003/results.json",
+  "outcome": "match"
+}

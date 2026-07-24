@@ -1,0 +1,80 @@
+{
+  "tag": "dex",
+  "cache": "output/visual_sep/cache.npz",
+  "N": 2322,
+  "n_tasks": 5,
+  "pca_dim": 256,
+  "seed": 0,
+  "v3_ckpt": "/sjw_alinlab1/home/jungwook/action_tokenizer/checkpoints_action_tokenizer/dexjoco_dual_arm_v3_recon_ln_bn16/checkpoint-100000",
+  "v4_ckpt": "/sjw_alinlab1/home/jungwook/action_tokenizer/checkpoints_action_tokenizer/dexjoco_dual_arm_v4_recon_dino_bn64_l1_mse_naiveln_vae/checkpoint-100000",
+  "reps": {
+    "raw": {
+      "dim": 704,
+      "nn": {
+        "P@1": 1.0,
+        "P@5": 1.0,
+        "P@10": 1.0,
+        "P@1_cross_ep": 0.0,
+        "P@5_cross_ep": 0.0,
+        "P@10_cross_ep": 0.0
+      },
+      "cluster": {
+        "n_clusters": 5,
+        "NMI": 0.5317735651465191,
+        "ARI": 0.388884325048386
+      },
+      "seconds": 0.6
+    },
+    "pca": {
+      "dim": 256,
+      "nn": {
+        "P@1": 1.0,
+        "P@5": 1.0,
+        "P@10": 1.0,
+        "P@1_cross_ep": 0.0,
+        "P@5_cross_ep": 0.0,
+        "P@10_cross_ep": 0.0
+      },
+      "cluster": {
+        "n_clusters": 5,
+        "NMI": 0.5317735651465191,
+        "ARI": 0.388884325048386
+      },
+      "seconds": 0.3
+    },
+    "v3": {
+      "dim": 256,
+      "nn": {
+        "P@1": 1.0,
+        "P@5": 1.0,
+        "P@10": 1.0,
+        "P@1_cross_ep": 0.0,
+        "P@5_cross_ep": 0.0,
+        "P@10_cross_ep": 0.0
+      },
+      "cluster": {
+        "n_clusters": 5,
+        "NMI": 0.7084496964929047,
+        "ARI": 0.5950757297181711
+      },
+      "seconds": 0.3
+    },
+    "v4": {
+      "dim": 1024,
+      "nn": {
+        "P@1": 1.0,
+        "P@5": 1.0,
+        "P@10": 1.0,
+        "P@1_cross_ep": 0.0,
+        "P@5_cross_ep": 0.0,
+        "P@10_cross_ep": 0.0
+      },
+      "cluster": {
+        "n_clusters": 5,
+        "NMI": 0.5457426706351582,
+        "ARI": 0.4128983309452508
+      },
+      "seconds": 0.8
+    }
+  }
+}

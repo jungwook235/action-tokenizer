@@ -1,0 +1,20 @@
+[gr1] raw/linear: acc=0.327 CNA=0.298 F1=0.323 (30.6s)
+[gr1] raw/mlp: acc=0.356 CNA=0.328 F1=0.344 (300.0s)
+[gr1] v3/linear: acc=0.330 CNA=0.301 F1=0.325 (336.1s)
+[gr1] v3/mlp: acc=0.349 CNA=0.321 F1=0.335 (463.6s)
+[gr1] v4/linear: acc=0.374 CNA=0.347 F1=0.362 (29.5s)
+[gr1] v4/mlp: acc=0.372 CNA=0.344 F1=0.352 (31.8s)
+[gr1] pca/linear: acc=0.277 CNA=0.246 F1=0.288 (21.2s)
+[gr1] pca/mlp: acc=0.269 CNA=0.238 F1=0.276 (16.5s)
+[gr1] pca-2: lin CNA=0.038 mlp CNA=0.088
+[gr1] pca-4: lin CNA=0.126 mlp CNA=0.171
+[gr1] pca-8: lin CNA=0.202 mlp CNA=0.247
+[gr1] pca-16: lin CNA=0.284 mlp CNA=0.299
+[gr1] pca-32: lin CNA=0.316 mlp CNA=0.320
+[gr1] pca-64: lin CNA=0.291 mlp CNA=0.307
+[gr1] pca-128: lin CNA=0.286 mlp CNA=0.286
+[gr1] pca-256: lin CNA=0.246 mlp CNA=0.238
+[gr1] pca-512: lin CNA=0.264 mlp CNA=0.280
+[gr1] per-dim best raw channel: {'channel': 6, 'cna': 0.0609216349908878, 'acc': 0.1000499001996008, 'macro_f1': 0.09455357606481522} (53.6s)
+WROTE .autoresearch/results/exp-0001/results_gr1.json
+#### INTENT PROBE DONE ####

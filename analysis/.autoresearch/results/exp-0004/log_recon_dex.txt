@@ -1,0 +1,26 @@
+/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/albumentations/__init__.py:13: UserWarning: A new version of Albumentations is available: 2.0.8 (you have 1.4.18). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()
+2026-07-21 16:21:09.452086: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-07-21 16:21:09.452214: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-07-21 16:21:09.503563: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-07-21 16:21:09.618489: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-07-21 16:21:11.778970: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2026-07-21 16:21:16.430234: E external/local_xla/xla/stream_executor/cuda/cuda_driver.cc:274] failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+`use_fast` is set to `True` but the image processor class does not have a fast version.  Falling back to the slow version.
+[w] Failed to import RLDS OXE modules. Please ensure that the RLDS package is installed. No module named 'dlimp'
+OXE RLDS configs not found. Make sure gr00t is installed with the 'oxe' extra.
+[dex] raw: HF_frac=0.1046 jerk_ms=0.00347
+[timewise_v4] action_dim=44, action_horizon=16, emb_dim=256, token_dim=64, dino_dim=1024, fusion_width=1024, fusion_depth=6, enc_depth=4, dec_depth=4, decoder_mode=self_attention, num_global=0, num_hand=0, use_vae=True, vae_sample=True, action_proj_mlp=False, action_proj_hidden=None, use_embodiment_class_token=False
+[timewise_v4] dino_final_norm=naive
+[ActionLatentTokenizerWrapper] Skipping 57 training-only keys: ['dino_decoder.blocks.0.attn.in_proj_bias', 'dino_decoder.blocks.0.attn.in_proj_weight', 'dino_decoder.blocks.0.attn.out_proj.bias', 'dino_decoder.blocks.0.attn.out_proj.weight', 'dino_decoder.blocks.0.mlp.0.bias']...
+[ActionLatentTokenizerWrapper] Loaded from /sjw_alinlab1/home/jungwook/action_tokenizer/checkpoints_action_tokenizer/dexjoco_dual_arm_v4_recon_dino_bn64_l1_mse_naiveln_vae/checkpoint-100000
+  tokenizer_type=timewise, action_dim=44, action_horizon=16, emb_dim=64 (latent), internal_emb_dim=256 (transformer), num_global=0, num_hand=0, num_main_tokens=16
+[dex] v4 recon: HF_frac=0.0981 (x0.94 raw) jerk_ms=0.00327 (x0.94 raw) L1=0.0052 (6.1s)
+[timewise_v3] action_dim=44, action_horizon=16, emb_dim=256, head_dim=64, depth=4, num_global=0, num_hand=0, decoder_num_hand=0, hand_in_recon=True, output_layernorm=True, use_bottleneck=True, token_dim=16, compress_token=1, use_vae=False
+[timewise_v3] decoder_mode=self_attention, dec_depth=2
+[ActionLatentTokenizerWrapper] Loaded from /sjw_alinlab1/home/jungwook/action_tokenizer/checkpoints_action_tokenizer/dexjoco_dual_arm_v3_recon_ln_bn16/checkpoint-100000
+  tokenizer_type=timewise, action_dim=44, action_horizon=16, emb_dim=16 (latent), internal_emb_dim=256 (transformer), num_global=0, num_hand=0, num_main_tokens=16
+[dex] v3 recon: HF_frac=0.0933 (x0.89 raw) jerk_ms=0.00343 (x0.99 raw) L1=0.0164 (2.3s)
+WROTE .autoresearch/results/exp-0004/recon_dex.json
+#### LABEL NOISE RECON DONE ####

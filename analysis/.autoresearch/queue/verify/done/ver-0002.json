@@ -1,0 +1,12 @@
+{
+  "id": "ver-0002",
+  "section": "semantic-geometry",
+  "claim": "S4 semantic geometry (gr1, 24 tasks): learned latents recover task-semantic structure that raw actions and PCA do not, ranking v4 > v3 ≈ raw > PCA. Cross-EPISODE NN retrieval P@10: v4 0.273 > v3 0.251 > raw 0.228, all >> PCA (~0.05); clustering ARI (KMeans, n=24): v4 0.127 > v3 0.101 > raw 0.085 > PCA 0.058; NMI: v4 0.384 > raw 0.328 > PCA 0.226. A PCA WHITENING BUG was found+fixed during exp-0002; reported numbers must be post-fix. Numbers in .autoresearch/results/exp-0002/results_gr1.json.",
+  "exp": "exp-0002",
+  "state": "done",
+  "created": "2026-07-21T07:14:01Z",
+  "claimed_at": "2026-07-21T07:15:48Z",
+  "verdict": "fail",
+  "note": "Reproduced results_gr1.json EXACTLY (independent re-run of semantic_geometry.py in gr00t-actlat env, all reps/metrics bit-for-bit). CODE+METHOD SOUND: cross-ep retrieval is leak-free (ep=task*1e6+epidx; neighbors from same episode correctly excluded via first-k cross-ep of top-60 pool; 72 eps/24 tasks=3/task); KMeans n_clusters=24=#tasks, NMI/ARI vs TRUE task labels; PCA whitening-bug fix is CORRECT (PCA = rotation+trunc of z-scored raw, used as-is, no re-whitening). CONFIRMED numbers: v4/v3/raw cross-ep P@10 0.273/0.251/0.228; ARI 0.127/0.101/0.085; v4 NMI 0.384. Ordering v4>v3>raw holds. BUT CLAIM IS WRONG ON PCA (blocks as written): claim says 'all >> PCA (~0.05)', PCA ARI 0.058, PCA NMI 0.226 — these are the PRE-FIX whitened numbers and CONTRADICT the cited post-fix file, which has PCA cross-ep P@10=0.228 (IDENTICAL to raw, not ~0.05), ARI=0.079, NMI=0.309. Post-fix reality is v4>v3>raw≈PCA, NOT 'v3≈raw>PCA': v3(0.251,ARI0.101) is distinctly ABOVE raw(0.228,0.085), and raw≈PCA (PCA is just 256/464 truncation of raw). Also 'raw actions do not recover structure' overstates: raw cross-ep P@10 0.228 = 5.5x chance (0.0417, perfectly balanced 167/task) and ARI 0.085>0. FIX FOR WRITING: drop the 'PCA collapses/~0.05' story (that was the bug), report PCA≈raw (ARI0.079/NMI0.309), correct ranking to v4>v3>raw≈PCA, soften 'raw does not recover structure'. Core positive result (v4 best, monotone v4>v3>raw) is valid.",
+  "done_at": "2026-07-21T07:21:57Z"
+}

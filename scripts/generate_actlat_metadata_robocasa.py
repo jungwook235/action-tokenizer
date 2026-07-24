@@ -23,8 +23,8 @@ import numpy as np
 DATASET_PATH = Path(
     "/storage1/sjw_dataset/dataset/huggingface/lerobot/shared/robocasa_preprocessed/robocasa_mg_gr00t_100"
 )
-CKPT_BASE = Path("/sjw_alinlab1/home/jungwook/Isaac-GR00T/checkpoints")
-REPO_ROOT = Path("/sjw_alinlab1/home/jungwook/Isaac-GR00T")
+CKPT_BASE = Path("/sjw_alinlab1/home/jungwook/action_tokenizer/checkpoints")
+REPO_ROOT = Path("/sjw_alinlab1/home/jungwook/action_tokenizer")
 
 CHECKPOINT_DIRS = [
     "vla_actlat_fm_robocasa_100demos/v2_hand_pred_norecon_mask_fullstate",
@@ -34,6 +34,7 @@ CHECKPOINT_DIRS = [
     "vla_actlat_fm_robocasa_100demos/v2_state_pred_full_time_mask",
     "vla_actlat_fm_robocasa_100demos/v2_state_pred_full_time_mask_statemask",
     "vla_nactlat_fm_robocasa_100demos/baseline",
+    "vla_actlat_fm_robocasa100/v4_recon_dino_bn64_l1_mse_naiveln_vae_fix_imagetransform_embtok_soupv1_ft",
 ]
 
 

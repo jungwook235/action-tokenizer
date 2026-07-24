@@ -1,0 +1,12 @@
+{
+  "id": "ver-0003",
+  "section": "semantic-geometry",
+  "claim": "S4 semantic geometry (gr1, 24 tasks) — CORRECTED post-PCA-fix claim: ranking v4 > v3 > raw ≈ PCA. Cross-ep retrieval P@10: v4 0.273 > v3 0.251 > raw 0.228 ≈ PCA 0.228. Clustering ARI: v4 0.127 > v3 0.101 > raw 0.085 ≈ PCA 0.079; NMI v4 0.384 > raw 0.328 ≈ PCA 0.309. Raw has WEAK-BUT-NONZERO geometry (~5.5x chance, ARI>0). Key nuance: v3 > raw in geometry even though v3 ≈ raw in the S1 intent probe. PCA ≈ raw (PCA-k is a linear truncation of raw). This SUPERSEDES the failed ver-0002 (which used stale pre-fix PCA ~0.05). Numbers in results_gr1.json (post-fix).",
+  "exp": "exp-0002",
+  "state": "done",
+  "created": "2026-07-21T07:41:37Z",
+  "claimed_at": "2026-07-21T07:42:48Z",
+  "verdict": "pass",
+  "note": "CORRECTED claim faithfully matches results_gr1.json (post-fix). Confirmed independently from file+code: (1) P@10 cross-ep v4 0.2726 > v3 0.2508 > raw 0.2281 = PCA 0.2281 — PCA==raw (NOT ~0.05), v3 distinctly > raw. (2) ARI v4 0.1274 > v3 0.1009 > raw 0.0852 ~ PCA 0.0793; NMI v4 0.3839 > raw 0.3278 ~ PCA 0.3092. (3) Ordering v4>v3>raw~PCA holds on both primary metrics; 'raw weak-but-nonzero ~5.5x chance (1/24=0.042 -> 5.47x), ARI>0' accurate. (4) No active 'PCA~0.05/collapses' wording — PCA~0.05 appears only as reference to superseded ver-0002; active claim is PCA~=raw. Code re-checked leak-free: drops self, cross_mask excludes same-episode, takes first-k cross-ep neighbors. PCA used as-is (no re-zscore) so PCA~=raw is mathematically expected. MINOR residual: v3 NMI 0.335 is marginally > raw 0.328 (claim's NMI line omits v3), but v3>raw separation is clear in ARI+P@10 (the primary metrics) — does not affect verdict.",
+  "done_at": "2026-07-21T07:43:54Z"
+}

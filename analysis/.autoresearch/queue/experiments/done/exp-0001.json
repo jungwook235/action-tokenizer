@@ -1,0 +1,15 @@
+{
+  "id": "exp-0001",
+  "section": "intent-probe",
+  "placeholder": "s1-gate-verdict",
+  "desc": "S1 gr1 intent-probe (CACHE-ONLY, gating). Load analysis/output/visual_sep_gr1/cache.npz. For each representation in {raw flattened [16xD], PCA-k with k matched to latent budget 64*16, v3 latent Z3, v4 latent Z4mu}: train linear (sklearn LogisticRegression) AND 2-layer MLP probe to predict the 24 gr1 task labels, with a BY-EPISODE train/val split (never chunk-level; group by episode/task id to avoid leakage). Report chance-normalized accuracy CNA = (acc-chance)/(1-chance), chance=1/24, and macro-F1. Fills S1 gr1 placeholders: s1-lin-gr1-{raw,pca,v3,v4}, s1-mlp-gr1-{raw,pca,v3,v4}, s1-f1-gr1-{raw,v4}, s1-perdim-gr1 (best single raw dim CNA), s1-ntask-gr1=24. ALSO run the SAME probe on the dexjoco cache as the disjoint-action CONTROL -> fills s1-{lin,mlp}-dex-{raw,pca,v3,v4}, s1-ntask-dex=5 (expect ~ceiling, raw~=v4, off-curve). Write results+run_meta.json (git commit, exact cmd, seed) under .autoresearch/results/<expid>/. CPU-only, env gr00t-actlat, export OMP/MKL/OPENBLAS/NUMEXPR_NUM_THREADS=8.",
+  "priority": "high",
+  "state": "done",
+  "created": "2026-07-21T05:58:44Z",
+  "claimed_by": "experiment",
+  "claimed_at": "2026-07-21T05:59:43Z",
+  "done_at": "2026-07-21T06:50:36Z",
+  "summary": "S1 gr1 (leak-free LOEPTO 3-fold, 24 tasks, chance=4.2%): intent-decodability CNA v4=0.347lin/0.344mlp > v3=0.301/0.321 ~= raw=0.298/0.328 > PCA-256=0.246/0.238; PCA sweep peaks k=32 (0.316) then declines. v3~=raw (action-only latent adds no intent). Best single raw channel CNA=0.061. Absolute decodability LOW: one action chunk weakly determines task. dexjoco control (chunk-level, disjoint actions): all reps ceiling ~1.00, off-curve. v4 is best but margin modest. results.json has all s1-* placeholder values.",
+  "result_file": "results/exp-0001/results.json",
+  "outcome": "partial"
+}

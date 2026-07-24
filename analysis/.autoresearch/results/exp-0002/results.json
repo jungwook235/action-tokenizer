@@ -1,0 +1,98 @@
+{
+  "exp_id": "exp-0002",
+  "section": "semantic-geometry",
+  "headline": "gr1 (24 shared-primitive tasks): v4 latent has the strongest task semantic geometry. Leak-free cross-episode P@10 (base rate ~0.042): v4 0.273 > v3 0.251 > raw~=pca 0.228. KMeans ARI: v4 0.127 > v3 0.101 > raw 0.085 ~= pca 0.079; NMI: v4 0.384 > v3 0.335 > raw 0.328. Naive P@1 (v4 0.995) is inflated by same-episode temporal adjacency -> report cross-ep. dexjoco control (disjoint actions): all reps P@k ceiling; KMeans ARI v3 0.595 > v4 0.413 > raw 0.389 (action~=task so a clean action code separates best - matches prior vsep finding).",
+  "caveats": {
+    "cross_episode": "cross-episode P@k excludes same-episode neighbors (temporal adjacency confound). For dexjoco (1 val episode/task) there are NO cross-episode same-task pairs, so cross-ep P@k is degenerate (0.0) and should be reported N/A.",
+    "pca_kmeans": "pca rep = top-256 PCA of z-scored raw, used as-is (preserves L2 for NN, so P@k~=raw). KMeans on PCA scores is variance-weighted and can differ from z-scored raw (e.g. dexjoco pca ARI 0.015 vs raw 0.389); NN metrics are the more comparable PCA baseline."
+  },
+  "gr1": {
+    "raw": {
+      "dim": 464,
+      "P@1": 0.9476,
+      "P@5": 0.8689,
+      "P@10": 0.7505,
+      "P@1_cross_ep": 0.2705,
+      "P@10_cross_ep": 0.2281,
+      "ARI": 0.0852,
+      "NMI": 0.3278
+    },
+    "pca": {
+      "dim": 256,
+      "P@1": 0.9476,
+      "P@5": 0.8689,
+      "P@10": 0.7505,
+      "P@1_cross_ep": 0.2705,
+      "P@10_cross_ep": 0.2281,
+      "ARI": 0.0793,
+      "NMI": 0.3092
+    },
+    "v3": {
+      "dim": 256,
+      "P@1": 0.9733,
+      "P@5": 0.9042,
+      "P@10": 0.786,
+      "P@1_cross_ep": 0.2927,
+      "P@10_cross_ep": 0.2508,
+      "ARI": 0.1009,
+      "NMI": 0.3347
+    },
+    "v4": {
+      "dim": 1024,
+      "P@1": 0.9953,
+      "P@5": 0.9515,
+      "P@10": 0.8632,
+      "P@1_cross_ep": 0.3054,
+      "P@10_cross_ep": 0.2726,
+      "ARI": 0.1274,
+      "NMI": 0.3839
+    }
+  },
+  "dexjoco": {
+    "raw": {
+      "dim": 704,
+      "P@1": 1.0,
+      "P@5": 1.0,
+      "P@10": 1.0,
+      "P@1_cross_ep": 0.0,
+      "P@10_cross_ep": 0.0,
+      "ARI": 0.3889,
+      "NMI": 0.5318
+    },
+    "pca": {
+      "dim": 256,
+      "P@1": 1.0,
+      "P@5": 1.0,
+      "P@10": 1.0,
+      "P@1_cross_ep": 0.0,
+      "P@10_cross_ep": 0.0,
+      "ARI": 0.3889,
+      "NMI": 0.5318
+    },
+    "v3": {
+      "dim": 256,
+      "P@1": 1.0,
+      "P@5": 1.0,
+      "P@10": 1.0,
+      "P@1_cross_ep": 0.0,
+      "P@10_cross_ep": 0.0,
+      "ARI": 0.5951,
+      "NMI": 0.7084
+    },
+    "v4": {
+      "dim": 1024,
+      "P@1": 1.0,
+      "P@5": 1.0,
+      "P@10": 1.0,
+      "P@1_cross_ep": 0.0,
+      "P@10_cross_ep": 0.0,
+      "ARI": 0.4129,
+      "NMI": 0.5457
+    }
+  },
+  "chance_p_at_k_by_task_gr1": 0.0417,
+  "n_tasks": {
+    "gr1": 24,
+    "dex": 5
+  }
+}

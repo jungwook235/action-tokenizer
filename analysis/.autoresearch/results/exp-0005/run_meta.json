@@ -1,0 +1,23 @@
+{
+  "exp_id": "exp-0005",
+  "section": "dof-redundancy",
+  "group_id": "4cb173b8-1df1-42ed-8969-b9cefcfb9f06",
+  "git": {
+    "branch": "master",
+    "commit_short": "f6e29c1",
+    "dirty": true
+  },
+  "env": "gr00t-actlat",
+  "python": "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin/python",
+  "hardware": "login-node CPU caps=6",
+  "seed": 0,
+  "scripts": [
+    "analysis/intent_probe_subset.py (reuses intent_probe + intent_probe_pcafix)"
+  ],
+  "split": "same gr1 cache + LOEPTO-3 leak-free episode split as exp-0001",
+  "action_order": "left_arm[0:7] right_arm[7:14] left_hand[14:20] right_hand[20:26] waist[26:29]",
+  "subsets": "arm=[0:14](L+R arm), hands=[14:26], waist=[26:29], full=all 29; PCA top-k fit per-fold on train (leak-free)",
+  "commands": [
+    "python intent_probe_subset.py --cache output/visual_sep_gr1/cache.npz --episode-ids output/visual_sep_gr1/episode_ids.npz --pca-ks 4,6,10,18 --out .autoresearch/results/exp-0005/results.json"
+  ]
+}

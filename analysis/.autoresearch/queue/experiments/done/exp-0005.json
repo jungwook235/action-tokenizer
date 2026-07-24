@@ -1,0 +1,15 @@
+{
+  "id": "exp-0005",
+  "section": "dof-redundancy",
+  "placeholder": null,
+  "desc": "S2 WITHIN-EMBODIMENT intent control (CACHE-ONLY, gr1). Kills the dataset confound: same gr1 episodes + same LOEPTO leak-free split as exp-0001, vary ONLY the action representation fed to the intent probe (24 tasks, chance-normalized acc): (a) ARM-ONLY action-dim subset, (b) FULL body+hands (all 29 dims = the exp-0001 raw baseline), (c) TOP-K effective PCs (k = n_pc95 ≈ 6, and a couple nearby k). Requires the gr1 action-dim layout (which of the 29 dims are arm vs waist/torso vs hands/neck) — infer from the gr00t gr1 embodiment schema / dataset modality config; if ambiguous, report the grouping you used. Deliverable: CNA(arm-only) vs CNA(full) vs CNA(top-k PCs) on identical episodes — isolates whether intent lives in a low-eff-dim subspace and whether extra body DoF adds or dilutes intent signal. Reuse analysis/intent_probe.py probe + split. Results under .autoresearch/results/<expid>/ + run_meta. CPU-only, gr00t-actlat, thread caps=8.",
+  "priority": "normal",
+  "state": "done",
+  "created": "2026-07-21T07:11:10Z",
+  "claimed_by": "experiment",
+  "claimed_at": "2026-07-21T08:23:33Z",
+  "done_at": "2026-07-21T08:27:39Z",
+  "summary": "S2 within-embodiment control (same gr1 eps+LOEPTO split): intent lives in a small ARM subspace. arm-only(14d) CNA 0.285lin/0.325mlp ~= full-29 0.298/0.328 (full==exp-0001 raw, sanity ok). hands 0.061, waist 0.039 carry little intent. Top-k PCs: k=6->0.166, k=18(=n_pc95)->0.273 (91.6% of full). Extra body DoF does NOT add intent (mildly dilutes). Confirms intent is low-eff-dim + arm-localized (ties S2 redundancy). results.json .placeholders (s2-*).",
+  "result_file": "results/exp-0005/results.json",
+  "outcome": "match"
+}

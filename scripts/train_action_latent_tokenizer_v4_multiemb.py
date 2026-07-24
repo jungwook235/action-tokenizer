@@ -423,9 +423,10 @@ def _load_embodiment_groups(config: ArgsConfig):
         weight = float(g.get("weight", 1.0))
         loader = str(g.get("loader", "lerobot")).lower()
 
-        # glob-expand paths (GR1 uses a glob; EgoDex lists task folders directly);
+        # glob-expand paths (GR1 uses a glob; EgoDex lists task folders directly;
+        # egopi_prq lists per-source paths inside "sources" instead — see below);
         # preserve order, dedup via extend.
-        raw_paths = g["dataset_path"]
+        raw_paths = g.get("dataset_path", [])
         if isinstance(raw_paths, str):
             raw_paths = [raw_paths]
         paths = []
@@ -459,6 +460,54 @@ def _load_embodiment_groups(config: ArgsConfig):
             val_ds = EgoDexActionFramesDataset(split="val", **ek)
             desc = f"egodex:{ek['action_key']}"
             feats_label = "live"
+        elif loader == "egopi_prq":
+            # EgoPi shared {p,r,q} 15D action space (gr00t/data/dataset_egopi_prq_v4.py):
+            # robot (openarm FK cache) + human (eef→prq mapping) sources land in ONE
+            # embodiment group → a single action encoder/decoder serves both datasets.
+            # Actions are EgoPi-normalized (merged robot∪human min-max from prq_stats),
+            # so there is NO within-group LeRobot stats merge here (the sources have
+            # different raw action keys anyway). DINO feature caches are REQUIRED.
+            from gr00t.data.dataset_egopi_prq_v4 import EgoPiPrqCachedDatasetV4
+
+            prq_stats = g["prq_stats"]
+            filter_json = g.get("filter")
+            sources = g["sources"]
+            assert sources, f"[{name}] egopi_prq needs a non-empty 'sources' list"
+            paths = [s["dataset_path"] for s in sources]
+            for p in paths:
+                assert os.path.exists(p), f"[{name}] dataset path does not exist: {p}"
+            assert os.path.exists(prq_stats), f"[{name}] prq_stats not found: {prq_stats}"
+
+            def make_prq(src, split):
+                return EgoPiPrqCachedDatasetV4(
+                    prq_mode=src["mode"],
+                    prq_stats_path=prq_stats,
+                    fk_cache_h5=src.get("fk_cache"),
+                    filter_json=filter_json,
+                    filter_tag=src.get("filter_tag"),
+                    dataset_path=src["dataset_path"],
+                    data_config_name=src["data_config"],
+                    embodiment_tag=embodiment_tag,
+                    split=split,
+                    val_ratio=config.val_ratio,
+                    val_seed=config.val_seed,
+                    normalization_mode=config.normalization_mode,
+                    image_size=config.image_size,
+                    feature_source=config.feature_source,
+                    dino_model=config.dino_model,
+                    dino_final_norm=config.dino_final_norm,
+                    use_fixed_val=config.use_fixed_val,
+                    fixed_val_path=config.fixed_val_path,
+                    video_backend=config.video_backend,
+                )
+
+            g_train = [make_prq(s, "train") for s in sources]
+            g_val = [make_prq(s, "val") for s in sources]
+            train_ds = g_train[0] if len(g_train) == 1 else torch.utils.data.ConcatDataset(g_train)
+            val_ds = g_val[0] if len(g_val) == 1 else torch.utils.data.ConcatDataset(g_val)
+            n_robot = sum(1 for s in sources if s["mode"] == "robot")
+            desc = f"egopi_prq (robot={n_robot}, human={len(sources) - n_robot})"
+            feats_label = "CACHED"
         else:
             data_config = g["data_config"]
             use_cache = bool(g.get("use_dino_cache", False))

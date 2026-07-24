@@ -3622,6 +3622,209 @@ class RealOpenARMJointDataConfig(BimanualPandaGripperDataConfig):
         return ComposedModalityTransform(transforms=transforms)
 
 
+class OpenARMTeleopJointRightDataConfig(BaseDataConfig):
+    """openarm_teleop_v3 (openarm_rh56f1 joints) with the RIGHT ego camera, for the
+    actlat tokenizer/VLA pipeline. Action/state: 28-dim joints — neck(2) +
+    left/right arm(7) + left/right hand(6). min_max normalization.
+    """
+    video_keys = [
+        "video.camera_ego_right",
+    ]
+    state_keys = [
+        "state.neck_joints",
+        "state.left_arm_joints",
+        "state.right_arm_joints",
+        "state.left_hand_joints",
+        "state.right_hand_joints",
+    ]
+    action_keys = [
+        "action.neck_joints",
+        "action.left_arm_joints",
+        "action.right_arm_joints",
+        "action.left_hand_joints",
+        "action.right_hand_joints",
+    ]
+
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+    action_dim = 28
+
+    state_normalization_modes = {key: "min_max" for key in state_keys}
+    action_normalization_modes = {key: "min_max" for key in action_keys}
+
+    def modality_config(self):
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+        return {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+    def transform(self, backbone_model_type="qwen3_vl_8b", backbone_path=None):
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.3,
+                contrast=0.4,
+                saturation=0.5,
+                hue=0.08,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes=self.state_normalization_modes,
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes=self.action_normalization_modes,
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            GR00TTransform(
+                backbone_model_type=backbone_model_type,
+                backbone_path=backbone_path,
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+            ),
+        ]
+
+        return ComposedModalityTransform(transforms=transforms)
+
+
+class OpenARMPnpEefRightDataConfig(BaseDataConfig):
+    """RLWRLD openarm_inspire eef_inspire pick&place (e.g. pnp_clean_260506).
+
+    Action/state: 30-dim eef format — left/right wrist_trans(3) + wrist_rot6d(6)
+    + inspire6(6). Single RIGHT ego camera. min_max normalization.
+    """
+    video_keys = [
+        "video.camera_ego_right",
+    ]
+    state_keys = [
+        "state.left_wrist_trans",
+        "state.left_wrist_rot6d",
+        "state.left_inspire6",
+        "state.right_wrist_trans",
+        "state.right_wrist_rot6d",
+        "state.right_inspire6",
+    ]
+    action_keys = [
+        "action.left_wrist_trans",
+        "action.left_wrist_rot6d",
+        "action.left_inspire6",
+        "action.right_wrist_trans",
+        "action.right_wrist_rot6d",
+        "action.right_inspire6",
+    ]
+
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+    action_dim = 30
+
+    state_normalization_modes = {key: "min_max" for key in state_keys}
+    action_normalization_modes = {key: "min_max" for key in action_keys}
+
+    def modality_config(self):
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+        return {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+    def transform(self, backbone_model_type="qwen3_vl_8b", backbone_path=None):
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.3,
+                contrast=0.4,
+                saturation=0.5,
+                hue=0.08,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes=self.state_normalization_modes,
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes=self.action_normalization_modes,
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            GR00TTransform(
+                backbone_model_type=backbone_model_type,
+                backbone_path=backbone_path,
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+            ),
+        ]
+
+        return ComposedModalityTransform(transforms=transforms)
+
+
 class DexmgSingleViewArmsHandsDataConfig(BaseDataConfig):
     """
     DexMimicGen 통합 DataConfig.
@@ -4532,6 +4735,25 @@ class HumanoidEverydayH1DataConfig:
         ]
         return ComposedModalityTransform(transforms=transforms)
 
+
+class HumanoidEverydayG1EgocentricDataConfig(HumanoidEverydayG1DataConfig):
+    """G1 humanoid_everyday variant for datasets whose only egocentric video
+    stream is named ``egocentric`` (not the precomputed ``egocentric_resized``
+    downscale present on the origin cluster). The V4 tokenizer resizes to 224
+    regardless, so reading the full-res ``egocentric`` is functionally
+    identical. Only the video key names change."""
+
+    video_keys = ["video.egocentric"]
+    tokenizer_frame_video_key = "video.egocentric"
+
+
+class HumanoidEverydayH1EgocentricDataConfig(HumanoidEverydayH1DataConfig):
+    """H1 counterpart of HumanoidEverydayG1EgocentricDataConfig."""
+
+    video_keys = ["video.egocentric"]
+    tokenizer_frame_video_key = "video.egocentric"
+
+
 DATA_CONFIG_MAP = {
     "fourier_gr1_arms_waist_actlat_fm": FourierGr1ArmsWaistActlatFMDataConfig(),
     "fourier_gr1_arms_waist_actlat_fm_1000demos": FourierGr1ArmsWaistActlatFM1000DemosDataConfig(),
@@ -4570,6 +4792,8 @@ DATA_CONFIG_MAP = {
     "real_franka_joint": RealFrankaJointDataConfig(),
     "real_franka_eef": FrankaRealEEFDataConfig(),
     "real_open_arm_joint": RealOpenARMJointDataConfig(),
+    "openarm_teleop_joint_right": OpenARMTeleopJointRightDataConfig(),
+    "openarm_pnp_eef_right": OpenARMPnpEefRightDataConfig(),
     "dexmg_single_view_arms_hands": DexmgSingleViewArmsHandsDataConfig(),
     "allex": AllexDataConfig(),
     "allex_rlwrld": AllexRLWRldDataConfig(),
@@ -4584,4 +4808,6 @@ DATA_CONFIG_MAP = {
     "human_egodex_camera_hand_unit": EgoDexCameraHandUnitDataConfig(),
     "humanoid_everyday_g1": HumanoidEverydayG1DataConfig(),
     "humanoid_everyday_h1": HumanoidEverydayH1DataConfig(),
+    "humanoid_everyday_g1_egocentric": HumanoidEverydayG1EgocentricDataConfig(),
+    "humanoid_everyday_h1_egocentric": HumanoidEverydayH1EgocentricDataConfig(),
 }

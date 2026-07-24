@@ -1,0 +1,13 @@
+[dex] PCA-256 linear (leakfree): acc=1.000 CNA=1.000
+[dex] PCA-256 mlp (leakfree): acc=0.963 CNA=0.954
+[dex] PCA-2 (leakfree): lin CNA=0.446 mlp CNA=0.637
+[dex] PCA-4 (leakfree): lin CNA=0.990 mlp CNA=0.978
+[dex] PCA-8 (leakfree): lin CNA=0.995 mlp CNA=0.984
+[dex] PCA-16 (leakfree): lin CNA=0.999 mlp CNA=0.994
+[dex] PCA-32 (leakfree): lin CNA=1.000 mlp CNA=0.998
+[dex] PCA-64 (leakfree): lin CNA=1.000 mlp CNA=0.999
+[dex] PCA-128 (leakfree): lin CNA=1.000 mlp CNA=0.988
+[dex] PCA-256 (leakfree): lin CNA=1.000 mlp CNA=0.954
+[dex] PCA-512 (leakfree): lin CNA=0.998 mlp CNA=0.832
+WROTE .autoresearch/results/exp-0001/pca_leakfree_dex.json
+#### PCA FIX DONE ####

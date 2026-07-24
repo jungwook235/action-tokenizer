@@ -1,0 +1,31 @@
+{
+  "exp_id": "exp-0001",
+  "section": "intent-probe",
+  "placeholder": "s1-gate-verdict",
+  "group_id": "4cb173b8-1df1-42ed-8969-b9cefcfb9f06",
+  "git": {
+    "branch": "master",
+    "commit_short": "f6e29c1",
+    "dirty": true
+  },
+  "env": "gr00t-actlat (numpy 1.26.4, sklearn 1.5.2, scipy 1.15.3)",
+  "python": "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin/python",
+  "hardware": "login-node1 CPU, thread caps OMP/MKL/OPENBLAS/NUMEXPR=6",
+  "seed": 0,
+  "scripts": [
+    "analysis/recover_episode_ids.py",
+    "analysis/intent_probe.py",
+    "analysis/intent_probe_pcafix.py"
+  ],
+  "commands": [
+    "python recover_episode_ids.py --cache output/visual_sep_gr1/cache.npz",
+    "python recover_episode_ids.py --cache output/visual_sep/cache.npz",
+    "python intent_probe.py --cache output/visual_sep_gr1/cache.npz --episode-ids output/visual_sep_gr1/episode_ids.npz --tag gr1 --per-dim --out .autoresearch/results/exp-0001/results_gr1.json",
+    "python intent_probe.py --cache output/visual_sep/cache.npz --episode-ids output/visual_sep/episode_ids.npz --tag dex --out .autoresearch/results/exp-0001/results_dex.json"
+  ],
+  "split": "gr1=LOEPTO 3-fold (72 episodes, 3/task, leak-free); dexjoco=stratified-chunk FALLBACK (1 val ep/task, LOEPTO infeasible) \u2014 control only",
+  "reps": "raw[T*D], PCA-k sweep {2..512}, v3[16*16], v4[16*64 mu]",
+  "probes": "linear=LogisticRegression(lbfgs,multinomial,C=1); mlp=MLPClassifier(256,early_stopping)",
+  "metrics": "acc, CNA=(acc-chance)/(1-chance), macro-F1; chance=1/24 (gr1), 1/5 (dex)",
+  "pca_correction": "PCA rows (canonical + rank sweep) recomputed with StandardScaler+PCA fit PER-FOLD on TRAIN only (intent_probe_pcafix.py); leak-free. Effect: negligible \u2014 PCA-256 CNA gr1 lin 0.246->0.245, mlp 0.238->0.240; sweep peak k=32 lin 0.316->0.319. Gate ranking unchanged (v4 0.347 > v3 0.301 ~= raw 0.298 > PCA). Distinct from the S4 whitening bug, which only affected distance-based NN/KMeans (exp-0002)."
+}

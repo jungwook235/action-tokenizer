@@ -1,0 +1,15 @@
+{
+  "id": "exp-0004",
+  "section": "label-noise-shortcut",
+  "placeholder": null,
+  "desc": "S3 label-noise / copycat-shortcut (CACHE-ONLY, gr1 + dexjoco caches). Three parts: (a) SPECTRAL/JERK: per action-dim high-frequency energy (e.g. fraction of power above mid-band, and mean squared jerk = 2nd difference) of RAW actions vs the tokenizer RECONSTRUCTION (decode Z4 -> a_hat via the decoder; CPU forward, no GPU). Hypothesis: recon has less high-freq/jerk = denoising evidence. Report raw vs recon HF-energy & jerk per dataset. (b) BLIND PREDICTABILITY (copycat): within an episode, predict the action chunk a_t from action HISTORY alone (previous chunk(s)) using ridge regression; report history-only R² for RAW action targets vs LATENT (Z4) targets. High raw R² = copycat/shortcut-prone supervision (cite copycat/causal-confusion). (c) TEMPORAL AUTOCORRELATION: mean autocorrelation vs lag of raw action token sequences vs latent (Z3/Z4) token sequences. S3 real placeholder IDs still being drafted by Writing — store results under .autoresearch/results/<expid>/ keyed by (dataset,part,metric); Writing maps later. run_meta.json required. CPU-only, gr00t-actlat, thread caps=8.",
+  "priority": "normal",
+  "state": "done",
+  "created": "2026-07-21T07:08:31Z",
+  "claimed_by": "experiment",
+  "claimed_at": "2026-07-21T07:08:48Z",
+  "done_at": "2026-07-21T07:23:47Z",
+  "summary": "S3 label-noise/copycat: (b) COPYCAT strongly confirmed - blind history-only ridge R2 raw 0.980(gr1)/0.993(dex), v3 0.982/0.992, v4 0.915/0.986: raw actions ~98% predictable from history; v4 least copyable (biggest drop on gr1). (c) lag1 autocorr raw 0.989/0.996, v4 0.941/0.988. (a) DENOISING sub-hyp NOT supported: recon near-lossless (gr1 L1 0.0014 jerk x1.00 HF x1.56; dex L1 0.005 jerk x0.94) = high-fidelity not smoother. Ties S1-S4: chunks smooth/copyable/low-intent; v4 departs. results.json keyed by dataset,part,metric.",
+  "result_file": "results/exp-0004/results.json",
+  "outcome": "partial"
+}

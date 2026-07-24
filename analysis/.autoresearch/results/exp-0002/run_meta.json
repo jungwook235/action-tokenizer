@@ -1,0 +1,24 @@
+{
+  "exp_id": "exp-0002",
+  "section": "semantic-geometry",
+  "group_id": "4cb173b8-1df1-42ed-8969-b9cefcfb9f06",
+  "git": {
+    "branch": "master",
+    "commit_short": "f6e29c1",
+    "dirty": true
+  },
+  "env": "gr00t-actlat (numpy 1.26.4, sklearn 1.5.2, scipy 1.15.3)",
+  "python": "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin/python",
+  "hardware": "login-node1 CPU, thread caps=6",
+  "seed": 0,
+  "scripts": [
+    "analysis/semantic_geometry.py",
+    "analysis/recover_episode_ids.py"
+  ],
+  "commands": [
+    "python semantic_geometry.py --cache output/visual_sep_gr1/cache.npz --episode-ids output/visual_sep_gr1/episode_ids.npz --tag gr1 --out .autoresearch/results/exp-0002/results_gr1.json",
+    "python semantic_geometry.py --cache output/visual_sep/cache.npz --episode-ids output/visual_sep/episode_ids.npz --tag dex --out .autoresearch/results/exp-0002/results_dex.json"
+  ],
+  "metrics": "NN P@1/5/10 (L2 on z-scored feats) incl. cross-episode variant; KMeans(n_tasks) NMI/ARI",
+  "note": "PCA double-standardization (whitening) bug found+fixed before final run; see results.json caveats."
+}

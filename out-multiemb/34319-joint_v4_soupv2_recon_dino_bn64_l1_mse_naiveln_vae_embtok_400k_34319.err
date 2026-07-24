@@ -1,0 +1,303 @@
++ export PATH=/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/bin/linux-x64/e7a7e93f4d75f8272503ecf33cedbaae10114a10/bin/remote-cli:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.nvm/versions/node/v20.20.2/bin:/sjw_alinlab1/home/jungwook/google-cloud-sdk/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/miniconda3/bin:/sjw_alinlab1/home/jungwook/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/cuda/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/extensions/ms-python.debugpy-2025.18.0-linux-x64/bundled/scripts/noConfigScripts:/sjw_alinlab1/home/jungwook/.local/bin
++ PATH=/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/bin/linux-x64/e7a7e93f4d75f8272503ecf33cedbaae10114a10/bin/remote-cli:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.nvm/versions/node/v20.20.2/bin:/sjw_alinlab1/home/jungwook/google-cloud-sdk/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/miniconda3/bin:/sjw_alinlab1/home/jungwook/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/cuda/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/extensions/ms-python.debugpy-2025.18.0-linux-x64/bundled/scripts/noConfigScripts:/sjw_alinlab1/home/jungwook/.local/bin
++ export WANDB_PROJECT=Action-Tokenizer-Joint-SoupV2
++ WANDB_PROJECT=Action-Tokenizer-Joint-SoupV2
++ export WANDB_API_KEY=66a73856614bc24a07523f3fbee42482fcbeffe3
++ WANDB_API_KEY=66a73856614bc24a07523f3fbee42482fcbeffe3
++ export HF_TOKEN=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
++ HF_TOKEN=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
++ MODEL_OUTPUT_DIR=/rlwrld-unified-checkpoints/jungwook/action_tokenizer
++ BASE_DIR=/sjw_alinlab1/home/jungwook/action_tokenizer
++ cd /sjw_alinlab1/home/jungwook/action_tokenizer
++ source /sjw_alinlab1/home/jungwook/miniconda3/bin/activate gr00t-actlat
+++ _CONDA_ROOT=/sjw_alinlab1/home/jungwook/miniconda3
+++ . /sjw_alinlab1/home/jungwook/miniconda3/etc/profile.d/conda.sh
++++ export CONDA_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/conda
++++ CONDA_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/conda
++++ export _CONDA_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/conda
++++ _CONDA_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/python
++++ export _CONDA_ROOT=/sjw_alinlab1/home/jungwook/miniconda3
++++ _CONDA_ROOT=/sjw_alinlab1/home/jungwook/miniconda3
++++ '[' -z x ']'
+++ conda activate gr00t-actlat
+++ local cmd=activate
+++ case "$cmd" in
+++ __conda_activate activate gr00t-actlat
+++ '[' -n '' ']'
+++ local ask_conda
++++ PS1=
++++ __conda_exe shell.posix activate gr00t-actlat
++++ '[' -n '' ']'
++++ /sjw_alinlab1/home/jungwook/miniconda3/bin/conda shell.posix activate gr00t-actlat
+++ ask_conda='export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+PS1='\''(gr00t-actlat) '\''
+export PATH='\''/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/bin/linux-x64/e7a7e93f4d75f8272503ecf33cedbaae10114a10/bin/remote-cli:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.nvm/versions/node/v20.20.2/bin:/sjw_alinlab1/home/jungwook/google-cloud-sdk/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin:/sjw_alinlab1/home/jungwook/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/cuda/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/extensions/ms-python.debugpy-2025.18.0-linux-x64/bundled/scripts/noConfigScripts:/sjw_alinlab1/home/jungwook/.local/bin'\''
+export CONDA_PREFIX='\''/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat'\''
+export CONDA_SHLVL='\''2'\''
+export CONDA_DEFAULT_ENV='\''gr00t-actlat'\''
+export CONDA_PROMPT_MODIFIER='\''(gr00t-actlat) '\''
+export CONDA_PREFIX_1='\''/sjw_alinlab1/home/jungwook/miniconda3'\''
+export CONDA_EXE='\''/sjw_alinlab1/home/jungwook/miniconda3/bin/conda'\''
+export _CONDA_EXE='\''/sjw_alinlab1/home/jungwook/miniconda3/bin/conda'\''
+export CONDA_PYTHON_EXE='\''/sjw_alinlab1/home/jungwook/miniconda3/bin/python'\''
+export _CONDA_ROOT='\''/sjw_alinlab1/home/jungwook/miniconda3'\'''
+++ eval 'export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+PS1='\''(gr00t-actlat) '\''
+export PATH='\''/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/bin/linux-x64/e7a7e93f4d75f8272503ecf33cedbaae10114a10/bin/remote-cli:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.nvm/versions/node/v20.20.2/bin:/sjw_alinlab1/home/jungwook/google-cloud-sdk/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin:/sjw_alinlab1/home/jungwook/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/cuda/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/extensions/ms-python.debugpy-2025.18.0-linux-x64/bundled/scripts/noConfigScripts:/sjw_alinlab1/home/jungwook/.local/bin'\''
+export CONDA_PREFIX='\''/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat'\''
+export CONDA_SHLVL='\''2'\''
+export CONDA_DEFAULT_ENV='\''gr00t-actlat'\''
+export CONDA_PROMPT_MODIFIER='\''(gr00t-actlat) '\''
+export CONDA_PREFIX_1='\''/sjw_alinlab1/home/jungwook/miniconda3'\''
+export CONDA_EXE='\''/sjw_alinlab1/home/jungwook/miniconda3/bin/conda'\''
+export _CONDA_EXE='\''/sjw_alinlab1/home/jungwook/miniconda3/bin/conda'\''
+export CONDA_PYTHON_EXE='\''/sjw_alinlab1/home/jungwook/miniconda3/bin/python'\''
+export _CONDA_ROOT='\''/sjw_alinlab1/home/jungwook/miniconda3'\'''
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ PS1='(gr00t-actlat) '
++++ export PATH=/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/bin/linux-x64/e7a7e93f4d75f8272503ecf33cedbaae10114a10/bin/remote-cli:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.nvm/versions/node/v20.20.2/bin:/sjw_alinlab1/home/jungwook/google-cloud-sdk/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin:/sjw_alinlab1/home/jungwook/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/cuda/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/extensions/ms-python.debugpy-2025.18.0-linux-x64/bundled/scripts/noConfigScripts:/sjw_alinlab1/home/jungwook/.local/bin
++++ PATH=/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/bin/linux-x64/e7a7e93f4d75f8272503ecf33cedbaae10114a10/bin/remote-cli:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.nvm/versions/node/v20.20.2/bin:/sjw_alinlab1/home/jungwook/google-cloud-sdk/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin:/sjw_alinlab1/home/jungwook/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/cuda/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/extensions/ms-python.debugpy-2025.18.0-linux-x64/bundled/scripts/noConfigScripts:/sjw_alinlab1/home/jungwook/.local/bin
++++ export CONDA_PREFIX=/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat
++++ CONDA_PREFIX=/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat
++++ export CONDA_SHLVL=2
++++ CONDA_SHLVL=2
++++ export CONDA_DEFAULT_ENV=gr00t-actlat
++++ CONDA_DEFAULT_ENV=gr00t-actlat
++++ export 'CONDA_PROMPT_MODIFIER=(gr00t-actlat) '
++++ CONDA_PROMPT_MODIFIER='(gr00t-actlat) '
++++ export CONDA_PREFIX_1=/sjw_alinlab1/home/jungwook/miniconda3
++++ CONDA_PREFIX_1=/sjw_alinlab1/home/jungwook/miniconda3
++++ export CONDA_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/conda
++++ CONDA_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/conda
++++ export _CONDA_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/conda
++++ _CONDA_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/conda
++++ export CONDA_PYTHON_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/sjw_alinlab1/home/jungwook/miniconda3/bin/python
++++ export _CONDA_ROOT=/sjw_alinlab1/home/jungwook/miniconda3
++++ _CONDA_ROOT=/sjw_alinlab1/home/jungwook/miniconda3
+++ __conda_hashr
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
++ export PATH=/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/bin/linux-x64/e7a7e93f4d75f8272503ecf33cedbaae10114a10/bin/remote-cli:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.nvm/versions/node/v20.20.2/bin:/sjw_alinlab1/home/jungwook/google-cloud-sdk/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin:/sjw_alinlab1/home/jungwook/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/cuda/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/extensions/ms-python.debugpy-2025.18.0-linux-x64/bundled/scripts/noConfigScripts:/sjw_alinlab1/home/jungwook/.local/bin
++ PATH=/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/bin/linux-x64/e7a7e93f4d75f8272503ecf33cedbaae10114a10/bin/remote-cli:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.nvm/versions/node/v20.20.2/bin:/sjw_alinlab1/home/jungwook/google-cloud-sdk/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin:/sjw_alinlab1/home/jungwook/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/cuda/bin:/sjw_alinlab1/home/jungwook/.local/bin:/sjw_alinlab1/home/jungwook/.cursor-server/extensions/ms-python.debugpy-2025.18.0-linux-x64/bundled/scripts/noConfigScripts:/sjw_alinlab1/home/jungwook/.local/bin
++ EMB_CONFIG=/sjw_alinlab1/home/jungwook/action_tokenizer/sbatch_scripts/multiemb/v4_soupv2/embodiments_soupv2.json
++ TOK_CKPT_DIR=/rlwrld-unified-checkpoints/jungwook/action_tokenizer/joint_soupv2_v4_recon_dino_bn64_l1_mse_naiveln_vae_embtok
++ TOK_STEP=400000
++ python scripts/train_action_latent_tokenizer_v4_multiemb.py --resume --embodiments-config /sjw_alinlab1/home/jungwook/action_tokenizer/sbatch_scripts/multiemb/v4_soupv2/embodiments_soupv2.json --output-dir /rlwrld-unified-checkpoints/jungwook/action_tokenizer/joint_soupv2_v4_recon_dino_bn64_l1_mse_naiveln_vae_embtok --run-name actlat_v4_joint_soupv2_recon_dino_bn64_l1_mse_naiveln_vae_embtok --num-gpus 8 --batch-size 64 --max-steps 400000 --save-steps 10000 --save-total-limit 100 --dataloader-num-workers 16 --token-dim 64 --encoder-depth 4 --decoder-depth 4 --dino-model facebook/dinov2-large --dino-channels 1024 --dino-final-norm naive --fusion-width 1024 --fusion-depth 6 --dino-decoder-depth 6 --lambda-recon 1.0 --lambda-dino 0.1 --use-vae --lambda-kl 1e-6 --recon-loss-type l1 --dino-loss-type mse --dino-w-l1 0.0 --dino-w-mse 1.0 --decoder-mode self_attention --use-embodiment-class-token --video-backend decord --use-fixed-val --wandb-project Action-Tokenizer-Joint-SoupV2-tokenizer --eval-steps 1000 --report-to wandb
+/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/albumentations/__init__.py:13: UserWarning: A new version of Albumentations is available: 2.0.8 (you have 1.4.18). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()
+2026-07-24 14:31:48.172470: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-07-24 14:31:49.741188: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-07-24 14:31:49.741285: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-07-24 14:31:49.943912: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-07-24 14:31:50.396509: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-07-24 14:31:53.511819: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2026-07-24 14:32:08.235742: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+`use_fast` is set to `True` but the image processor class does not have a fast version.  Falling back to the slow version.
+W0724 14:32:22.596000 779165 site-packages/torch/distributed/run.py:793] 
+W0724 14:32:22.596000 779165 site-packages/torch/distributed/run.py:793] *****************************************
+W0724 14:32:22.596000 779165 site-packages/torch/distributed/run.py:793] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0724 14:32:22.596000 779165 site-packages/torch/distributed/run.py:793] *****************************************
+/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/albumentations/__init__.py:13: UserWarning: A new version of Albumentations is available: 2.0.8 (you have 1.4.18). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()
+/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/albumentations/__init__.py:13: UserWarning: A new version of Albumentations is available: 2.0.8 (you have 1.4.18). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()
+/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/albumentations/__init__.py:13: UserWarning: A new version of Albumentations is available: 2.0.8 (you have 1.4.18). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()
+/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/albumentations/__init__.py:13: UserWarning: A new version of Albumentations is available: 2.0.8 (you have 1.4.18). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()
+/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/albumentations/__init__.py:13: UserWarning: A new version of Albumentations is available: 2.0.8 (you have 1.4.18). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()
+/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/albumentations/__init__.py:13: UserWarning: A new version of Albumentations is available: 2.0.8 (you have 1.4.18). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()
+/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/albumentations/__init__.py:13: UserWarning: A new version of Albumentations is available: 2.0.8 (you have 1.4.18). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()
+/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/albumentations/__init__.py:13: UserWarning: A new version of Albumentations is available: 2.0.8 (you have 1.4.18). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()
+2026-07-24 14:32:26.810682: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-07-24 14:32:26.832388: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-07-24 14:32:26.832683: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-07-24 14:32:26.838438: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-07-24 14:32:26.838437: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-07-24 14:32:26.841742: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-07-24 14:32:26.841767: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-07-24 14:32:26.842838: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-07-24 14:32:26.847903: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-07-24 14:32:26.863186: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-07-24 14:32:26.863186: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-07-24 14:32:26.863211: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-07-24 14:32:26.863226: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-07-24 14:32:26.864348: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-07-24 14:32:26.864348: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-07-24 14:32:26.869468: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-07-24 14:32:26.869476: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-07-24 14:32:26.881242: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-07-24 14:32:26.883046: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-07-24 14:32:26.883075: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-07-24 14:32:26.883067: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-07-24 14:32:26.883084: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-07-24 14:32:26.884109: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-07-24 14:32:26.884109: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-07-24 14:32:26.890245: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-07-24 14:32:26.890245: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-07-24 14:32:26.932058: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-07-24 14:32:26.932106: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-07-24 14:32:26.933516: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-07-24 14:32:26.941235: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-07-24 14:32:27.458680: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-07-24 14:32:27.509183: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-07-24 14:32:27.509229: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-07-24 14:32:27.510661: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-07-24 14:32:27.518472: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-07-24 14:32:27.536117: I tensorflow/core/util/port.cc:113] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-07-24 14:32:27.590992: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2026-07-24 14:32:27.591028: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2026-07-24 14:32:27.592551: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-07-24 14:32:27.601089: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-07-24 14:32:27.696146: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2026-07-24 14:32:27.696181: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2026-07-24 14:32:27.696229: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2026-07-24 14:32:27.696242: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2026-07-24 14:32:27.696284: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2026-07-24 14:32:27.696302: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2026-07-24 14:32:28.561738: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2026-07-24 14:32:28.765668: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2026-07-24 14:32:33.913913: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2026-07-24 14:32:34.158851: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2026-07-24 14:32:34.415051: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2026-07-24 14:32:34.622567: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2026-07-24 14:32:34.842465: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2026-07-24 14:32:34.907660: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2026-07-24 14:32:35.086539: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2026-07-24 14:32:35.160464: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+`use_fast` is set to `True` but the image processor class does not have a fast version.  Falling back to the slow version.
+`use_fast` is set to `True` but the image processor class does not have a fast version.  Falling back to the slow version.
+`use_fast` is set to `True` but the image processor class does not have a fast version.  Falling back to the slow version.
+`use_fast` is set to `True` but the image processor class does not have a fast version.  Falling back to the slow version.
+`use_fast` is set to `True` but the image processor class does not have a fast version.  Falling back to the slow version.
+`use_fast` is set to `True` but the image processor class does not have a fast version.  Falling back to the slow version.
+`use_fast` is set to `True` but the image processor class does not have a fast version.  Falling back to the slow version.
+`use_fast` is set to `True` but the image processor class does not have a fast version.  Falling back to the slow version.
+Traceback (most recent call last):
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 845, in <module>
+Traceback (most recent call last):
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 845, in <module>
+    main(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 605, in main
+    group_weights, any_weight_set) = _load_embodiment_groups(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 437, in _load_embodiment_groups
+    main(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 605, in main
+    assert os.path.exists(p), f"[{name}] dataset path does not exist: {p}"
+AssertionError: [egodex_naivekey] dataset path does not exist: /storage1/sjw_dataset/dataset/egodex-lerobot/egodex-lerobot/part2/basic_pick_place
+    group_weights, any_weight_set) = _load_embodiment_groups(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 437, in _load_embodiment_groups
+    assert os.path.exists(p), f"[{name}] dataset path does not exist: {p}"
+AssertionError: [egodex_naivekey] dataset path does not exist: /storage1/sjw_dataset/dataset/egodex-lerobot/egodex-lerobot/part2/basic_pick_place
+Traceback (most recent call last):
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 845, in <module>
+    main(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 605, in main
+    group_weights, any_weight_set) = _load_embodiment_groups(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 437, in _load_embodiment_groups
+    assert os.path.exists(p), f"[{name}] dataset path does not exist: {p}"
+AssertionError: [egodex_naivekey] dataset path does not exist: /storage1/sjw_dataset/dataset/egodex-lerobot/egodex-lerobot/part2/basic_pick_place
+Traceback (most recent call last):
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 845, in <module>
+    main(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 605, in main
+    group_weights, any_weight_set) = _load_embodiment_groups(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 437, in _load_embodiment_groups
+    assert os.path.exists(p), f"[{name}] dataset path does not exist: {p}"
+AssertionError: [egodex_naivekey] dataset path does not exist: /storage1/sjw_dataset/dataset/egodex-lerobot/egodex-lerobot/part2/basic_pick_place
+Traceback (most recent call last):
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 845, in <module>
+    main(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 605, in main
+    group_weights, any_weight_set) = _load_embodiment_groups(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 437, in _load_embodiment_groups
+    assert os.path.exists(p), f"[{name}] dataset path does not exist: {p}"
+AssertionError: [egodex_naivekey] dataset path does not exist: /storage1/sjw_dataset/dataset/egodex-lerobot/egodex-lerobot/part2/basic_pick_place
+Traceback (most recent call last):
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 845, in <module>
+    main(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 605, in main
+    group_weights, any_weight_set) = _load_embodiment_groups(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 437, in _load_embodiment_groups
+    assert os.path.exists(p), f"[{name}] dataset path does not exist: {p}"
+AssertionError: [egodex_naivekey] dataset path does not exist: /storage1/sjw_dataset/dataset/egodex-lerobot/egodex-lerobot/part2/basic_pick_place
+Traceback (most recent call last):
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 845, in <module>
+    main(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 605, in main
+    group_weights, any_weight_set) = _load_embodiment_groups(config)
+  File "/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py", line 437, in _load_embodiment_groups
+    assert os.path.exists(p), f"[{name}] dataset path does not exist: {p}"
+AssertionError: [egodex_naivekey] dataset path does not exist: /storage1/sjw_dataset/dataset/egodex-lerobot/egodex-lerobot/part2/basic_pick_place
+W0724 14:32:44.448000 779165 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 780616 closing signal SIGTERM
+W0724 14:32:44.450000 779165 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 780622 closing signal SIGTERM
+W0724 14:32:44.450000 779165 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 780624 closing signal SIGTERM
+W0724 14:32:44.450000 779165 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 780625 closing signal SIGTERM
+W0724 14:32:44.451000 779165 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 780629 closing signal SIGTERM
+W0724 14:32:44.451000 779165 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 780630 closing signal SIGTERM
+W0724 14:32:44.451000 779165 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 780632 closing signal SIGTERM
+E0724 14:32:44.974000 779165 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 1 (pid: 780618) of binary: /sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin/python3.10
+Traceback (most recent call last):
+  File "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/bin/torchrun", line 6, in <module>
+    sys.exit(main())
+  File "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/torch/distributed/run.py", line 919, in main
+    run(args)
+  File "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/torch/distributed/run.py", line 910, in run
+    elastic_launch(
+  File "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/sjw_alinlab1/home/jungwook/miniconda3/envs/gr00t-actlat/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+/sjw_alinlab1/home/jungwook/action_tokenizer/scripts/train_action_latent_tokenizer_v4_multiemb.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-07-24_14:32:44
+  host      : worker-node1000
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 780618)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

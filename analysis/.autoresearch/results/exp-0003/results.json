@@ -1,0 +1,157 @@
+{
+  "exp_id": "exp-0003",
+  "section": "dof-redundancy",
+  "headline": "Raw action chunks are massively redundant. gr1: raw_chunk nominal 464 -> effective PR 9.5 (n_pc95=18), raw_perstep nominal 29 -> PR 8.5 (joint DoF ~8-9). v3 latent PR 11.0 (n_pc95=15); v4 PR 19.2 (n_pc95=82) - v4 uses ~2x more effective dims, consistent with encoding visual context beyond action. Only 23% of raw-action variance is task-predictive (between/total=0.229), explaining weak S1 intent decodability. dexjoco: raw_chunk PR 7.3 (n_pc95=16), between/total=0.430 (higher: disjoint actions => actions carry more task info).",
+  "gr1": {
+    "raw_perstep": {
+      "nominal_dim": 29,
+      "PR_corr": 8.52,
+      "n_pc90": 12,
+      "n_pc95": 14,
+      "n_pc99": 18,
+      "redundancy_corr": 3.4
+    },
+    "raw_chunk": {
+      "nominal_dim": 464,
+      "PR_corr": 9.53,
+      "n_pc90": 14,
+      "n_pc95": 18,
+      "n_pc99": 38,
+      "redundancy_corr": 48.7
+    },
+    "v3": {
+      "nominal_dim": 256,
+      "PR_corr": 11.01,
+      "n_pc90": 12,
+      "n_pc95": 15,
+      "n_pc99": 30,
+      "redundancy_corr": 23.3
+    },
+    "v4": {
+      "nominal_dim": 1024,
+      "PR_corr": 19.21,
+      "n_pc90": 25,
+      "n_pc95": 82,
+      "n_pc99": 382,
+      "redundancy_corr": 53.3
+    }
+  },
+  "dexjoco": {
+    "raw_perstep": {
+      "nominal_dim": 44,
+      "PR_corr": 7.14,
+      "n_pc90": 10,
+      "n_pc95": 14,
+      "n_pc99": 24,
+      "redundancy_corr": 6.2
+    },
+    "raw_chunk": {
+      "nominal_dim": 704,
+      "PR_corr": 7.28,
+      "n_pc90": 11,
+      "n_pc95": 16,
+      "n_pc99": 45,
+      "redundancy_corr": 96.7
+    },
+    "v3": {
+      "nominal_dim": 256,
+      "PR_corr": 6.93,
+      "n_pc90": 8,
+      "n_pc95": 10,
+      "n_pc99": 24,
+      "redundancy_corr": 36.9
+    },
+    "v4": {
+      "nominal_dim": 1024,
+      "PR_corr": 15.21,
+      "n_pc90": 25,
+      "n_pc95": 41,
+      "n_pc99": 111,
+      "redundancy_corr": 67.3
+    }
+  },
+  "intent_between_total": {
+    "gr1": 0.2289,
+    "dex": 0.4301
+  },
+  "intent_var_vs_rank_gr1": [
+    {
+      "rank": 1,
+      "between_total": 0.0742984187887686
+    },
+    {
+      "rank": 2,
+      "between_total": 0.233797465195856
+    },
+    {
+      "rank": 4,
+      "between_total": 0.24917510763234796
+    },
+    {
+      "rank": 8,
+      "between_total": 0.24622174676389008
+    },
+    {
+      "rank": 16,
+      "between_total": 0.23900057562381027
+    },
+    {
+      "rank": 32,
+      "between_total": 0.2319139073138541
+    },
+    {
+      "rank": 64,
+      "between_total": 0.22972338605706186
+    },
+    {
+      "rank": 128,
+      "between_total": 0.22910439862840315
+    },
+    {
+      "rank": 256,
+      "between_total": 0.22891945016879767
+    }
+  ],
+  "intent_var_vs_rank_dex": [
+    {
+      "rank": 1,
+      "between_total": 0.5496647284755728
+    },
+    {
+      "rank": 2,
+      "between_total": 0.4934782779327636
+    },
+    {
+      "rank": 4,
+      "between_total": 0.5304650056389484
+    },
+    {
+      "rank": 8,
+      "between_total": 0.4936337046393301
+    },
+    {
+      "rank": 16,
+      "between_total": 0.45170531870812264
+    },
+    {
+      "rank": 32,
+      "between_total": 0.4373829712066865
+    },
+    {
+      "rank": 64,
+      "between_total": 0.43254044318871976
+    },
+    {
+      "rank": 128,
+      "between_total": 0.4306941924069902
+    },
+    {
+      "rank": 256,
+      "between_total": 0.43018427378031476
+    }
+  ],
+  "n_tasks": {
+    "gr1": 24,
+    "dex": 5
+  }
+}

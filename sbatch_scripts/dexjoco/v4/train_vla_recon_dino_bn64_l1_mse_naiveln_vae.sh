@@ -3,9 +3,6 @@
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:b200:4
 #SBATCH --nodes=1
-#SBATCH --qos=preempt
-#SBATCH --requeue
-#SBATCH --signal=B:SIGTERM@120
 #SBATCH --time=72:00:00
 #SBATCH --output=/NHNHOME/data/wook/action-tokenizer/slurm/logs_dexjoco/full_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae_fix_imagetransform_%j.out
 #SBATCH --error=/NHNHOME/data/wook/action-tokenizer/slurm/logs_dexjoco/full_v4_dexjoco_dual_arm_recon_dino_bn64_l1_mse_naiveln_vae_fix_imagetransform_%j.err

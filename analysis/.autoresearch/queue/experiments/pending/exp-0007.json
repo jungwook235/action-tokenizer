@@ -1,0 +1,9 @@
+{
+  "id": "exp-0007",
+  "section": "intent-probe",
+  "placeholder": null,
+  "desc": "S1 ENDPOINT: EgoDex (HIGH-DoF, many tasks — THE load-bearing point for the DoF-scaling headline). Non-lerobot loader gr00t/data/dataset_egodex_frames_v4.py (loader=egodex, gr1_state action, _resized.mp4; see sbatch_scripts/multiemb configs). Build a NEW val-chunk cache: encode chunks -> npz with A, Z3, Z4(mu), task ids. CAP episodes for tractability: start ~50 eps/task x ~50-100 tasks, scale later. v4 needs DINO+encoder forward -> ONE srun --gpus=1 session; batch, release GPU when done (there may be a precomputed DINO feature cache for dexjoco h24 — check if an EgoDex DINO cache exists to reuse via --use-dino-cache). Use the joint multiemb tokenizer's EgoDex class token (or the appropriate per-embodiment ckpt). Then intent_probe.py (episode-level split, chance-norm acc+macro-F1, raw/PCA-k/v3/v4, per-dim variant) -> fills S1 EgoDex placeholders. HYPOTHESIS TEST: v4-over-raw gap should be LARGER here than gr1's +0.03 if DoF-scaling holds. results+run_meta under .autoresearch/results/<expid>/.",
+  "priority": "high",
+  "state": "pending",
+  "created": "2026-07-21T07:12:15Z"
+}

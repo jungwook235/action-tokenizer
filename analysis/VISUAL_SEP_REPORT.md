@@ -179,6 +179,65 @@ groups = find_groups(Xa, task, radius, min_size=4, ...)   # ≥2 tasks
 
 ---
 
+## ②″ 같은 액션 · 다른 상황 → v3 뭉침 / v4 분산 (실데이터 점 분포, **추천**)
+
+**무엇을 보나:** 액션이 **아주 좁은 반경(p0.1, 각 차원 ~0.2σ)** 안에 드는 실제 청크 그룹을, v3·v4의 **전역 latent 지도(PCA-2, 회색=전체 청크)** 위에 얹어 본다. 아래에 그 멤버들의 **x0(첫)·x1(끝) 프레임 쌍**을 색-연동. 색 = visual축(DINO PC1).
+
+**코드/파일:** `analysis/vsep_pairs.py` → `pairs_grp{0,1}.png`, `pairs.txt`
+
+**결과 (gr1, radius p0.1 = 액션 median의 15%):** grp0 size=23, act-spread=0.13(거의 동일), vis-spread=0.58 → **v3=0.18(뭉침) / v4=0.34(분산), 1.9×**. grp1도 1.9×. (반경을 p0.05로 더 좁히면 v3=0.06으로 거의 한 점, v4=0.26, **4.2×** — 대신 멤버·장면 다양성↓.)
+
+![gr1 pairs grp0](output/visual_sep_gr1/pairs_grp0.png)
+
+**해석:** 왼쪽 v3에서 23개가 전역 지도 한 곳에 **뭉쳐 있고**, 오른쪽 v4에서 같은 23개가 **흩어진다**. 아래 프레임: 움직임은 같은데 상황(갈색 접시 vs 파란 상자)이 다르고, 그 차이를 v4만 반영.
+
+> **타당성/한계:** swap 없는 **순수 실데이터**라 가장 정직. 단 (1) "거의 같은 액션"이 완전 동일은 아니라 v3가 문자 그대로 한 점은 아님(더 좁히면 근접). (2) 진짜 동일-액션 청크는 장면 종류가 제한적(데이터 한계). "물체 든 채 vs 잡으러 접근" 같은 특정 의미차를 원하면 gripper 상태 필터 필요.
+
+---
+
+## ②‴ 액션 고정 · 시각만 교체 (⚠️ counterfactual/OOD — 능력 probe일 뿐)
+
+> **주의:** `encode(a*, 남의 프레임)`는 **실제로 존재하지 않는 (액션,시각) 조합**이라, v4가 흩어지는 게 실제 분포의 현상이 아니라 "인코더가 시각 입력에 반응하는 능력(OOD 포함)"을 보는 것에 가깝다. **실데이터 증거로는 부적절** — ②″(실데이터)와 아래 ③′(partial corr)로 대체. 아래는 참고용.
+
+**무엇을 보나:** near-dup 그룹의 **대표 액션 a\* 하나를 byte 단위로 고정**하고, 그룹 멤버들의 **실제 x0/x1 프레임만 갈아끼워** 인코딩(`z_i = encode(a*, DINO(frame_i))`). 액션이 완전히 같으므로:
+- **v3: 모든 청크가 정확히 한 점** (spread=0.00, 프레임 미사용)
+- **v4: 시각 맥락에 따라 흩어짐** (점 분포)
+
+아래에 교체한 프레임들의 x0/x1 쌍을 색-연동. 쌍 안 움직임은 같고(액션 고정) 쌍끼리 장면이 다름.
+
+**코드/파일:** `analysis/vsep_swapviz.py` → `swapviz_grp{0,1}.png`
+
+**결과 (gr1):** grp0 m=87 → v3 spread=0.00, v4 spread=0.11 (global-median 단위). grp1 m=141도 동일 패턴.
+
+![gr1 swapviz grp0](output/visual_sep_gr1/swapviz_grp0.png)
+
+**해석:** 왼쪽 v3는 87개 청크가 문자 그대로 한 점, 오른쪽 v4는 같은 액션인데도 시각에 따라 흩어진다. 이게 "같은 액션·다른 visual → v4만 분리"의 가장 직접적 시각 증거. 정량 크기는 ②′ frame-swap(액션 스케일의 ~20%)와 같은 메커니즘.
+
+> **타당성/한계:** v3=한 점은 구성상 자명(프레임 미사용). 하지만 `(a*, 남의 프레임)`이 OOD라 v4 분산이 실제 분포를 대표하지 않음 → **능력 probe로만** 취급.
+
+---
+
+## ③′ Partial correlation — 액션 통제 후 latent↔visual (실데이터, **가장 타당**)
+
+**무엇을 보나:** "액션 통제" = 청크 쌍의 Δaction이 비슷한 것끼리 묶어(액션 효과 제거) Δlatent이 Δvisual을 따라가는지 본다. 비모수적으로 Δaction 분위 bin 안에서 Δlatent·Δvisual을 z-score 후 상관. v3는 ≈0(액션 코드), v4는 >0이어야 진짜 시각 의존.
+
+**코드/파일:** `analysis/vsep_partial.py` → `partial_corr.png/.txt`
+
+**결과 partial corr(Δlatent, Δvisual | Δaction):**
+
+| | raw corr(Δz,Δvis) v3 / v4 | **partial(통제 후) v3 / v4** |
+|---|---|---|
+| **gr1** | 0.33 / 0.35 | **0.04 / 0.11** |
+| **dexjoco** | 0.44 / 0.56 | **−0.09 / 0.21** |
+
+![gr1 partial](output/visual_sep_gr1/partial_corr.png)
+
+**해석 (calibration이 핵심):** v3의 raw 상관(0.33~0.44)이 **액션 통제 후 ≈0으로 사라짐**(0.04, −0.09) → "v3가 visual과 상관돼 보인 건 전부 액션 대리효과"임을 방법이 정확히 잡아냄(=음성 대조 통과). 반면 **v4는 통제 후에도 0.11~0.21 남음** → v4 latent은 **액션을 통제해도 visual을 따라간다**. swap 없는 실데이터에서 가장 깨끗한 증거. (흥미롭게 dexjoco v4 0.21 > gr1 0.11 — v4가 시각을 인코딩한다는 사실 자체는 두 데이터 다 성립; gr1의 강점은 그걸 near-dup 프레임으로 **눈으로 보여줄** 표본이 있다는 점.)
+
+> **타당성/한계:** 거리쌍이 서로 독립은 아니라 절대 크기를 효과크기로 과해석 말 것. 하지만 v3↔v4를 동일 방법으로 비교하고 **v3≈0(통제 후)**이 나온다는 calibration이 통과하므로, v4>v3(>0)는 신뢰 가능.
+
+---
+
 ## ②′ Frame-swap Intervention (결정적 메커니즘 테스트)
 
 **무엇을 보나 (직관):** 관찰 분석이 안 되는 데이터(dexjoco)에서도 쓸 수 있는 **개입 실험**. 액션 청크를 **byte 단위로 고정**하고, 관측 프레임(DINO 특징)만 다른 샘플 것으로 바꿔 넣어 latent이 얼마나 움직이는지 측정한다.
@@ -216,13 +275,16 @@ for l, d in enumerate(donors):
 ## 종합 판단 가이드 (어느 지표를 믿을까)
 
 | 방법 | 신뢰도 | 비고 |
-|---|---|---|
-| ②′ frame-swap | ★★★ | confound 없음, v3=0 대조군. **1순위 증거** |
+| --- | --- | --- |
+| ③′ partial corr (액션 통제) | ★★★ | 실데이터, confound 제거, v3≈0 calibration 통과. **1순위 정량 증거** |
+| ②″ pairs (tight, 실데이터) | ★★★ | v3 뭉침/v4 분산 + 실제 프레임. **1순위 시각 증거** |
+| ②‴ swapviz (액션 고정) | ★☆☆ | OOD(counterfactual). 능력 probe로만 |
+| ②′ frame-swap 수치 | ★☆☆ | ②‴와 같은 OOD probe(액션-프레임 불일치). 능력 확인용 |
 | ① R²(act→z) 격차 | ★★☆ | 깨끗함. 단 R²(vis→resAct) 열은 confounded라 무시 |
-| ② near-dup 그룹 존재+프레임 | ★★★ | 스토리 그림. 산포 배율 신뢰, 상관계수는 보조 |
+| ② near-dup 그룹 존재+프레임 | ★★☆ | 스토리 그림. 산포 배율 신뢰, 상관계수는 보조 |
 | ④ within-action task-ARI | ★★☆ | 좋은 아이디어지만 disjoint-action 데이터에선 역전됨 |
 | ③ dist floor | ★☆☆ | 단독 오해 소지(차원/스케일 효과). ②와 함께만 |
 
-**최종:** frame-swap(★★★) + near-dup 프레임 그림(★★★) + R²(act→z) 격차(★★☆)가 서로 일관되게 **gr1에서 가설을 지지**하고 dexjoco에서는 "표본 부재"로 관측 불가임을 보여준다. 발표에 쓴다면 **`neardup_groups.png`(스토리) + `frame_swap.png`(메커니즘) + TL;DR 표** 조합을 추천.
+**최종:** 실데이터 증거 두 개 — **③′ partial corr(정량: 액션 통제 후 v4=0.11~0.21 vs v3≈0)** + **②″ pairs(시각: v3 뭉침/v4 분산 + 실제 x0/x1 프레임)** — 가 일관되게 "v4 latent은 액션을 통제해도 visual을 따라간다"를 보여준다. frame-swap 계열(②′·②‴)은 OOD라 보조. 발표엔 **`pairs_grp0.png`(시각) + `partial_corr.png`/TL;DR 표(정량)** 조합 추천.
 
 **재현:** `analysis/vsep_run.sh` (dexjoco). gr1은 동일 스크립트에 v3/v4 ckpt와 `--data-config fourier_gr1_arms_waist`, `--dataset-path .../gr1_unified.*`만 바꿔 실행. 결과는 `analysis/output/visual_sep/`(dexjoco), `analysis/output/visual_sep_gr1/`(gr1).

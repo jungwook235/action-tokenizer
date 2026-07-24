@@ -1,0 +1,29 @@
+{
+  "tag": "gr1",
+  "cache": "output/visual_sep_gr1/cache.npz",
+  "N": 4008,
+  "v3_ckpt": "/sjw_alinlab1/home/jungwook/Isaac-GR00T/checkpoints_action_tokenizer/gr1_1000demos_v3_recon_ln_bn16/checkpoint-100000",
+  "v4_ckpt": "/sjw_alinlab1/home/jungwook/Isaac-GR00T/checkpoints_action_tokenizer/gr1_1000demos_v4_recon_dino_bn64_l1_mse_naiveln_vae/checkpoint-100000",
+  "raw": {
+    "HF_frac": 0.1802188412955259,
+    "jerk_ms": 0.018316831067211426
+  },
+  "recon": {
+    "v4": {
+      "HF_frac": 0.2804497620492405,
+      "jerk_ms": 0.018336382363506515,
+      "decode_l1_vs_gt": 0.0014362019406456582,
+      "seconds": 9.6,
+      "HF_frac_ratio_recon_over_raw": 1.5561622748855546,
+      "jerk_ratio_recon_over_raw": 1.0010673950762707
+    },
+    "v3": {
+      "HF_frac": 0.2613929360628913,
+      "jerk_ms": 0.01830587044016748,
+      "decode_l1_vs_gt": 0.0014807850455129611,
+      "seconds": 2.4,
+      "HF_frac_ratio_recon_over_raw": 1.4504195797863573,
+      "jerk_ratio_recon_over_raw": 0.9994016089353488
+    }
+  }
+}
