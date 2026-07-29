@@ -1,0 +1,71 @@
+{
+  "video": "/storage1/sjw_dataset/dataset/PhysicalAI-Robotics-GR00T-X-Embodiment-Sim/gr1_unified.PosttrainPnPNovelFromPlacematToBowlSplitA_GR1ArmsAndWaistFourierHands_1000/videos/chunk-000/observation.images.ego_view/episode_000776.mp4",
+  "n_frames": 218,
+  "model": "jetjodh/sam3",
+  "runs": [
+    {
+      "mode": "image",
+      "prompt": "pick the bell pepper from the placemat and place it in the bowl",
+      "seconds": 16.4,
+      "mean_instances": 0.7201834862385321,
+      "frames_with_zero": 125,
+      "mean_score": 0.5665555596351624
+    },
+    {
+      "mode": "image",
+      "prompt": "Robot",
+      "seconds": 16.0,
+      "mean_instances": 1.2064220183486238,
+      "frames_with_zero": 84,
+      "mean_score": 0.6539775133132935
+    },
+    {
+      "mode": "image",
+      "prompt": "Robot arm",
+      "seconds": 18.5,
+      "mean_instances": 1.4724770642201834,
+      "frames_with_zero": 46,
+      "mean_score": 0.6291009783744812
+    },
+    {
+      "mode": "image",
+      "prompt": "Robot hand",
+      "seconds": 16.0,
+      "mean_instances": 1.68348623853211,
+      "frames_with_zero": 43,
+      "mean_score": 0.7275417447090149
+    },
+    {
+      "mode": "video",
+      "prompt": "pick the bell pepper from the placemat and place it in the bowl",
+      "seconds": 25.0,
+      "mean_instances": 0.7752293577981652,
+      "frames_with_zero": 49,
+      "mean_score": 0.5546875
+    },
+    {
+      "mode": "video",
+      "prompt": "Robot",
+      "seconds": 24.6,
+      "mean_instances": 0.9862385321100917,
+      "frames_with_zero": 3,
+      "mean_score": 0.51171875
+    },
+    {
+      "mode": "video",
+      "prompt": "Robot arm",
+      "seconds": 27.5,
+      "mean_instances": 1.7568807339449541,
+      "frames_with_zero": 0,
+      "mean_score": 0.6166571378707886
+    },
+    {
+      "mode": "video",
+      "prompt": "Robot hand",
+      "seconds": 31.3,
+      "mean_instances": 2.353211009174312,
+      "frames_with_zero": 0,
+      "mean_score": 0.8267239332199097
+    }
+  ]
+}

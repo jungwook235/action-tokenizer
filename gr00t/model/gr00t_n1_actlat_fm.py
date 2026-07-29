@@ -20,6 +20,7 @@ Uses a frozen ActionLatentTokenizerWrapper to encode actions to latent targets d
 and decode predicted latents back to actions during inference.
 """
 
+import json
 from dataclasses import dataclass, field
 from typing import Tuple
 import time
@@ -101,6 +102,12 @@ class GR00T_N1_5(PreTrainedModel):
         # Store original action dimensions for decode validation
         self.original_action_dim = None
         self.original_action_horizon = None
+        # Optional per-dim latent z-normalization (actlat_latent_norm — port of the
+        # WAM DiT4DiT norm variant). None = OFF, byte-identical to before. Enabled
+        # via setup_latent_norm(); stored as plain fp32 tensors (NOT params/buffers)
+        # so the state_dict and any later dtype cast never touch them.
+        self._actlat_latent_mean = None
+        self._actlat_latent_std = None
 
     def validate_inputs(self, inputs):
         detected_error = False
@@ -177,6 +184,12 @@ class GR00T_N1_5(PreTrainedModel):
             x0_feat=inputs.get("x0_feat"),
             x1_feat=inputs.get("x1_feat"),
         )
+        # Optional per-dim z-norm of the FM target (actlat_latent_norm). Applied in
+        # fp32 BEFORE the dtype cast below; get_action inverts it before the decoder.
+        if self._actlat_latent_mean is not None:
+            latent_target = (
+                latent_target.float() - self._actlat_latent_mean.to(latent_target.device)
+            ) / self._actlat_latent_std.to(latent_target.device)
         # Set latent as the "action" for the action head
         input_1["action"] = latent_target.to(
             device=actions.device, dtype=actions.dtype
@@ -206,8 +219,16 @@ class GR00T_N1_5(PreTrainedModel):
 
         # Decode latent → real actions [B, T, D]
         if self.action_latent_tokenizer is not None:
+            latent_for_decode = predicted_latent.to(dtype=torch.float32)
+            # actlat_latent_norm: the head was trained on z-normalized latents —
+            # invert the normalization (z * std + mean) BEFORE the tokenizer decoder.
+            if self._actlat_latent_mean is not None:
+                latent_for_decode = (
+                    latent_for_decode * self._actlat_latent_std.to(latent_for_decode.device)
+                    + self._actlat_latent_mean.to(latent_for_decode.device)
+                )
             decoded_actions = self.action_latent_tokenizer.decode_latent(
-                predicted_latent.to(dtype=torch.float32),
+                latent_for_decode,
                 target_tokens=self.actlat_target_tokens,
             )
             decoded_actions = decoded_actions.to(dtype=predicted_latent.dtype)
@@ -225,8 +246,15 @@ class GR00T_N1_5(PreTrainedModel):
         predicted_latent = latent_outputs["action_pred"]
 
         if self.action_latent_tokenizer is not None:
+            latent_for_decode = predicted_latent.to(dtype=torch.float32)
+            # actlat_latent_norm: invert the z-normalization before the decoder.
+            if self._actlat_latent_mean is not None:
+                latent_for_decode = (
+                    latent_for_decode * self._actlat_latent_std.to(latent_for_decode.device)
+                    + self._actlat_latent_mean.to(latent_for_decode.device)
+                )
             decoded_actions = self.action_latent_tokenizer.decode_latent(
-                predicted_latent.to(dtype=torch.float32),
+                latent_for_decode,
                 target_tokens=self.actlat_target_tokens,
             )
             decoded_actions = decoded_actions.to(dtype=predicted_latent.dtype)
@@ -251,6 +279,62 @@ class GR00T_N1_5(PreTrainedModel):
         backbone_inputs = tree.map_structure(to_device_with_maybe_dtype, backbone_inputs)
         action_inputs = tree.map_structure(to_device_with_maybe_dtype, action_inputs)
         return backbone_inputs, action_inputs
+
+    def setup_latent_norm(self, stats: dict = None, stats_path: str = ""):
+        """Enable per-dim z-normalization of the tokenizer latent FM target.
+
+        Port of the WAM DiT4DiT `actlat_latent_norm`: the latent target is
+        z-normalized in forward() with PRECOMPUTED dataset-wide per-dim stats
+        (mirrors VLA action normalization) and get_action() de-normalizes the
+        predicted latent before the tokenizer decoder. Stats resolution order:
+        embedded `stats` dict (checkpoint reload from config.json) > `stats_path`
+        JSON (fresh training launch, written by the --actlat-dump-latent-stats-path
+        pass). The stats are embedded into self.config so save_pretrained writes
+        them into config.json — eval hosts reload without the stats file.
+        """
+        if self.action_latent_tokenizer is None:
+            raise ValueError(
+                "actlat_latent_norm requires a loaded actlat tokenizer "
+                "(actlat_tokenizer_path) — there is no latent to normalize."
+            )
+        if not stats:
+            if not stats_path:
+                raise ValueError(
+                    "actlat_latent_norm=True but neither embedded latent stats "
+                    "(config.actlat_latent_stats) nor actlat_latent_stats_path is set."
+                )
+            with open(stats_path) as f:
+                loaded = json.load(f)
+            stats = {
+                "mean": [float(v) for v in loaded["mean"]],
+                "std": [float(v) for v in loaded["std"]],
+            }
+        latent_dim = int(self.action_latent_tokenizer.emb_dim)
+        if len(stats["mean"]) != latent_dim or len(stats["std"]) != latent_dim:
+            raise ValueError(
+                f"actlat latent stats dim mismatch: mean/std have "
+                f"{len(stats['mean'])}/{len(stats['std'])} dims but the tokenizer "
+                f"latent dim is {latent_dim}."
+            )
+        mean = torch.tensor(stats["mean"], dtype=torch.float32).view(1, 1, -1)
+        std = torch.tensor(stats["std"], dtype=torch.float32).view(1, 1, -1)
+        tiny = (std < 1e-6).sum().item()
+        if tiny:
+            print(
+                f"[ActlatFM] WARNING: latent stats have {tiny}/{latent_dim} std dims "
+                f"< 1e-6 — clamping to 1e-6 to avoid divide-by-zero blowup."
+            )
+        self._actlat_latent_mean = mean
+        self._actlat_latent_std = std.clamp_min(1e-6)
+        # Persist flag + stats into the config for checkpoint portability.
+        self.config.actlat_latent_norm = True
+        self.config.actlat_latent_stats = {"mean": stats["mean"], "std": stats["std"]}
+        print(
+            f"[ActlatFM] latent z-norm ENABLED: dim={latent_dim}, "
+            f"mean range=[{mean.min().item():.4f}, {mean.max().item():.4f}], "
+            f"std range=[{self._actlat_latent_std.min().item():.4f}, "
+            f"{self._actlat_latent_std.max().item():.4f}]"
+        )
 
     @classmethod
     def _load_tokenizer(cls, actlat_tokenizer_path, actlat_target_tokens="all", embodiment_id=None,
@@ -305,6 +389,9 @@ class GR00T_N1_5(PreTrainedModel):
         # Force deterministic-mu latent target regardless of the tokenizer's checkpoint
         # marker (None/False here → use the checkpoint setting).
         actlat_vae_no_sample = kwargs.pop("actlat_vae_no_sample", False)
+        # Latent z-norm (see setup_latent_norm).
+        actlat_latent_norm = kwargs.pop("actlat_latent_norm", False)
+        actlat_latent_stats_path = kwargs.pop("actlat_latent_stats_path", "")
 
         # Resolve model path
         try:
@@ -399,6 +486,16 @@ class GR00T_N1_5(PreTrainedModel):
             pretrained_model.original_action_dim = orig_action_dim
             pretrained_model.original_action_horizon = orig_action_horizon
 
+            # Latent z-norm: explicit kwarg OR a checkpoint that was trained with it
+            # (its config.json carries the flag + the embedded stats).
+            if actlat_latent_norm or bool(
+                getattr(pretrained_model.config, "actlat_latent_norm", False)
+            ):
+                pretrained_model.setup_latent_norm(
+                    stats=getattr(pretrained_model.config, "actlat_latent_stats", None),
+                    stats_path=actlat_latent_stats_path,
+                )
+
         elif not load_action_head:
             print("Initializing action head from scratch. Only loading backbone.")
             action_head_cfg = FlowmatchingActionHeadConfig(**pretrained_model.config.action_head_cfg)
@@ -447,6 +544,9 @@ class GR00T_N1_5(PreTrainedModel):
         # Force deterministic-mu latent target regardless of the tokenizer's checkpoint
         # marker (None/False here → use the checkpoint setting).
         actlat_vae_no_sample = kwargs.pop("actlat_vae_no_sample", False)
+        # Latent z-norm (see setup_latent_norm).
+        actlat_latent_norm = kwargs.pop("actlat_latent_norm", False)
+        actlat_latent_stats_path = kwargs.pop("actlat_latent_stats_path", "")
 
         try:
             local_model_path = snapshot_download(pretrained_model_name_or_path, repo_type="model")
@@ -489,6 +589,17 @@ class GR00T_N1_5(PreTrainedModel):
         if tokenizer is not None:
             pretrained_model.action_latent_tokenizer = tokenizer.to(pretrained_model.device)
             pretrained_model.actlat_target_tokens = actlat_target_tokens
+
+            # Latent z-norm: explicit kwarg OR a checkpoint trained with it (the
+            # checkpoint's config.json carries the flag + the embedded stats, so
+            # eval hosts de-normalize without needing the stats file).
+            if actlat_latent_norm or bool(
+                getattr(pretrained_model.config, "actlat_latent_norm", False)
+            ):
+                pretrained_model.setup_latent_norm(
+                    stats=getattr(pretrained_model.config, "actlat_latent_stats", None),
+                    stats_path=actlat_latent_stats_path,
+                )
 
         pretrained_model.backbone.set_trainable_parameters(
             tune_visual=tune_visual, tune_llm=tune_llm

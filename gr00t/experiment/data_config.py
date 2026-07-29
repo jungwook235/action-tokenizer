@@ -3722,6 +3722,63 @@ class OpenARMTeleopJointRightDataConfig(BaseDataConfig):
         return ComposedModalityTransform(transforms=transforms)
 
 
+class OpenARMPrqActlatFMDataConfig(OpenARMTeleopJointRightDataConfig):
+    """openarm_teleop_v3 for Stage-2 actlat_fm VLA with the finetuned soupv1
+    ``openarm_prq`` tokenizer embodiment.
+
+    Same modalities/keys as ``openarm_teleop_joint_right`` (right ego camera,
+    28D joint state/action), but the GR00T-N1.5 model transform
+    (``GR00TInferTransform``, like the gr1 actlat_fm config) instead of the qwen
+    backbone ``GR00TTransform``. The 28D joint action this pipeline emits is a
+    PLACEHOLDER: ``LeRobotSingleDatasetActlatFMV4CachedPrq`` replaces
+    ``item["action"]`` with the FK-converted EgoPi 15D {p,rot6d,q} chunk the
+    tokenizer was trained on, so only state/video/language from this transform
+    reach the model.
+    """
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.3,
+                contrast=0.4,
+                saturation=0.5,
+                hue=0.08,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes=self.state_normalization_modes,
+            ),
+            # action transforms (placeholder output — replaced by the prq dataset)
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes=self.action_normalization_modes,
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TInferTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+
+
 class OpenARMPnpEefRightDataConfig(BaseDataConfig):
     """RLWRLD openarm_inspire eef_inspire pick&place (e.g. pnp_clean_260506).
 
@@ -4793,6 +4850,7 @@ DATA_CONFIG_MAP = {
     "real_franka_eef": FrankaRealEEFDataConfig(),
     "real_open_arm_joint": RealOpenARMJointDataConfig(),
     "openarm_teleop_joint_right": OpenARMTeleopJointRightDataConfig(),
+    "openarm_prq_actlat_fm": OpenARMPrqActlatFMDataConfig(),
     "openarm_pnp_eef_right": OpenARMPnpEefRightDataConfig(),
     "dexmg_single_view_arms_hands": DexmgSingleViewArmsHandsDataConfig(),
     "allex": AllexDataConfig(),

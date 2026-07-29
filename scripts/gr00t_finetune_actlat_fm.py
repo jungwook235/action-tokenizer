@@ -141,6 +141,26 @@ class ArgsConfig:
     first video key. Lets VLA training keep the tokenizer single-camera (matching
     its training) even when the backbone consumes multiple cameras."""
 
+    # ── Latent z-norm (port of the WAM DiT4DiT actlat_latent_norm) ──
+    actlat_latent_norm: bool = False
+    """If True, per-dim z-normalize the tokenizer's latent FM target with
+    PRECOMPUTED dataset-wide stats (like VLA action normalization); inference
+    de-normalizes the predicted latent before the tokenizer decoder. Requires
+    --actlat-latent-stats-path (written by a prior dump pass). (actlat_fm only)"""
+
+    actlat_latent_stats_path: str = ""
+    """JSON with per-dim {"mean": [D], "std": [D]} of the RAW latent target,
+    written by --actlat-dump-latent-stats-path. Required with --actlat-latent-norm."""
+
+    actlat_dump_latent_stats_path: str = ""
+    """Dump-ONLY mode: stream every training sample once through the SAME
+    dataset/collator/tokenizer path used at train time, write per-dim latent
+    mean/std JSON here, and exit WITHOUT training. Must run with --num-gpus 1
+    and WITHOUT --actlat-latent-norm (the stats must be RAW-latent moments)."""
+
+    actlat_dump_max_samples: int = 0
+    """Early-stop the stats dump after N samples (0 = full pass)."""
+
     # ── Precomputed DINO cache (V4 + actlat_frames only) ──
     use_dino_cache: bool = False
     """If True, read precomputed DINO feats (x0_feat/x1_feat) from
@@ -154,6 +174,22 @@ class ArgsConfig:
     """DINO final-norm the cache was built with ('naive' or 'affine')."""
     dino_cache_feature_source: str = "dino"
     """Feature source the cache was built with ('dino')."""
+
+    # ── EgoPi prq action override (openarm_prq tokenizer embodiment only) ──
+    actlat_prq_stats: str = ""
+    """Path to egopi_prq_stats.json. When set (with --actlat-frames and
+    --use-dino-cache), the dataset replaces the LeRobot joint action with the
+    FK-converted EgoPi 15D {p,rot6d,q} chunk, normalized with the merged
+    robot∪human min-max stats — exactly matching the Stage-1 training of the
+    tokenizer's openarm_prq embodiment. Empty → unchanged action path."""
+    actlat_prq_fk_cache_dir: str = ""
+    """Directory of per-object FK cache h5 files (<dir>/<dataset_dir_name>.h5),
+    built by RLDX-1-egopi scripts/build_egopi_cache.py. Required with
+    --actlat-prq-stats."""
+    actlat_prq_filter_json: str = ""
+    """egopi_filter.json (per-episode left-arm gate; tag = dataset dir name).
+    Applied AFTER the fixed-val split, matching Stage-1. Required with
+    --actlat-prq-stats."""
 
     # Validation
     val_ratio: float = 0.003
@@ -304,9 +340,137 @@ def _load_model(config: ArgsConfig, data_action_horizon: int, data_action_dim: i
             actlat_target_tokens=config.actlat_target_tokens,
             actlat_embodiment_id=config.embodiment_id if config.embodiment_id else None,
             actlat_vae_no_sample=config.actlat_vae_no_sample,
+            actlat_latent_norm=config.actlat_latent_norm,
+            actlat_latent_stats_path=config.actlat_latent_stats_path,
         )
 
     return model
+
+
+def dump_actlat_latent_stats(model, train_dataset, config: ArgsConfig):
+    """One-shot preprocessing: per-dim mean/std of the frozen tokenizer's latent target.
+
+    Port of WAM's dump_actlat_latent_stats (Isaac-GR00T-AlinVLA
+    gr00t/model/wam_dit4dit/setup.py). Streams every training step of every dataset
+    exactly once (sequential pass over each child dataset's all_steps — the mixture's
+    random __getitem__ is bypassed) through the SAME collator/tokenizer path used in
+    GR00T_N1_5.forward, accumulates per-latent-dim moments in float64 over all
+    (sample, token) pairs, and writes them as JSON. The result feeds
+    --actlat-latent-norm / --actlat-latent-stats-path.
+    """
+    tok = model.action_latent_tokenizer
+    assert tok is not None, (
+        "latent-stats dump requires a loaded actlat tokenizer (--actlat-tokenizer-path)"
+    )
+    assert getattr(model, "_actlat_latent_mean", None) is None, (
+        "latent-stats dump must run with actlat_latent_norm OFF — the stats must be "
+        "moments of the RAW latent, not of an already-normalized one."
+    )
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Only the tokenizer is needed — keep the 3B backbone on CPU.
+    tok.to(device)
+
+    children = (
+        train_dataset.datasets
+        if isinstance(train_dataset, LeRobotMixtureDataset)
+        else [train_dataset]
+    )
+    data_collator = ActlatFMDataCollator()
+
+    latent_dim = int(tok.emb_dim)
+    n_entries = 0   # (sample, token) pairs — the per-dim moment population
+    n_samples = 0   # dataset samples seen
+    num_tokens = None
+    acc_sum = torch.zeros(latent_dim, dtype=torch.float64, device=device)
+    acc_sumsq = torch.zeros(latent_dim, dtype=torch.float64, device=device)
+    acc_min = torch.full((latent_dim,), float("inf"), dtype=torch.float64, device=device)
+    acc_max = torch.full((latent_dim,), float("-inf"), dtype=torch.float64, device=device)
+    max_samples = int(config.actlat_dump_max_samples or 0)
+
+    print(
+        f"[actlat-stats] streaming {len(children)} dataset(s) once: "
+        f"latent_dim={latent_dim}, batch_size={config.batch_size}, "
+        f"max_samples={max_samples or 'ALL'}"
+    )
+
+    def _to_dev(x):
+        return x.to(device) if torch.is_tensor(x) else x
+
+    stop = False
+    with torch.inference_mode():
+        for child_idx, child in enumerate(children):
+            if stop:
+                break
+            loader = torch.utils.data.DataLoader(
+                child,
+                batch_size=config.batch_size,
+                shuffle=False,
+                num_workers=config.dataloader_num_workers,
+                collate_fn=data_collator,
+                pin_memory=(device.type == "cuda"),
+            )
+            for batch_idx, batch in enumerate(loader):
+                # Same fields GR00T_N1_5.forward hands to get_latent_target.
+                latent = tok.get_latent_target(
+                    batch["action"].to(device=device, dtype=torch.float32),
+                    target_tokens=config.actlat_target_tokens,
+                    x0=_to_dev(batch.get("frame_x0")),
+                    x1=_to_dev(batch.get("frame_x1")),
+                    x0_feat=_to_dev(batch.get("x0_feat")),
+                    x1_feat=_to_dev(batch.get("x1_feat")),
+                )  # [B, N, D] raw latent
+                lat = latent.double()
+                num_tokens = int(lat.shape[1])
+                flat = lat.reshape(-1, latent_dim)  # [(B*N), D]
+                acc_sum += flat.sum(dim=0)
+                acc_sumsq += (flat * flat).sum(dim=0)
+                acc_min = torch.minimum(acc_min, flat.min(dim=0).values)
+                acc_max = torch.maximum(acc_max, flat.max(dim=0).values)
+                n_entries += flat.shape[0]
+                n_samples += int(lat.shape[0])
+                if batch_idx % 50 == 0:
+                    print(
+                        f"[actlat-stats] dataset {child_idx + 1}/{len(children)}: "
+                        f"{n_samples} samples ({n_entries} latent tokens) ..."
+                    )
+                if max_samples and n_samples >= max_samples:
+                    print(f"[actlat-stats] max_samples={max_samples} reached — stopping early.")
+                    stop = True
+                    break
+
+    if n_entries == 0:
+        raise RuntimeError("actlat latent-stats dump saw 0 samples — dataset empty?")
+
+    mean = acc_sum / n_entries
+    # Population variance; guard fp roundoff (E[x^2] - E[x]^2 can dip below 0).
+    var = (acc_sumsq / n_entries - mean * mean).clamp_min(0.0)
+    std = var.sqrt()
+
+    payload = {
+        "latent_dim": latent_dim,
+        "num_tokens": num_tokens,
+        "num_samples": n_samples,
+        "num_entries": n_entries,
+        "target_tokens": config.actlat_target_tokens,
+        "tokenizer_path": config.actlat_tokenizer_path,
+        "embodiment_id": config.embodiment_id,
+        "vae_no_sample": config.actlat_vae_no_sample,
+        "dataset_path": config.dataset_path,
+        "mean": mean.cpu().tolist(),
+        "std": std.cpu().tolist(),
+        "var": var.cpu().tolist(),
+        "min": acc_min.cpu().tolist(),
+        "max": acc_max.cpu().tolist(),
+    }
+    out = Path(config.actlat_dump_latent_stats_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w") as f:
+        json.dump(payload, f, indent=2)
+    print(
+        f"[actlat-stats] wrote {out} — samples={n_samples}, tokens/sample={num_tokens}, "
+        f"mean range=[{mean.min().item():.4f}, {mean.max().item():.4f}], "
+        f"std range=[{std.min().item():.4f}, {std.max().item():.4f}]"
+    )
 
 
 def main(config: ArgsConfig):
@@ -354,6 +518,34 @@ def main(config: ArgsConfig):
                 feature_source=config.dino_cache_feature_source,
                 dino_model=config.dino_cache_model,
                 dino_final_norm=config.dino_cache_final_norm,
+            )
+        if config.actlat_prq_stats:
+            # EgoPi prq action override: the openarm_prq tokenizer embodiment was
+            # trained on FK-converted 15D {p,rot6d,q} actions (merged min-max
+            # normalization), so the action handed to the frozen tokenizer must be
+            # rebuilt the same way — the LeRobot joint action is replaced per sample.
+            assert config.use_dino_cache, (
+                "--actlat-prq-stats requires --use-dino-cache (prq dataset extends "
+                "the cached V4 dataset)"
+            )
+            assert config.actlat_prq_fk_cache_dir and config.actlat_prq_filter_json, (
+                "--actlat-prq-stats requires --actlat-prq-fk-cache-dir and "
+                "--actlat-prq-filter-json"
+            )
+            from gr00t.data.dataset_actlat_fm_v4_cached_prq import (
+                LeRobotSingleDatasetActlatFMV4CachedPrq,
+            )
+
+            DatasetCls = LeRobotSingleDatasetActlatFMV4CachedPrq
+            frame_kwargs.update(
+                prq_stats_path=config.actlat_prq_stats,
+                fk_cache_dir=config.actlat_prq_fk_cache_dir,
+                filter_json=config.actlat_prq_filter_json,
+            )
+            print(
+                f"[actlat] EgoPi prq action override ON "
+                f"(stats={config.actlat_prq_stats}, "
+                f"fk_cache_dir={config.actlat_prq_fk_cache_dir})"
             )
     else:
         DatasetCls = LeRobotSingleDatasetActlatFM
@@ -420,21 +612,27 @@ def main(config: ArgsConfig):
         # so validation is sampled proportionally to the train mixture.
         eval_single_datasets = []
         for p in config.dataset_path:
-            eval_single_datasets.append(
-                DatasetCls(
-                    dataset_path=p,
-                    modality_configs=modality_configs,
-                    transforms=transforms,
-                    embodiment_tag=embodiment_tag,
-                    video_backend=config.video_backend,
-                    split="val",
-                    val_ratio=config.val_ratio,
-                    val_seed=config.val_seed,
-                    use_fixed_val=config.use_fixed_val,
-                    fixed_val_path=config.fixed_val_path,
-                    **frame_kwargs,
-                )
+            d = DatasetCls(
+                dataset_path=p,
+                modality_configs=modality_configs,
+                transforms=transforms,
+                embodiment_tag=embodiment_tag,
+                video_backend=config.video_backend,
+                split="val",
+                val_ratio=config.val_ratio,
+                val_seed=config.val_seed,
+                use_fixed_val=config.use_fixed_val,
+                fixed_val_path=config.fixed_val_path,
+                **frame_kwargs,
             )
+            # A dataset can end up with 0 val episodes (e.g. the prq left-arm
+            # gate drops the single fixed-val episode of cup/doll). An empty
+            # dataset breaks the mixture weighting → skip it, loudly.
+            if len(d) == 0:
+                print(f"[eval] SKIPPING {p}: 0 val steps after split/filter")
+                continue
+            eval_single_datasets.append(d)
+        assert eval_single_datasets, "all eval datasets are empty"
         eval_dataset = LeRobotMixtureDataset(
             data_mixture=[(d, 1.0) for d in eval_single_datasets],
             mode="val",
@@ -521,6 +719,12 @@ def main(config: ArgsConfig):
     print(f"Data action shape: horizon={data_action_horizon}, dim={data_action_dim}")
 
     model = _load_model(config, data_action_horizon, data_action_dim)
+
+    # ------------ latent-stats dump mode: write the JSON and exit (no training) --
+    if config.actlat_dump_latent_stats_path:
+        dump_actlat_latent_stats(model, train_dataset, config)
+        return
+
     model.compute_dtype = "bfloat16"
     model.config.compute_dtype = "bfloat16"
 
@@ -621,6 +825,8 @@ def main(config: ArgsConfig):
             "actlat_target_tokens": config.actlat_target_tokens,
             "actlat_vae_no_sample": config.actlat_vae_no_sample,
             "embodiment_id": config.embodiment_id,
+            "actlat_latent_norm": config.actlat_latent_norm,
+            "actlat_latent_stats_path": config.actlat_latent_stats_path,
         }
         # Persist the normalization statistics actually applied (whole-mixture
         # merged stats for a LeRobotMixtureDataset) so inference can reuse them
@@ -656,6 +862,28 @@ if __name__ == "__main__":
     for key, value in vars(config).items():
         print(f"{key}: {value}")
     print("=" * 50 + "\n")
+
+    # ── Latent z-norm / stats-dump validation ──
+    if config.actlat_dump_latent_stats_path:
+        assert config.mode == "actlat_fm" and config.actlat_tokenizer_path, (
+            "--actlat-dump-latent-stats-path requires --mode actlat_fm and "
+            "--actlat-tokenizer-path"
+        )
+        assert config.num_gpus == 1, (
+            "latent-stats dump must run single-process — relaunch with --num-gpus 1"
+        )
+        assert not config.actlat_latent_norm, (
+            "latent-stats dump must run WITHOUT --actlat-latent-norm (the stats must "
+            "be RAW-latent moments)"
+        )
+    if config.actlat_latent_norm:
+        assert config.mode == "actlat_fm" and config.actlat_tokenizer_path, (
+            "--actlat-latent-norm requires --mode actlat_fm and --actlat-tokenizer-path"
+        )
+        assert config.actlat_latent_stats_path or config.resume, (
+            "--actlat-latent-norm requires --actlat-latent-stats-path (run the dump "
+            "pass first), unless resuming a checkpoint with embedded stats"
+        )
 
     available_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 1
     assert config.num_gpus <= available_gpus, (
