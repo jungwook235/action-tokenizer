@@ -1,0 +1,916 @@
+{
+ "pick the bell pepper from the cutting board and place it in the basket": [
+  "bell pepper",
+  "cutting board",
+  "basket"
+ ],
+ "pick the bell pepper from the cutting board and place it in the cardboard box": [
+  "bell pepper",
+  "cutting board",
+  "cardboard box"
+ ],
+ "pick the bell pepper from the cutting board and place it in the pan": [
+  "bell pepper",
+  "cutting board",
+  "pan"
+ ],
+ "pick the bell pepper from the cutting board and place it in the pot": [
+  "bell pepper",
+  "cutting board",
+  "pot"
+ ],
+ "pick the bell pepper from the cutting board and place it in the tiered basket": [
+  "bell pepper",
+  "cutting board",
+  "tiered basket"
+ ],
+ "pick the bell pepper from the placemat and place it in the basket": [
+  "bell pepper",
+  "placemat",
+  "basket"
+ ],
+ "pick the bell pepper from the placemat and place it in the bowl": [
+  "bell pepper",
+  "placemat",
+  "bowl"
+ ],
+ "pick the bell pepper from the placemat and place it in the plate": [
+  "bell pepper",
+  "placemat",
+  "plate"
+ ],
+ "pick the bell pepper from the placemat and place it in the tiered shelf": [
+  "bell pepper",
+  "placemat",
+  "tiered shelf"
+ ],
+ "pick the bell pepper from the plate and place it in the bowl": [
+  "bell pepper",
+  "plate",
+  "bowl"
+ ],
+ "pick the bell pepper from the plate and place it in the cardboard box": [
+  "bell pepper",
+  "plate",
+  "cardboard box"
+ ],
+ "pick the bell pepper from the plate and place it in the pan": [
+  "bell pepper",
+  "plate",
+  "pan"
+ ],
+ "pick the bell pepper from the plate and place it in the plate": [
+  "bell pepper",
+  "plate"
+ ],
+ "pick the bell pepper from the tray and place it in the cardboard box": [
+  "bell pepper",
+  "tray",
+  "cardboard box"
+ ],
+ "pick the bell pepper from the tray and place it in the plate": [
+  "bell pepper",
+  "tray",
+  "plate"
+ ],
+ "pick the bell pepper from the tray and place it in the pot": [
+  "bell pepper",
+  "tray",
+  "pot"
+ ],
+ "pick the bell pepper from the tray and place it in the tiered basket": [
+  "bell pepper",
+  "tray",
+  "tiered basket"
+ ],
+ "pick the bell pepper from the tray and place it in the tiered shelf": [
+  "bell pepper",
+  "tray",
+  "tiered shelf"
+ ],
+ "pick the can from the cutting board and place it in the basket": [
+  "can",
+  "cutting board",
+  "basket"
+ ],
+ "pick the can from the cutting board and place it in the cardboard box": [
+  "can",
+  "cutting board",
+  "cardboard box"
+ ],
+ "pick the can from the cutting board and place it in the pan": [
+  "can",
+  "cutting board",
+  "pan"
+ ],
+ "pick the can from the cutting board and place it in the pot": [
+  "can",
+  "cutting board",
+  "pot"
+ ],
+ "pick the can from the cutting board and place it in the tiered basket": [
+  "can",
+  "cutting board",
+  "tiered basket"
+ ],
+ "pick the can from the placemat and place it in the basket": [
+  "can",
+  "placemat",
+  "basket"
+ ],
+ "pick the can from the placemat and place it in the bowl": [
+  "can",
+  "placemat",
+  "bowl"
+ ],
+ "pick the can from the placemat and place it in the plate": [
+  "can",
+  "placemat",
+  "plate"
+ ],
+ "pick the can from the placemat and place it in the tiered shelf": [
+  "can",
+  "placemat",
+  "tiered shelf"
+ ],
+ "pick the can from the plate and place it in the bowl": [
+  "can",
+  "plate",
+  "bowl"
+ ],
+ "pick the can from the plate and place it in the cardboard box": [
+  "can",
+  "plate",
+  "cardboard box"
+ ],
+ "pick the can from the plate and place it in the pan": [
+  "can",
+  "plate",
+  "pan"
+ ],
+ "pick the can from the plate and place it in the plate": [
+  "can",
+  "plate"
+ ],
+ "pick the can from the tray and place it in the cardboard box": [
+  "can",
+  "tray",
+  "cardboard box"
+ ],
+ "pick the can from the tray and place it in the plate": [
+  "can",
+  "tray",
+  "plate"
+ ],
+ "pick the can from the tray and place it in the pot": [
+  "can",
+  "tray",
+  "pot"
+ ],
+ "pick the can from the tray and place it in the tiered basket": [
+  "can",
+  "tray",
+  "tiered basket"
+ ],
+ "pick the can from the tray and place it in the tiered shelf": [
+  "can",
+  "tray",
+  "tiered shelf"
+ ],
+ "pick the croissant from the cutting board and place it in the basket": [
+  "croissant",
+  "cutting board",
+  "basket"
+ ],
+ "pick the croissant from the cutting board and place it in the cardboard box": [
+  "croissant",
+  "cutting board",
+  "cardboard box"
+ ],
+ "pick the croissant from the cutting board and place it in the pan": [
+  "croissant",
+  "cutting board",
+  "pan"
+ ],
+ "pick the croissant from the cutting board and place it in the pot": [
+  "croissant",
+  "cutting board",
+  "pot"
+ ],
+ "pick the croissant from the cutting board and place it in the tiered basket": [
+  "croissant",
+  "cutting board",
+  "tiered basket"
+ ],
+ "pick the croissant from the placemat and place it in the basket": [
+  "croissant",
+  "placemat",
+  "basket"
+ ],
+ "pick the croissant from the placemat and place it in the bowl": [
+  "croissant",
+  "placemat",
+  "bowl"
+ ],
+ "pick the croissant from the placemat and place it in the plate": [
+  "croissant",
+  "placemat",
+  "plate"
+ ],
+ "pick the croissant from the placemat and place it in the tiered shelf": [
+  "croissant",
+  "placemat",
+  "tiered shelf"
+ ],
+ "pick the croissant from the plate and place it in the bowl": [
+  "croissant",
+  "plate",
+  "bowl"
+ ],
+ "pick the croissant from the plate and place it in the cardboard box": [
+  "croissant",
+  "plate",
+  "cardboard box"
+ ],
+ "pick the croissant from the plate and place it in the pan": [
+  "croissant",
+  "plate",
+  "pan"
+ ],
+ "pick the croissant from the plate and place it in the plate": [
+  "croissant",
+  "plate"
+ ],
+ "pick the croissant from the tray and place it in the cardboard box": [
+  "croissant",
+  "tray",
+  "cardboard box"
+ ],
+ "pick the croissant from the tray and place it in the plate": [
+  "croissant",
+  "tray",
+  "plate"
+ ],
+ "pick the croissant from the tray and place it in the pot": [
+  "croissant",
+  "tray",
+  "pot"
+ ],
+ "pick the croissant from the tray and place it in the tiered basket": [
+  "croissant",
+  "tray",
+  "tiered basket"
+ ],
+ "pick the croissant from the tray and place it in the tiered shelf": [
+  "croissant",
+  "tray",
+  "tiered shelf"
+ ],
+ "pick the cupcake from the cutting board and place it in the basket": [
+  "cupcake",
+  "cutting board",
+  "basket"
+ ],
+ "pick the cupcake from the cutting board and place it in the cardboard box": [
+  "cupcake",
+  "cutting board",
+  "cardboard box"
+ ],
+ "pick the cupcake from the cutting board and place it in the pan": [
+  "cupcake",
+  "cutting board",
+  "pan"
+ ],
+ "pick the cupcake from the cutting board and place it in the pot": [
+  "cupcake",
+  "cutting board",
+  "pot"
+ ],
+ "pick the cupcake from the cutting board and place it in the tiered basket": [
+  "cupcake",
+  "cutting board",
+  "tiered basket"
+ ],
+ "pick the cupcake from the placemat and place it in the basket": [
+  "cupcake",
+  "placemat",
+  "basket"
+ ],
+ "pick the cupcake from the placemat and place it in the bowl": [
+  "cupcake",
+  "placemat",
+  "bowl"
+ ],
+ "pick the cupcake from the placemat and place it in the plate": [
+  "cupcake",
+  "placemat",
+  "plate"
+ ],
+ "pick the cupcake from the placemat and place it in the tiered shelf": [
+  "cupcake",
+  "placemat",
+  "tiered shelf"
+ ],
+ "pick the cupcake from the plate and place it in the bowl": [
+  "cupcake",
+  "plate",
+  "bowl"
+ ],
+ "pick the cupcake from the plate and place it in the cardboard box": [
+  "cupcake",
+  "plate",
+  "cardboard box"
+ ],
+ "pick the cupcake from the plate and place it in the pan": [
+  "cupcake",
+  "plate",
+  "pan"
+ ],
+ "pick the cupcake from the plate and place it in the plate": [
+  "cupcake",
+  "plate"
+ ],
+ "pick the cupcake from the tray and place it in the cardboard box": [
+  "cupcake",
+  "tray",
+  "cardboard box"
+ ],
+ "pick the cupcake from the tray and place it in the plate": [
+  "cupcake",
+  "tray",
+  "plate"
+ ],
+ "pick the cupcake from the tray and place it in the pot": [
+  "cupcake",
+  "tray",
+  "pot"
+ ],
+ "pick the cupcake from the tray and place it in the tiered basket": [
+  "cupcake",
+  "tray",
+  "tiered basket"
+ ],
+ "pick the cupcake from the tray and place it in the tiered shelf": [
+  "cupcake",
+  "tray",
+  "tiered shelf"
+ ],
+ "pick the eggplant from the cutting board and place it in the basket": [
+  "eggplant",
+  "cutting board",
+  "basket"
+ ],
+ "pick the eggplant from the cutting board and place it in the cardboard box": [
+  "eggplant",
+  "cutting board",
+  "cardboard box"
+ ],
+ "pick the eggplant from the cutting board and place it in the pan": [
+  "eggplant",
+  "cutting board",
+  "pan"
+ ],
+ "pick the eggplant from the cutting board and place it in the pot": [
+  "eggplant",
+  "cutting board",
+  "pot"
+ ],
+ "pick the eggplant from the cutting board and place it in the tiered basket": [
+  "eggplant",
+  "cutting board",
+  "tiered basket"
+ ],
+ "pick the eggplant from the placemat and place it in the basket": [
+  "eggplant",
+  "placemat",
+  "basket"
+ ],
+ "pick the eggplant from the placemat and place it in the bowl": [
+  "eggplant",
+  "placemat",
+  "bowl"
+ ],
+ "pick the eggplant from the placemat and place it in the plate": [
+  "eggplant",
+  "placemat",
+  "plate"
+ ],
+ "pick the eggplant from the placemat and place it in the tiered shelf": [
+  "eggplant",
+  "placemat",
+  "tiered shelf"
+ ],
+ "pick the eggplant from the plate and place it in the bowl": [
+  "eggplant",
+  "plate",
+  "bowl"
+ ],
+ "pick the eggplant from the plate and place it in the cardboard box": [
+  "eggplant",
+  "plate",
+  "cardboard box"
+ ],
+ "pick the eggplant from the plate and place it in the pan": [
+  "eggplant",
+  "plate",
+  "pan"
+ ],
+ "pick the eggplant from the plate and place it in the plate": [
+  "eggplant",
+  "plate"
+ ],
+ "pick the eggplant from the tray and place it in the cardboard box": [
+  "eggplant",
+  "tray",
+  "cardboard box"
+ ],
+ "pick the eggplant from the tray and place it in the plate": [
+  "eggplant",
+  "tray",
+  "plate"
+ ],
+ "pick the eggplant from the tray and place it in the pot": [
+  "eggplant",
+  "tray",
+  "pot"
+ ],
+ "pick the eggplant from the tray and place it in the tiered basket": [
+  "eggplant",
+  "tray",
+  "tiered basket"
+ ],
+ "pick the eggplant from the tray and place it in the tiered shelf": [
+  "eggplant",
+  "tray",
+  "tiered shelf"
+ ],
+ "pick the lemon from the cutting board and place it in the basket": [
+  "lemon",
+  "cutting board",
+  "basket"
+ ],
+ "pick the lemon from the cutting board and place it in the cardboard box": [
+  "lemon",
+  "cutting board",
+  "cardboard box"
+ ],
+ "pick the lemon from the cutting board and place it in the pan": [
+  "lemon",
+  "cutting board",
+  "pan"
+ ],
+ "pick the lemon from the cutting board and place it in the pot": [
+  "lemon",
+  "cutting board",
+  "pot"
+ ],
+ "pick the lemon from the cutting board and place it in the tiered basket": [
+  "lemon",
+  "cutting board",
+  "tiered basket"
+ ],
+ "pick the lemon from the placemat and place it in the basket": [
+  "lemon",
+  "placemat",
+  "basket"
+ ],
+ "pick the lemon from the placemat and place it in the bowl": [
+  "lemon",
+  "placemat",
+  "bowl"
+ ],
+ "pick the lemon from the placemat and place it in the plate": [
+  "lemon",
+  "placemat",
+  "plate"
+ ],
+ "pick the lemon from the placemat and place it in the tiered shelf": [
+  "lemon",
+  "placemat",
+  "tiered shelf"
+ ],
+ "pick the lemon from the plate and place it in the bowl": [
+  "lemon",
+  "plate",
+  "bowl"
+ ],
+ "pick the lemon from the plate and place it in the cardboard box": [
+  "lemon",
+  "plate",
+  "cardboard box"
+ ],
+ "pick the lemon from the plate and place it in the pan": [
+  "lemon",
+  "plate",
+  "pan"
+ ],
+ "pick the lemon from the plate and place it in the plate": [
+  "lemon",
+  "plate"
+ ],
+ "pick the lemon from the tray and place it in the cardboard box": [
+  "lemon",
+  "tray",
+  "cardboard box"
+ ],
+ "pick the lemon from the tray and place it in the plate": [
+  "lemon",
+  "tray",
+  "plate"
+ ],
+ "pick the lemon from the tray and place it in the pot": [
+  "lemon",
+  "tray",
+  "pot"
+ ],
+ "pick the lemon from the tray and place it in the tiered basket": [
+  "lemon",
+  "tray",
+  "tiered basket"
+ ],
+ "pick the lemon from the tray and place it in the tiered shelf": [
+  "lemon",
+  "tray",
+  "tiered shelf"
+ ],
+ "pick the pear from the cutting board and place it in the basket": [
+  "pear",
+  "cutting board",
+  "basket"
+ ],
+ "pick the pear from the cutting board and place it in the cardboard box": [
+  "pear",
+  "cutting board",
+  "cardboard box"
+ ],
+ "pick the pear from the cutting board and place it in the pan": [
+  "pear",
+  "cutting board",
+  "pan"
+ ],
+ "pick the pear from the cutting board and place it in the pot": [
+  "pear",
+  "cutting board",
+  "pot"
+ ],
+ "pick the pear from the cutting board and place it in the tiered basket": [
+  "pear",
+  "cutting board",
+  "tiered basket"
+ ],
+ "pick the pear from the placemat and place it in the basket": [
+  "pear",
+  "placemat",
+  "basket"
+ ],
+ "pick the pear from the placemat and place it in the bowl": [
+  "pear",
+  "placemat",
+  "bowl"
+ ],
+ "pick the pear from the placemat and place it in the plate": [
+  "pear",
+  "placemat",
+  "plate"
+ ],
+ "pick the pear from the placemat and place it in the tiered shelf": [
+  "pear",
+  "placemat",
+  "tiered shelf"
+ ],
+ "pick the pear from the plate and place it in the bowl": [
+  "pear",
+  "plate",
+  "bowl"
+ ],
+ "pick the pear from the plate and place it in the cardboard box": [
+  "pear",
+  "plate",
+  "cardboard box"
+ ],
+ "pick the pear from the plate and place it in the pan": [
+  "pear",
+  "plate",
+  "pan"
+ ],
+ "pick the pear from the plate and place it in the plate": [
+  "pear",
+  "plate"
+ ],
+ "pick the pear from the tray and place it in the cardboard box": [
+  "pear",
+  "tray",
+  "cardboard box"
+ ],
+ "pick the pear from the tray and place it in the plate": [
+  "pear",
+  "tray",
+  "plate"
+ ],
+ "pick the pear from the tray and place it in the pot": [
+  "pear",
+  "tray",
+  "pot"
+ ],
+ "pick the pear from the tray and place it in the tiered basket": [
+  "pear",
+  "tray",
+  "tiered basket"
+ ],
+ "pick the pear from the tray and place it in the tiered shelf": [
+  "pear",
+  "tray",
+  "tiered shelf"
+ ],
+ "pick the squash from the cutting board and place it in the basket": [
+  "squash",
+  "cutting board",
+  "basket"
+ ],
+ "pick the squash from the cutting board and place it in the cardboard box": [
+  "squash",
+  "cutting board",
+  "cardboard box"
+ ],
+ "pick the squash from the cutting board and place it in the pan": [
+  "squash",
+  "cutting board",
+  "pan"
+ ],
+ "pick the squash from the cutting board and place it in the pot": [
+  "squash",
+  "cutting board",
+  "pot"
+ ],
+ "pick the squash from the cutting board and place it in the tiered basket": [
+  "squash",
+  "cutting board",
+  "tiered basket"
+ ],
+ "pick the squash from the placemat and place it in the basket": [
+  "squash",
+  "placemat",
+  "basket"
+ ],
+ "pick the squash from the placemat and place it in the bowl": [
+  "squash",
+  "placemat",
+  "bowl"
+ ],
+ "pick the squash from the placemat and place it in the plate": [
+  "squash",
+  "placemat",
+  "plate"
+ ],
+ "pick the squash from the placemat and place it in the tiered shelf": [
+  "squash",
+  "placemat",
+  "tiered shelf"
+ ],
+ "pick the squash from the plate and place it in the bowl": [
+  "squash",
+  "plate",
+  "bowl"
+ ],
+ "pick the squash from the plate and place it in the cardboard box": [
+  "squash",
+  "plate",
+  "cardboard box"
+ ],
+ "pick the squash from the plate and place it in the pan": [
+  "squash",
+  "plate",
+  "pan"
+ ],
+ "pick the squash from the plate and place it in the plate": [
+  "squash",
+  "plate"
+ ],
+ "pick the squash from the tray and place it in the cardboard box": [
+  "squash",
+  "tray",
+  "cardboard box"
+ ],
+ "pick the squash from the tray and place it in the plate": [
+  "squash",
+  "tray",
+  "plate"
+ ],
+ "pick the squash from the tray and place it in the pot": [
+  "squash",
+  "tray",
+  "pot"
+ ],
+ "pick the squash from the tray and place it in the tiered basket": [
+  "squash",
+  "tray",
+  "tiered basket"
+ ],
+ "pick the squash from the tray and place it in the tiered shelf": [
+  "squash",
+  "tray",
+  "tiered shelf"
+ ],
+ "pick the sweet potato from the cutting board and place it in the basket": [
+  "sweet potato",
+  "cutting board",
+  "basket"
+ ],
+ "pick the sweet potato from the cutting board and place it in the cardboard box": [
+  "sweet potato",
+  "cutting board",
+  "cardboard box"
+ ],
+ "pick the sweet potato from the cutting board and place it in the pan": [
+  "sweet potato",
+  "cutting board",
+  "pan"
+ ],
+ "pick the sweet potato from the cutting board and place it in the pot": [
+  "sweet potato",
+  "cutting board",
+  "pot"
+ ],
+ "pick the sweet potato from the cutting board and place it in the tiered basket": [
+  "sweet potato",
+  "cutting board",
+  "tiered basket"
+ ],
+ "pick the sweet potato from the placemat and place it in the basket": [
+  "sweet potato",
+  "placemat",
+  "basket"
+ ],
+ "pick the sweet potato from the placemat and place it in the bowl": [
+  "sweet potato",
+  "placemat",
+  "bowl"
+ ],
+ "pick the sweet potato from the placemat and place it in the plate": [
+  "sweet potato",
+  "placemat",
+  "plate"
+ ],
+ "pick the sweet potato from the placemat and place it in the tiered shelf": [
+  "sweet potato",
+  "placemat",
+  "tiered shelf"
+ ],
+ "pick the sweet potato from the plate and place it in the bowl": [
+  "sweet potato",
+  "plate",
+  "bowl"
+ ],
+ "pick the sweet potato from the plate and place it in the cardboard box": [
+  "sweet potato",
+  "plate",
+  "cardboard box"
+ ],
+ "pick the sweet potato from the plate and place it in the pan": [
+  "sweet potato",
+  "plate",
+  "pan"
+ ],
+ "pick the sweet potato from the plate and place it in the plate": [
+  "sweet potato",
+  "plate"
+ ],
+ "pick the sweet potato from the tray and place it in the cardboard box": [
+  "sweet potato",
+  "tray",
+  "cardboard box"
+ ],
+ "pick the sweet potato from the tray and place it in the plate": [
+  "sweet potato",
+  "tray",
+  "plate"
+ ],
+ "pick the sweet potato from the tray and place it in the pot": [
+  "sweet potato",
+  "tray",
+  "pot"
+ ],
+ "pick the sweet potato from the tray and place it in the tiered basket": [
+  "sweet potato",
+  "tray",
+  "tiered basket"
+ ],
+ "pick the sweet potato from the tray and place it in the tiered shelf": [
+  "sweet potato",
+  "tray",
+  "tiered shelf"
+ ],
+ "pick the tomato from the cutting board and place it in the basket": [
+  "tomato",
+  "cutting board",
+  "basket"
+ ],
+ "pick the tomato from the cutting board and place it in the cardboard box": [
+  "tomato",
+  "cutting board",
+  "cardboard box"
+ ],
+ "pick the tomato from the cutting board and place it in the pan": [
+  "tomato",
+  "cutting board",
+  "pan"
+ ],
+ "pick the tomato from the cutting board and place it in the pot": [
+  "tomato",
+  "cutting board",
+  "pot"
+ ],
+ "pick the tomato from the cutting board and place it in the tiered basket": [
+  "tomato",
+  "cutting board",
+  "tiered basket"
+ ],
+ "pick the tomato from the placemat and place it in the basket": [
+  "tomato",
+  "placemat",
+  "basket"
+ ],
+ "pick the tomato from the placemat and place it in the bowl": [
+  "tomato",
+  "placemat",
+  "bowl"
+ ],
+ "pick the tomato from the placemat and place it in the plate": [
+  "tomato",
+  "placemat",
+  "plate"
+ ],
+ "pick the tomato from the placemat and place it in the tiered shelf": [
+  "tomato",
+  "placemat",
+  "tiered shelf"
+ ],
+ "pick the tomato from the plate and place it in the bowl": [
+  "tomato",
+  "plate",
+  "bowl"
+ ],
+ "pick the tomato from the plate and place it in the cardboard box": [
+  "tomato",
+  "plate",
+  "cardboard box"
+ ],
+ "pick the tomato from the plate and place it in the pan": [
+  "tomato",
+  "plate",
+  "pan"
+ ],
+ "pick the tomato from the plate and place it in the plate": [
+  "tomato",
+  "plate"
+ ],
+ "pick the tomato from the tray and place it in the cardboard box": [
+  "tomato",
+  "tray",
+  "cardboard box"
+ ],
+ "pick the tomato from the tray and place it in the plate": [
+  "tomato",
+  "tray",
+  "plate"
+ ],
+ "pick the tomato from the tray and place it in the pot": [
+  "tomato",
+  "tray",
+  "pot"
+ ],
+ "pick the tomato from the tray and place it in the tiered basket": [
+  "tomato",
+  "tray",
+  "tiered basket"
+ ],
+ "pick the tomato from the tray and place it in the tiered shelf": [
+  "tomato",
+  "tray",
+  "tiered shelf"
+ ],
+ "pick up the bottled water, place it into the cabinet and close the cabinet": [
+  "bottled water",
+  "cabinet"
+ ],
+ "pick up the can, place it into the drawer and close the drawer": [
+  "can",
+  "drawer"
+ ],
+ "pick up the cup, place it into the drawer and close the drawer": [
+  "cup",
+  "drawer"
+ ],
+ "pick up the milk, place it into the microwave and close the microwave": [
+  "milk",
+  "microwave"
+ ],
+ "pick up the potato, place it into the microwave and close the microwave": [
+  "potato",
+  "microwave"
+ ],
+ "pick up the wine, place it into the cabinet and close the cabinet": [
+  "wine",
+  "cabinet"
+ ]
+}

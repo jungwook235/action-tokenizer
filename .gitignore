@@ -154,4 +154,4 @@ test_vggt_integration.py
 thor.Dockerfile
 trm_H_init_stats.json
 sbatch_scripts/
-analysis/sam3_masking/
+analysis/sam3_masking/venv_sam3
