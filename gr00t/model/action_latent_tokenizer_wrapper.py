@@ -502,6 +502,12 @@ class ActionLatentTokenizerWrapper(nn.Module):
         # state_dict; absent → standard V4, byte-identical rebuild.
         use_embodiment_class_token = "encoder.embodiment_class_token" in state_dict
 
+        # Segment (SAM3 cutout) DINO stream: present only when the tokenizer was trained
+        # with it. The concat adds no parameters, so this marker is the ONLY way to know
+        # ``encode`` needs the seg features — rebuild the encoder with the flag so a
+        # missing seg input fails loud instead of silently changing the latent.
+        use_seg_stream = "_use_seg_stream" in state_dict
+
         print(
             f"[timewise_v4] action_dim={action_dim}, action_horizon={action_horizon}, "
             f"emb_dim={emb_dim}, token_dim={token_dim}, dino_dim={dino_dim}, "
@@ -510,7 +516,8 @@ class ActionLatentTokenizerWrapper(nn.Module):
             f"num_global={num_global}, num_hand={num_hand}, use_vae={use_vae}, "
             f"vae_sample={vae_sample}, "
             f"action_proj_mlp={action_proj_mlp}, action_proj_hidden={action_proj_hidden}, "
-            f"use_embodiment_class_token={use_embodiment_class_token}"
+            f"use_embodiment_class_token={use_embodiment_class_token}, "
+            f"use_seg_stream={use_seg_stream}"
         )
 
         encoder = TimeWiseEncoderV4(
@@ -532,6 +539,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
             action_proj_mlp=action_proj_mlp,
             action_proj_hidden=action_proj_hidden,
             use_embodiment_class_token=use_embodiment_class_token,
+            use_seg_stream=use_seg_stream,
         )
 
         recon_decoder = ReconDecoderV4(
@@ -578,11 +586,13 @@ class ActionLatentTokenizerWrapper(nn.Module):
             dino_final_norm = byte_tensor_to_str(state_dict["_dino_final_norm"])
             print(f"[timewise_v4] dino_final_norm={dino_final_norm}")
 
-        # dino_decoder omitted (training-only); its checkpoint keys are filtered.
+        # dino_decoder / seg_dino_decoder omitted (training-only); their checkpoint keys
+        # are filtered by from_checkpoint.
         tokenizer = ActionLatentTokenizerV4(
             encoder=encoder,
             recon_decoder=recon_decoder,
             dino_decoder=None,
+            seg_dino_decoder=None,
             lambda_recon=1.0,
             lambda_dino=0.0,
             feature_source=feature_source,
@@ -1229,6 +1239,25 @@ class ActionLatentTokenizerWrapper(nn.Module):
         return self._vggt_extractor
 
     @torch.no_grad()
+    def _frames_to_feats(self, frames, device):
+        """Raw frames [B,3,H,W] → visual features [B, Lp, C] via the frozen extractor.
+
+        Routes to the VGGT or DINO extractor per the tokenizer's recorded
+        ``feature_source``. Shared by the RGB and segment streams so both are embedded
+        by the SAME frozen extractor with the SAME preprocessing (matching Stage-1).
+        """
+        frames = frames.to(device).float()
+        if frames.max() > 1.5:
+            frames = frames / 255.0
+        if getattr(self.tokenizer, "feature_source", "dino") == "vggt":
+            extractor = self._ensure_vggt_extractor(device)
+            tok, _ = extractor(frames)  # [B, Lp, C]
+            return tok.float()
+        extractor = self._ensure_dino_extractor(device)
+        _, grid = extractor(frames, return_spatial_grid=True)  # [B, C, h, w]
+        return grid.flatten(2).transpose(1, 2).float()         # [B, h*w, C]
+
+    @torch.no_grad()
     def _resolve_dino_feats(self, x0, x1, x0_feat, x1_feat, device):
         """Return (x0_feat, x1_feat) [B, Lp, C] from precomputed feats or raw frames."""
         if x0_feat is not None and x1_feat is not None:
@@ -1238,29 +1267,24 @@ class ActionLatentTokenizerWrapper(nn.Module):
                 "V4 encode requires visual features: pass x0_feat/x1_feat or raw "
                 "frames x0/x1 ([B,3,H,W])."
             )
+        return self._frames_to_feats(x0, device), self._frames_to_feats(x1, device)
 
-        if getattr(self.tokenizer, "feature_source", "dino") == "vggt":
-            extractor = self._ensure_vggt_extractor(device)
+    @torch.no_grad()
+    def _resolve_seg_feats(self, s0, s1, s0_feat, s1_feat, device):
+        """Segment-stream twin of :meth:`_resolve_dino_feats` (cutout frames)."""
+        if s0_feat is not None and s1_feat is not None:
+            return s0_feat.to(device), s1_feat.to(device)
+        if s0 is None or s1 is None:
+            raise ValueError(
+                "this tokenizer was trained with the segment DINO stream "
+                "(_use_seg_stream): encode requires the cutout pair — pass "
+                "s0_feat/s1_feat or raw frames s0/s1 ([B,3,H,W]). For Stage-2 VLA "
+                "training set --actlat-seg-dataset-root."
+            )
+        return self._frames_to_feats(s0, device), self._frames_to_feats(s1, device)
 
-            def to_feat(frames):
-                frames = frames.to(device).float()
-                if frames.max() > 1.5:
-                    frames = frames / 255.0
-                tok, _ = extractor(frames)  # [B, Lp, C]
-                return tok.float()
-
-            return to_feat(x0), to_feat(x1)
-
-        extractor = self._ensure_dino_extractor(device)
-
-        def to_feat(frames):
-            frames = frames.to(device).float()
-            if frames.max() > 1.5:
-                frames = frames / 255.0
-            _, grid = extractor(frames, return_spatial_grid=True)  # [B, C, h, w]
-            return grid.flatten(2).transpose(1, 2).float()         # [B, h*w, C]
-
-        return to_feat(x0), to_feat(x1)
+    def _uses_seg_stream(self) -> bool:
+        return bool(getattr(self.tokenizer, "use_seg_stream", False))
 
     @torch.no_grad()
     def encode(
@@ -1270,6 +1294,10 @@ class ActionLatentTokenizerWrapper(nn.Module):
         x1=None,
         x0_feat=None,
         x1_feat=None,
+        s0=None,
+        s1=None,
+        s0_feat=None,
+        s1_feat=None,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Encode actions to (global_tok, main_tok, hand_tok).
 
@@ -1277,6 +1305,9 @@ class ActionLatentTokenizerWrapper(nn.Module):
             actions: [B, T, D] already normalized to [-1, 1]
             x0/x1: optional raw frames [B,3,H,W] (current/future), V4 only.
             x0_feat/x1_feat: optional precomputed DINO feats [B,Lp,C], V4 only.
+            s0/s1: optional raw SEGMENT (cutout) frames [B,3,H,W]; required only for
+                V4 tokenizers trained with the seg DINO stream. Ignored otherwise.
+            s0_feat/s1_feat: optional precomputed segment DINO feats [B,Lp,C].
         Returns:
             timewise: (global[B,Ng,E], time[B,T,E],  hand[B,Nh,E])
             dimwise:  (global[B,Ng,E], dim[B,D,E],   hand[B,Nh,E])
@@ -1288,6 +1319,9 @@ class ActionLatentTokenizerWrapper(nn.Module):
             return self.tokenizer.encode(actions, z_rep)
         if self._is_v4():
             f0, f1 = self._resolve_dino_feats(x0, x1, x0_feat, x1_feat, actions.device)
+            if self._uses_seg_stream():
+                g0, g1 = self._resolve_seg_feats(s0, s1, s0_feat, s1_feat, actions.device)
+                return self.tokenizer.encode(actions, f0, f1, g0, g1)
             return self.tokenizer.encode(actions, f0, f1)
         return self.tokenizer.encode(actions)
 
@@ -1300,6 +1334,10 @@ class ActionLatentTokenizerWrapper(nn.Module):
         x1=None,
         x0_feat=None,
         x1_feat=None,
+        s0=None,
+        s1=None,
+        s0_feat=None,
+        s1_feat=None,
     ) -> torch.Tensor:
         """Encode actions and return concatenated latent target.
 
@@ -1307,11 +1345,14 @@ class ActionLatentTokenizerWrapper(nn.Module):
             actions: [B, T, D] already normalized to [-1, 1]
             target_tokens: "time", "global_time", "time_hand", "all"
             x0/x1/x0_feat/x1_feat: V4-only DINO inputs (ignored for v2/v3).
+            s0/s1/s0_feat/s1_feat: V4 segment-stream inputs; required only when the
+                tokenizer was trained with the seg DINO stream (ignored otherwise).
         Returns:
             [B, N, E] concatenated latent tokens
         """
         global_tok, main_tok, hand_tok = self.encode(
-            actions, x0=x0, x1=x1, x0_feat=x0_feat, x1_feat=x1_feat
+            actions, x0=x0, x1=x1, x0_feat=x0_feat, x1_feat=x1_feat,
+            s0=s0, s1=s1, s0_feat=s0_feat, s1_feat=s1_feat,
         )
 
         parts = []

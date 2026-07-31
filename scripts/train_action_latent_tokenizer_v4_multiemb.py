@@ -77,10 +77,14 @@ class MultiEmbActionLatentV4Trainer(transformers.Trainer):
         dino_final_norm: str = "affine",
         train_sampler_weights=None,
         embodiment_names: Optional[list] = None,
+        use_seg_stream: bool = False,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.feature_source = feature_source
+        # Segment (cutout) stream: embedded by the SAME frozen extractor as the RGB
+        # stream (no second extractor), so only two extra forward passes per group.
+        self.use_seg_stream = bool(use_seg_stream)
         self._train_sampler_weights = train_sampler_weights
         self._embodiment_names = embodiment_names or []
         if feature_source == "vggt":
@@ -135,15 +139,15 @@ class MultiEmbActionLatentV4Trainer(transformers.Trainer):
             self._dino_on_device = True
         f0 = frame_x0.to(device).float() / 255.0
         f1 = frame_x1.to(device).float() / 255.0
+        return self._frames_to_feats(f0), self._frames_to_feats(f1)
+
+    def _frames_to_feats(self, frames):
+        """Normalized frames [B,3,H,W] in [0,1] → patch features [B, Lp, C] (fp32)."""
         if self.feature_source == "vggt":
-            x0, _ = self.dino(f0)
-            x1, _ = self.dino(f1)
-            return x0.float(), x1.float()
-        _, g0 = self.dino(f0, return_spatial_grid=True)
-        _, g1 = self.dino(f1, return_spatial_grid=True)
-        x0 = g0.flatten(2).transpose(1, 2).float()
-        x1 = g1.flatten(2).transpose(1, 2).float()
-        return x0, x1
+            tok, _ = self.dino(frames)
+            return tok.float()
+        _, grid = self.dino(frames, return_spatial_grid=True)
+        return grid.flatten(2).transpose(1, 2).float()
 
     def _group_feats(self, g):
         """Return (x0_feat, x1_feat) [B, Lp, C] fp32 for one embodiment group.
@@ -158,16 +162,42 @@ class MultiEmbActionLatentV4Trainer(transformers.Trainer):
             return g["x0_feat"].to(device).float(), g["x1_feat"].to(device).float()
         return self._extract_feats_frames(g["frame_x0"], g["frame_x1"])
 
+    @torch.no_grad()
+    def _group_seg_feats(self, g):
+        """(s0_feat, s1_feat) for one group, or (None, None) when the seg stream is off.
+
+        The cutout frames go through the SAME frozen extractor as the RGB stream. There
+        is no cached variant (the DINO cache holds only the RGB stream), so seg groups
+        are always live — enforced by an assert in ``main``."""
+        if not self.use_seg_stream:
+            return None, None
+        assert "seg_x0" in g, (
+            "--use-seg-stream is on but this group's batch has no seg_x0; every "
+            "embodiment group must declare a seg_dataset_root."
+        )
+        device = self._device()
+        if not self._dino_on_device:
+            self.dino.to(device)
+            self._dino_on_device = True
+        s0 = g["seg_x0"].to(device).float() / 255.0
+        s1 = g["seg_x1"].to(device).float() / 255.0
+        return self._frames_to_feats(s0), self._frames_to_feats(s1)
+
     def _build_groups_with_feats(self, inputs):
         """Turn the collated {embodiment_order, groups} batch into
-        {embodiment_order, groups:{name:{action,x0_feat,x1_feat}}}."""
+        {embodiment_order, groups:{name:{action,x0_feat,x1_feat[,s0_feat,s1_feat]}}}."""
         order = inputs["embodiment_order"]
         if isinstance(order, (list, tuple)) and len(order) and isinstance(order[0], (list, tuple)):
             order = order[0]  # defensive: some collate paths wrap scalars
         groups = {}
         for name, g in inputs["groups"].items():
             x0_feat, x1_feat = self._group_feats(g)
-            groups[name] = {"action": g["action"], "x0_feat": x0_feat, "x1_feat": x1_feat}
+            entry = {"action": g["action"], "x0_feat": x0_feat, "x1_feat": x1_feat}
+            s0_feat, s1_feat = self._group_seg_feats(g)
+            if s0_feat is not None:
+                entry["s0_feat"] = s0_feat
+                entry["s1_feat"] = s1_feat
+            groups[name] = entry
         return {"embodiment_order": list(inputs["groups"].keys()), "groups": groups}
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
@@ -210,27 +240,43 @@ class MultiEmbActionLatentV4Trainer(transformers.Trainer):
         model.eval()
 
         # per-embodiment accumulators
-        acc = {name: {"mse": 0.0, "l1": 0.0, "dino_l1": 0.0, "dino_cos": 0.0, "n": 0}
-               for name in self._embodiment_names}
+        def _new_acc():
+            return {"mse": 0.0, "l1": 0.0, "dino_l1": 0.0, "dino_cos": 0.0,
+                    "seg_l1": 0.0, "seg_cos": 0.0, "n": 0}
+
+        acc = {name: _new_acc() for name in self._embodiment_names}
+        has_seg_decoder = getattr(core, "seg_dino_decoder", None) is not None
         with torch.no_grad():
             for batch in eval_dataloader:
                 batch = self._prepare_inputs(batch)
                 for name, g in batch["groups"].items():
                     x0_feat, x1_feat = self._group_feats(g)
+                    s0_feat, s1_feat = self._group_seg_feats(g)
                     dtype = core.action_encoders[name].action_proj.weight.dtype
                     actions = g["action"].to(device=x0_feat.device, dtype=dtype)
-                    time_tok, _ = core.encode(name, actions, x0_feat, x1_feat)
+                    time_tok, _ = core.encode(
+                        name, actions, x0_feat, x1_feat, s0_feat, s1_feat
+                    )
                     preds = core.decode(name, time_tok)
                     pred_x1 = core.decode_dino(time_tok, x0_feat.to(dtype=time_tok.dtype), name=name)
 
                     B = actions.shape[0]
-                    a = acc.setdefault(name, {"mse": 0.0, "l1": 0.0, "dino_l1": 0.0, "dino_cos": 0.0, "n": 0})
+                    a = acc.setdefault(name, _new_acc())
                     a["mse"] += F.mse_loss(preds, actions).item() * B
                     a["l1"] += F.l1_loss(preds, actions).item() * B
                     a["dino_l1"] += F.l1_loss(pred_x1, x1_feat.to(dtype=pred_x1.dtype)).item() * B
                     a["dino_cos"] += (
                         1.0 - F.cosine_similarity(pred_x1, x1_feat.to(dtype=pred_x1.dtype), dim=-1).mean()
                     ).item() * B
+                    if has_seg_decoder:
+                        pred_s1 = core.decode_dino_seg(
+                            time_tok, s0_feat.to(dtype=time_tok.dtype), name=name
+                        )
+                        tgt_s1 = s1_feat.to(dtype=pred_s1.dtype)
+                        a["seg_l1"] += F.l1_loss(pred_s1, tgt_s1).item() * B
+                        a["seg_cos"] += (
+                            1.0 - F.cosine_similarity(pred_s1, tgt_s1, dim=-1).mean()
+                        ).item() * B
                     a["n"] += B
 
         extra = {}
@@ -241,6 +287,9 @@ class MultiEmbActionLatentV4Trainer(transformers.Trainer):
             extra[f"{metric_key_prefix}_{name}_recon_l1"] = a["l1"] / a["n"]
             extra[f"{metric_key_prefix}_{name}_dino_l1"] = a["dino_l1"] / a["n"]
             extra[f"{metric_key_prefix}_{name}_dino_cos_dist"] = a["dino_cos"] / a["n"]
+            if has_seg_decoder:
+                extra[f"{metric_key_prefix}_{name}_dino_seg_l1"] = a["seg_l1"] / a["n"]
+                extra[f"{metric_key_prefix}_{name}_dino_seg_cos_dist"] = a["seg_cos"] / a["n"]
         if extra:
             self.log(extra)
             metrics.update(extra)
@@ -286,6 +335,19 @@ class ArgsConfig:
 
     # ── DINO decoder ──
     dino_decoder_depth: int = 12
+
+    # ── Segment (SAM3 cutout) DINO stream ──
+    # All default-off → byte-identical to the pre-seg behavior. See the single-embodiment
+    # script for the full description. Here the cutout mirror root may be set globally
+    # (--seg-dataset-root) and/or per group ("seg_dataset_root" in the embodiments JSON,
+    # which wins); with --use-seg-stream EVERY group must resolve to a root, so the
+    # shared fusion encoder always sees the same two-stream input.
+    use_seg_stream: bool = False
+    seg_dataset_root: Optional[str] = None
+    seg_video_subdir: str = "cutout"
+    use_seg_dino_decoder: bool = False
+    seg_dino_decoder_depth: Optional[int] = None
+    lambda_dino_seg: float = 1.0
 
     # ── Per-embodiment (data-type) class token ──
     # When True, a learnable [dino_dim] class token per JSON ``class_token_id`` is
@@ -374,7 +436,8 @@ def _load_embodiment_groups(config: ArgsConfig):
     groups = spec["embodiments"]
     assert len(groups) >= 1, "embodiments_config must list >=1 embodiment"
 
-    def make_dataset(path, data_config, embodiment_tag, split, use_cache=False):
+    def make_dataset(path, data_config, embodiment_tag, split, use_cache=False,
+                     seg_root=None):
         # use_cache: look up precomputed DINO feats from <dataset>/dino_feature_cache
         # (built by scripts/precompute_dino_features.py) instead of decoding video +
         # running DINO live. The cache identity (model / final-norm / image-size /
@@ -410,6 +473,8 @@ def _load_embodiment_groups(config: ArgsConfig):
             video_backend=config.video_backend,
             use_fixed_val=config.use_fixed_val,
             fixed_val_path=config.fixed_val_path,
+            seg_dataset_root=seg_root,
+            seg_video_subdir=config.seg_video_subdir,
         )
 
     embodiment_specs = []
@@ -422,6 +487,23 @@ def _load_embodiment_groups(config: ArgsConfig):
         embodiment_tag = g.get("embodiment_tag", "new_embodiment")
         weight = float(g.get("weight", 1.0))
         loader = str(g.get("loader", "lerobot")).lower()
+
+        # Segment-stream root for this group: per-group JSON value wins, else the global
+        # CLI flag. None when the seg stream is off → the datasets built below are
+        # constructed exactly as before.
+        seg_root = None
+        if config.use_seg_stream:
+            seg_root = g.get("seg_dataset_root") or config.seg_dataset_root
+            assert seg_root, (
+                f"[{name}] --use-seg-stream is set but no segment root resolved: set "
+                f"\"seg_dataset_root\" in this embodiment group or pass "
+                f"--seg-dataset-root."
+            )
+            assert loader == "lerobot", (
+                f"[{name}] the segment stream is only implemented for the default "
+                f"'lerobot' loader (got loader={loader!r}); that reader is the one that "
+                f"mirrors the cutout directory layout."
+            )
 
         # glob-expand paths (GR1 uses a glob; EgoDex lists task folders directly;
         # egopi_prq lists per-source paths inside "sources" instead — see below);
@@ -511,8 +593,14 @@ def _load_embodiment_groups(config: ArgsConfig):
         else:
             data_config = g["data_config"]
             use_cache = bool(g.get("use_dino_cache", False))
-            g_train = [make_dataset(p, data_config, embodiment_tag, "train", use_cache) for p in paths]
-            g_val = [make_dataset(p, data_config, embodiment_tag, "val", use_cache) for p in paths]
+            assert not (use_cache and seg_root is not None), (
+                f"[{name}] use_dino_cache is incompatible with the segment stream: the "
+                f"precomputed cache holds only the RGB stream's features."
+            )
+            g_train = [make_dataset(p, data_config, embodiment_tag, "train", use_cache, seg_root)
+                       for p in paths]
+            g_val = [make_dataset(p, data_config, embodiment_tag, "val", use_cache, seg_root)
+                     for p in paths]
 
             # Merge normalization stats WITHIN this embodiment only (different
             # embodiments have different action keys/dims → cross-merge is invalid).
@@ -542,9 +630,11 @@ def _load_embodiment_groups(config: ArgsConfig):
         group_weights.append(weight)
         ct_label = (f" class_token_id={spec_entry['class_token_id']}"
                     if config.use_embodiment_class_token else "")
+        seg_label = f" seg_root={seg_root}" if seg_root is not None else ""
         print(f"[group:{name}] {desc} action_dim={action_dim} "
               f"action_horizon={action_horizon} train={len(train_ds)} val={len(val_ds)} "
-              f"weight={weight} ({len(paths)} path(s)) dino_feats={feats_label}{ct_label}")
+              f"weight={weight} ({len(paths)} path(s)) dino_feats={feats_label}"
+              f"{ct_label}{seg_label}")
 
     # all embodiments must share action_horizon
     horizons = {s["action_horizon"] for s in embodiment_specs}
@@ -607,6 +697,10 @@ def _build_model(config: ArgsConfig, embodiment_specs, action_horizon,
         fusion_depth=config.fusion_depth,
         fusion_heads=config.fusion_heads,
         dino_decoder_depth=config.dino_decoder_depth,
+        seg_dino_decoder_depth=config.seg_dino_decoder_depth,
+        use_seg_stream=config.use_seg_stream,
+        use_seg_dino_decoder=config.use_seg_dino_decoder,
+        lambda_dino_seg=config.lambda_dino_seg,
         use_vae=config.use_vae,
         vae_sample=config.vae_sample,
         kl_free_bits=config.kl_free_bits,
@@ -639,6 +733,23 @@ def _build_model(config: ArgsConfig, embodiment_specs, action_horizon,
 
 
 def main(config: ArgsConfig):
+    # Segment-stream arg validation (all no-ops when the flags are off). The per-group
+    # root resolution / cache-conflict checks live in _load_embodiment_groups.
+    if config.use_seg_dino_decoder:
+        assert config.use_seg_stream, (
+            "--use-seg-dino-decoder requires --use-seg-stream."
+        )
+    if config.use_seg_stream:
+        assert config.seg_dataset_root is None or os.path.isdir(config.seg_dataset_root), (
+            f"--seg-dataset-root does not exist: {config.seg_dataset_root}"
+        )
+        print(
+            f"[seg-stream] ON  root={config.seg_dataset_root} "
+            f"subdir={config.seg_video_subdir} "
+            f"seg_dino_decoder={config.use_seg_dino_decoder} "
+            f"lambda_dino_seg={config.lambda_dino_seg}"
+        )
+
     # Finetuning-mode arg validation (no-op off the finetuning path).
     if config.tokenizer_finetuning_mode:
         assert config.finetuning_pretrained_path, (
@@ -692,9 +803,12 @@ def main(config: ArgsConfig):
         # New params = model params absent from the pretrained checkpoint (new embodiment's
         # action encoder/decoder + finetuning_class_token). Everything else must be shared /
         # loadable; a shared param going "missing" signals a config mismatch → fail loud.
+        # ``seg_dino_decoder.*`` is also legitimately new: enabling the segment DINO
+        # decoder on top of a tokenizer pretrained without it adds a fresh module (the
+        # seg-stream fusion concat itself adds no params, so it never shows up here).
         new_param_names = [n for n, _ in model.named_parameters() if n not in pretrained_sd]
         for n in new_param_names:
-            assert n.startswith(("action_encoders.", "recon_decoders.")) or n == "finetuning_class_token", (
+            assert n.startswith(("action_encoders.", "recon_decoders.", "seg_dino_decoder.")) or n == "finetuning_class_token", (
                 f"[finetune] unexpected new (missing-from-checkpoint) param {n!r}; the "
                 f"pretrained checkpoint likely has a different config (fusion/decoder/etc.)."
             )
@@ -789,6 +903,7 @@ def main(config: ArgsConfig):
         dino_final_norm=config.dino_final_norm,
         train_sampler_weights=sampler_weights,
         embodiment_names=[s["name"] for s in embodiment_specs],
+        use_seg_stream=config.use_seg_stream,
     )
 
     if config.report_to == "wandb":
@@ -835,6 +950,12 @@ def main(config: ArgsConfig):
                     "fusion_depth": config.fusion_depth,
                     "fusion_heads": config.fusion_heads,
                     "dino_decoder_depth": config.dino_decoder_depth,
+                    "use_seg_stream": config.use_seg_stream,
+                    "seg_dataset_root": config.seg_dataset_root,
+                    "seg_video_subdir": config.seg_video_subdir,
+                    "use_seg_dino_decoder": config.use_seg_dino_decoder,
+                    "seg_dino_decoder_depth": config.seg_dino_decoder_depth,
+                    "lambda_dino_seg": config.lambda_dino_seg,
                     "feature_source": config.feature_source,
                     "vggt_token_source": config.vggt_token_source,
                     "vggt_model": config.vggt_model,

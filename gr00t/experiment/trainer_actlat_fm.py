@@ -138,6 +138,10 @@ class ActlatFMTrainer(DualBrainTrainer):
                         target_tokens=target_tokens,
                         x0=inputs.get("frame_x0"),
                         x1=inputs.get("frame_x1"),
+                        # Segment (cutout) pair — required only by seg-stream
+                        # tokenizers, None-safe for every other one.
+                        s0=inputs.get("seg_x0"),
+                        s1=inputs.get("seg_x1"),
                     )
                     latent_target_dev = latent_target.to(
                         device=raw_pred.device, dtype=raw_pred.dtype

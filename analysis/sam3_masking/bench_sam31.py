@@ -16,7 +16,7 @@ import torch
 
 from run_sam3 import PALETTE, load_video, overlay, write_video
 
-CKPT = "/sjw_alinlab1/home/jungwook/.cache/huggingface/hub/models--jetjodh--sam3.1/snapshots/d094d562d62ccbf550215d6697d5eb6193bfab83/sam3.1_multiplex.pt"
+CKPT = "/data/jungwook/.cache/huggingface/hub/models--jetjodh--sam3.1/snapshots/d094d562d62ccbf550215d6697d5eb6193bfab83/sam3.1_multiplex.pt"
 BG = (0, 177, 64)
 
 

@@ -59,7 +59,10 @@ def list_episodes(data_glob):
     return episodes
 
 
-def process_episode(model, processor, video_path, task, device, dtype):
+BG_COLORS = {"black": (0, 0, 0), "white": (255, 255, 255), "green": (0, 177, 64)}
+
+
+def process_episode(model, processor, video_path, task, device, dtype, bg_color):
     frames, fps = load_video(video_path)
     n = len(frames)
     shape = frames[0].shape[:2]
@@ -93,7 +96,8 @@ def process_episode(model, processor, video_path, task, device, dtype):
                 union[fi][mm] = 1
         if union[fi].any():
             frames_with_mask += 1
-        cut = np.zeros_like(frames[fi])
+        cut = np.empty_like(frames[fi])
+        cut[:] = bg_color
         keep = union[fi].astype(bool)
         cut[keep] = frames[fi][keep]
         cutouts.append(cut)
@@ -109,6 +113,8 @@ def main():
     ap.add_argument("--num-shards", type=int, default=1)
     ap.add_argument("--shard-id", type=int, default=0)
     ap.add_argument("--limit", type=int, default=None, help="process at most this many episodes (smoke test)")
+    ap.add_argument("--bg", default="green", choices=sorted(BG_COLORS),
+                    help="cutout background color; green (default) keeps masked-out area distinguishable from the black robot hands")
     args = ap.parse_args()
 
     device = "cuda"
@@ -140,7 +146,7 @@ def main():
         t0 = time.time()
         try:
             frames, fps, union, cutouts, overlays, prompts, cov = process_episode(
-                model, processor, video_path, task, device, dtype
+                model, processor, video_path, task, device, dtype, BG_COLORS[args.bg]
             )
             write_video(cut_path, cutouts, fps)
             write_video(ovl_path, overlays, fps)

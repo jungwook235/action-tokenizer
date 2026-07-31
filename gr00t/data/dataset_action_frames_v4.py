@@ -5,6 +5,14 @@ Used by the V4 (RLA-DINO hybrid) tokenizer training. For each sample it returns:
   - ``frame_x0``: [H, W, 3] uint8 RGB at chunk start (observation index 0)
   - ``frame_x1``: [H, W, 3] uint8 RGB at chunk end (observation index T-1)
 
+With the optional segment (SAM3 cutout) stream enabled (``seg_dataset_root`` set) two
+more frames are attached, read from the cutout mirror of the SAME dataset at the SAME
+two steps and preprocessed through the SAME video transforms:
+  - ``seg_x0``  : [H, W, 3] uint8 cutout at chunk start
+  - ``seg_x1``  : [H, W, 3] uint8 cutout at chunk end
+When ``seg_dataset_root`` is None (the default) nothing changes — the items, the
+collator output and the trainer path are byte-identical to before.
+
 DINO features are NOT computed here — the trainer runs the frozen extractor
 on-the-fly. Frames are returned as resized uint8 (224x224 by default); the
 trainer converts to float/255 before DINO.
@@ -31,11 +39,13 @@ from gr00t.data.dataset import (
     ModalityConfig,
 )
 from gr00t.data.fixed_val_split import get_fixed_split_for_split
+from gr00t.data.seg_video import seg_dataset_dir, seg_video_path_from_source
 from gr00t.data.transform import ComposedModalityTransform
 from gr00t.data.transform.concat import ConcatTransform
 from gr00t.data.transform.state_action import StateActionToTensor, StateActionTransform
 from gr00t.data.transform.video import VideoResize, VideoToNumpy, VideoToTensor
 from gr00t.experiment.data_config import DATA_CONFIG_MAP
+from gr00t.utils.video import get_frames_by_timestamps
 
 
 class ActionFramesDatasetV4(LeRobotSingleDataset):
@@ -51,6 +61,10 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
             does not define ``action_normalization_modes``.
         image_size: resize target (square) handed to the DINO extractor.
         use_fixed_val / fixed_val_path: persistent val split (same as V3).
+        seg_dataset_root: root of the SAM3 cutout mirror (e.g.
+            ``.../GR00T-X-Embodiment-Sim_sam3_robot_task``). None (default) disables
+            the segment stream entirely — items keep their original keys.
+        seg_video_subdir: subdir inside the mirror holding the videos ("cutout").
     """
 
     def __init__(
@@ -66,6 +80,8 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
         video_backend: str = "decord",
         use_fixed_val: bool = True,
         fixed_val_path: Optional[str] = None,
+        seg_dataset_root: Optional[str] = None,
+        seg_video_subdir: str = "cutout",
     ):
         assert split in ("train", "val", "all"), f"split must be train/val/all: {split}"
 
@@ -133,6 +149,32 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
 
         self._action_keys = action_keys
         self._action_horizon = action_horizon
+
+        # ---- optional segment (SAM3 cutout) stream ----
+        # Off by default (root=None): no extra attributes are used at __getitem__ time
+        # and the returned item is byte-identical to before. When on, the cutout mirror
+        # of this dataset is located eagerly (fails loud on a bad root) and a SEPARATE
+        # instance of the same three video transforms is built for it, so the cutout
+        # frames get byte-identical preprocessing to the RGB frames.
+        self._seg_root = seg_dataset_root
+        self._seg_video_subdir = seg_video_subdir
+        self._seg_dir = None
+        self._seg_transforms = None
+        if seg_dataset_root is not None:
+            self._seg_dir = seg_dataset_dir(seg_dataset_root, dataset_path)
+            self._seg_transforms = ComposedModalityTransform(
+                transforms=[
+                    VideoToTensor(apply_to=video_keys),
+                    VideoResize(
+                        apply_to=video_keys,
+                        height=image_size,
+                        width=image_size,
+                        interpolation="linear",
+                    ),
+                    VideoToNumpy(apply_to=video_keys),
+                ]
+            )
+            self._seg_transforms.set_metadata(self.metadata)
 
     @staticmethod
     def _build_transforms(
@@ -214,6 +256,41 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
         )
         return all_ids[selected], all_lengths[selected]
 
+    def _load_seg_frames(self, trajectory_id: int, base_index: int) -> np.ndarray:
+        """Cutout frames at the SAME two steps as (frame_x0, frame_x1): [2, S, S, C] uint8.
+
+        Mirrors ``LeRobotSingleDataset.get_video`` exactly — same clamped step indices,
+        same ``timestamp`` column, same decoder/backend — but reads the cutout mirror of
+        the video ``get_video_path`` resolved. Requires ``self.curr_traj_data`` to be
+        populated for this trajectory (``get_step_data`` in ``__getitem__`` does that).
+        """
+        assert self._seg_dir is not None, "segment stream is disabled"
+        traj_index = self.get_trajectory_index(trajectory_id)
+        step_indices = np.asarray(self._video_indices) + base_index
+        step_indices = np.clip(step_indices, 0, self.trajectory_lengths[traj_index] - 1)
+
+        sub_key = self._video_key.replace("video.", "")
+        src_path = self.get_video_path(trajectory_id, sub_key)
+        seg_path = seg_video_path_from_source(
+            src_path, self._dataset_path, self._seg_dir, self._seg_video_subdir
+        )
+
+        assert self.curr_traj_data is not None, f"No data found for {trajectory_id=}"
+        assert "timestamp" in self.curr_traj_data.columns, f"No timestamp in {trajectory_id=}"
+        video_timestamp = self.curr_traj_data["timestamp"].to_numpy()[step_indices]
+
+        frames = get_frames_by_timestamps(
+            seg_path.as_posix(),
+            video_timestamp,
+            video_backend=self.video_backend,
+            video_backend_kwargs=self.video_backend_kwargs,
+        )  # [2, H, W, C] uint8, native resolution
+
+        # Same VideoToTensor → VideoResize → VideoToNumpy chain the RGB stream goes
+        # through, so the frozen extractor sees identically-preprocessed pixels.
+        out = self._seg_transforms({self._video_key: np.asarray(frames)})
+        return np.asarray(out[self._video_key])
+
     def __getitem__(self, index: int) -> dict:
         trajectory_id, base_index = self.all_steps[index]
         data = self.get_step_data(trajectory_id, base_index)
@@ -229,11 +306,18 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
         frame_x0 = frames[0]  # [H, W, C]
         frame_x1 = frames[1] if frames.shape[0] > 1 else frames[0]
 
-        return {
+        item = {
             "action": action,
             "frame_x0": np.ascontiguousarray(frame_x0),
             "frame_x1": np.ascontiguousarray(frame_x1),
         }
+
+        if self._seg_dir is not None:
+            seg = self._load_seg_frames(trajectory_id, base_index)
+            item["seg_x0"] = np.ascontiguousarray(seg[0])
+            item["seg_x1"] = np.ascontiguousarray(seg[1] if seg.shape[0] > 1 else seg[0])
+
+        return item
 
 
 class ActionFramesCollatorV4:
@@ -241,6 +325,10 @@ class ActionFramesCollatorV4:
 
     Frames are stacked as uint8 ``[B, 3, H, W]`` (channels-first); the trainer
     converts to float/255 before the DINO extractor.
+
+    When the dataset also yields the segment (cutout) pair, ``seg_x0``/``seg_x1`` are
+    stacked the same way. Their absence (the default) leaves the output dict exactly
+    as before.
     """
 
     def __call__(self, features: list[dict]) -> dict:
@@ -251,8 +339,12 @@ class ActionFramesCollatorV4:
             t = torch.from_numpy(arr)
             return t.permute(0, 3, 1, 2).contiguous()  # [B, C, H, W]
 
-        return {
+        batch = {
             "action": actions,
             "frame_x0": stack_frames("frame_x0"),
             "frame_x1": stack_frames("frame_x1"),
         }
+        if "seg_x0" in features[0]:
+            batch["seg_x0"] = stack_frames("seg_x0")
+            batch["seg_x1"] = stack_frames("seg_x1")
+        return batch

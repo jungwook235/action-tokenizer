@@ -1261,6 +1261,13 @@ class LeRobotMixtureDataset(Dataset):
             f0, f1 = dataset._load_frame_pair(trajectory_name, step)
             item["frame_x0"] = f0
             item["frame_x1"] = f1
+        # Same hook for the optional segment (SAM3 cutout) pair, attached only when the
+        # child dataset was constructed with a seg root (``_seg_dir`` set). No-op
+        # otherwise, so mixtures without the seg stream are unchanged.
+        if getattr(dataset, "_seg_dir", None) is not None:
+            s0, s1 = dataset._load_seg_frame_pair(trajectory_name, step)
+            item["seg_x0"] = s0
+            item["seg_x1"] = s1
         return item
 
     def __len__(self) -> int:

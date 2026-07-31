@@ -68,11 +68,15 @@ class ActionLatentV4Trainer(transformers.Trainer):
         vggt_final_norm: str = "none",
         dino_final_norm: str = "affine",
         use_dino_cache: bool = False,
+        use_seg_stream: bool = False,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.feature_source = feature_source
         self.use_dino_cache = use_dino_cache
+        # Segment (cutout) stream: the SAME frozen extractor embeds the seg frames, so
+        # no second extractor is built — only two extra forward passes per step.
+        self.use_seg_stream = bool(use_seg_stream)
         if use_dino_cache:
             # Features come precomputed from the dataset (x0_feat/x1_feat) → no
             # extractor is built at all (saves GPU memory + the DINO forward).
@@ -134,26 +138,55 @@ class ActionLatentV4Trainer(transformers.Trainer):
 
         f0 = inputs["frame_x0"].to(device).float() / 255.0
         f1 = inputs["frame_x1"].to(device).float() / 255.0
+        return self._frames_to_feats(f0), self._frames_to_feats(f1)
+
+    def _frames_to_feats(self, frames):
+        """Normalized frames [B,3,H,W] in [0,1] → patch features [B, Lp, C] (fp32)."""
         if self.feature_source == "vggt":
             # VGGT extractor returns patch tokens [B, Lp, C] directly.
-            x0, _ = self.dino(f0)
-            x1, _ = self.dino(f1)
-            return x0.float(), x1.float()
-        _, g0 = self.dino(f0, return_spatial_grid=True)  # [B, C, h, w] fp16
-        _, g1 = self.dino(f1, return_spatial_grid=True)
-        x0 = g0.flatten(2).transpose(1, 2).float()       # [B, h*w, C]
-        x1 = g1.flatten(2).transpose(1, 2).float()
-        return x0, x1
+            tok, _ = self.dino(frames)
+            return tok.float()
+        _, grid = self.dino(frames, return_spatial_grid=True)  # [B, C, h, w] fp16
+        return grid.flatten(2).transpose(1, 2).float()         # [B, h*w, C]
 
-    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+    @torch.no_grad()
+    def _extract_seg_feats(self, inputs):
+        """Segment (cutout) frames → features [B, Lp, C], via the SAME frozen extractor.
+
+        Returns (None, None) when the seg stream is off, so the batch built below stays
+        byte-identical to the pre-seg trainer.
+        """
+        if not self.use_seg_stream:
+            return None, None
+        device = self.model.device if hasattr(self.model, "device") else next(self.model.parameters()).device
+        if not self._dino_on_device:
+            self.dino.to(device)
+            self._dino_on_device = True
+        s0 = inputs["seg_x0"].to(device).float() / 255.0
+        s1 = inputs["seg_x1"].to(device).float() / 255.0
+        return self._frames_to_feats(s0), self._frames_to_feats(s1)
+
+    def _build_batch(self, inputs):
+        """{action, x0_feat, x1_feat} (+ {s0_feat, s1_feat} when the seg stream is on)."""
         x0_feat, x1_feat = self._extract_feats(inputs)
         batch = {"action": inputs["action"], "x0_feat": x0_feat, "x1_feat": x1_feat}
+        s0_feat, s1_feat = self._extract_seg_feats(inputs)
+        if s0_feat is not None:
+            batch["s0_feat"] = s0_feat
+            batch["s1_feat"] = s1_feat
+        return batch
+
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        batch = self._build_batch(inputs)
         outputs = model(batch)
         loss = outputs["loss"]
         if model.training:
             if not hasattr(self, "_train_loss_buffer"):
                 self._train_loss_buffer = {}
-            for key in ("loss_recon", "loss_dino", "loss_kl", "loss_dino_l1", "loss_dino_mse", "loss_dino_cosine"):
+            for key in ("loss_recon", "loss_dino", "loss_kl",
+                        "loss_dino_l1", "loss_dino_mse", "loss_dino_cosine",
+                        "loss_dino_seg", "loss_dino_l1_seg", "loss_dino_mse_seg",
+                        "loss_dino_cosine_seg"):
                 val = outputs.get(key)
                 if val is not None:
                     v = val.item() if isinstance(val, torch.Tensor) else float(val)
@@ -165,8 +198,7 @@ class ActionLatentV4Trainer(transformers.Trainer):
         RAW batch (no x0_feat/x1_feat) → KeyError. Override to extract DINO feats
         from the frames first, mirroring compute_loss. Returns (loss, None, None)."""
         with torch.no_grad():
-            x0_feat, x1_feat = self._extract_feats(inputs)
-            batch = {"action": inputs["action"], "x0_feat": x0_feat, "x1_feat": x1_feat}
+            batch = self._build_batch(inputs)
             outputs = model(batch)
             loss = outputs["loss"].detach()
         return (loss, None, None)
@@ -191,14 +223,17 @@ class ActionLatentV4Trainer(transformers.Trainer):
         model.eval()
 
         total_mse = total_l1 = total_dino_l1 = total_dino_cos = 0.0
+        total_seg_l1 = total_seg_cos = 0.0
         n_samples = 0
+        has_seg_decoder = getattr(model, "seg_dino_decoder", None) is not None
         with torch.no_grad():
             for batch in eval_dataloader:
                 batch = self._prepare_inputs(batch)
                 x0_feat, x1_feat = self._extract_feats(batch)
+                s0_feat, s1_feat = self._extract_seg_feats(batch)
                 actions = batch["action"].to(dtype=model.encoder.action_proj.weight.dtype)
 
-                g, t, h = model.encode(actions, x0_feat, x1_feat)
+                g, t, h = model.encode(actions, x0_feat, x1_feat, s0_feat, s1_feat)
                 preds = model.decode(g, t, h)
                 pred_x1 = model.decode_dino(t, x0_feat)
 
@@ -209,6 +244,13 @@ class ActionLatentV4Trainer(transformers.Trainer):
                 total_dino_cos += (
                     1.0 - F.cosine_similarity(pred_x1, x1_feat.to(dtype=pred_x1.dtype), dim=-1).mean()
                 ).item() * B
+                if has_seg_decoder:
+                    pred_s1 = model.decode_dino_seg(t, s0_feat)
+                    tgt_s1 = s1_feat.to(dtype=pred_s1.dtype)
+                    total_seg_l1 += F.l1_loss(pred_s1, tgt_s1).item() * B
+                    total_seg_cos += (
+                        1.0 - F.cosine_similarity(pred_s1, tgt_s1, dim=-1).mean()
+                    ).item() * B
                 n_samples += B
 
         if n_samples > 0:
@@ -218,6 +260,9 @@ class ActionLatentV4Trainer(transformers.Trainer):
                 f"{metric_key_prefix}_dino_l1": total_dino_l1 / n_samples,
                 f"{metric_key_prefix}_dino_cos_dist": total_dino_cos / n_samples,
             }
+            if has_seg_decoder:
+                extra[f"{metric_key_prefix}_dino_seg_l1"] = total_seg_l1 / n_samples
+                extra[f"{metric_key_prefix}_dino_seg_cos_dist"] = total_seg_cos / n_samples
             self.log(extra)
             metrics.update(extra)
 
@@ -273,9 +318,32 @@ class ArgsConfig:
     # ── DINO decoder ──
     dino_decoder_depth: int = 12
 
+    # ── Segment (SAM3 cutout) DINO stream ──
+    # All default-off → byte-identical to the pre-seg behavior (no extra data loading,
+    # no extra params/buffers, no extra losses).
+    #
+    # use_seg_stream=True: the dataset additionally reads the cutout video's frames at
+    #   the SAME two steps as (frame_x0, frame_x1) from
+    #   <seg_dataset_root>/<dataset_dir_name>/<seg_video_subdir>/chunk-XXX/<video_key>/
+    #   episode_XXXXXX.mp4 (same fps/resolution/frame count as the source video, so the
+    #   same timestamp lookup lands on the same step). The SAME frozen extractor embeds
+    #   them, and their feature difference (s1 - s0) is concatenated side-by-side with
+    #   the RGB difference along the token axis before the fusion transformer.
+    # use_seg_dino_decoder=True (requires use_seg_stream): adds a twin of the DINO
+    #   decoder that predicts the CUTOUT stream's future features from its own current
+    #   features + the latent, weighted by lambda_dino_seg.
+    use_seg_stream: bool = False
+    seg_dataset_root: Optional[str] = None
+    seg_video_subdir: str = "cutout"
+    use_seg_dino_decoder: bool = False
+    # Depth of the segment DINO decoder; None → same as dino_decoder_depth.
+    seg_dino_decoder_depth: Optional[int] = None
+
     # ── Loss ──
     lambda_recon: float = 1.0
     lambda_dino: float = 1.0
+    # Weight of the segment-stream DINO recon loss (only when use_seg_dino_decoder).
+    lambda_dino_seg: float = 1.0
     recon_loss_type: Literal["mse", "l1"] = "mse"
     dino_loss_type: str = "l1+mse"  # RLA default (L1 + MSE). Also: "cosine", "l1+cosine" ...
     dino_w_l1: float = 1.0
@@ -376,6 +444,7 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         kl_free_bits=config.kl_free_bits,
         action_proj_mlp=config.action_proj_mlp,
         action_proj_hidden=config.action_proj_hidden,
+        use_seg_stream=config.use_seg_stream,
     )
 
     recon_decoder = ReconDecoderV4(
@@ -406,12 +475,31 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         use_fp16=False,
     )
 
+    # Segment-stream DINO decoder: same architecture/config as the RGB one, but trained
+    # against the cutout stream's features. None when the flag is off, in which case
+    # ActionLatentTokenizerV4 registers nothing extra.
+    seg_dino_decoder = None
+    if config.use_seg_dino_decoder:
+        seg_dino_decoder = SimpleTokenTransformer(
+            in_channels=config.dino_channels,
+            model_channels=config.fusion_width,
+            out_channels=config.dino_channels,
+            num_blocks=int(config.seg_dino_decoder_depth or config.dino_decoder_depth),
+            num_heads=config.fusion_heads,
+            num_tokens=action_horizon,
+            token_channels=config.token_dim,
+            zero_init=True,
+            use_fp16=False,
+        )
+
     return ActionLatentTokenizerV4(
         encoder=encoder,
         recon_decoder=recon_decoder,
         dino_decoder=dino_decoder,
+        seg_dino_decoder=seg_dino_decoder,
         lambda_recon=config.lambda_recon,
         lambda_dino=config.lambda_dino,
+        lambda_dino_seg=config.lambda_dino_seg,
         lambda_kl=config.lambda_kl,
         recon_loss_type=config.recon_loss_type,
         dino_loss_type=config.dino_loss_type,
@@ -435,6 +523,32 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
 
 
 def main(config: ArgsConfig):
+    # ---- segment-stream arg validation (all no-ops when the flags are off) ----
+    if config.use_seg_dino_decoder:
+        assert config.use_seg_stream, (
+            "--use-seg-dino-decoder requires --use-seg-stream (the decoder consumes the "
+            "segment stream's features)."
+        )
+    if config.use_seg_stream:
+        assert config.seg_dataset_root, (
+            "--use-seg-stream requires --seg-dataset-root (root of the SAM3 cutout "
+            "mirror, e.g. .../GR00T-X-Embodiment-Sim_sam3_robot_task)."
+        )
+        assert os.path.isdir(config.seg_dataset_root), (
+            f"--seg-dataset-root does not exist: {config.seg_dataset_root}"
+        )
+        assert not config.use_dino_cache, (
+            "--use-seg-stream is incompatible with --use-dino-cache: the precomputed "
+            "DINO cache holds only the RGB stream's features (no cutout features), so "
+            "the seg stream must decode video live."
+        )
+        print(
+            f"[seg-stream] ON  root={config.seg_dataset_root} "
+            f"subdir={config.seg_video_subdir} "
+            f"seg_dino_decoder={config.use_seg_dino_decoder} "
+            f"lambda_dino_seg={config.lambda_dino_seg}"
+        )
+
     def make_dataset(path, split):
         if config.use_dino_cache:
             return CachedActionFramesDatasetV4(
@@ -465,6 +579,8 @@ def main(config: ArgsConfig):
             video_backend=config.video_backend,
             use_fixed_val=config.use_fixed_val,
             fixed_val_path=config.fixed_val_path,
+            seg_dataset_root=config.seg_dataset_root if config.use_seg_stream else None,
+            seg_video_subdir=config.seg_video_subdir,
         )
 
     datasets_train, datasets_val = [], []
@@ -615,6 +731,7 @@ def main(config: ArgsConfig):
         vggt_final_norm=config.vggt_final_norm,
         dino_final_norm=config.dino_final_norm,
         use_dino_cache=config.use_dino_cache,
+        use_seg_stream=config.use_seg_stream,
     )
 
     if config.report_to == "wandb":
@@ -666,6 +783,12 @@ def main(config: ArgsConfig):
                     "fusion_depth": config.fusion_depth,
                     "fusion_heads": config.fusion_heads,
                     "dino_decoder_depth": config.dino_decoder_depth,
+                    "use_seg_stream": config.use_seg_stream,
+                    "seg_dataset_root": config.seg_dataset_root,
+                    "seg_video_subdir": config.seg_video_subdir,
+                    "use_seg_dino_decoder": config.use_seg_dino_decoder,
+                    "seg_dino_decoder_depth": config.seg_dino_decoder_depth,
+                    "lambda_dino_seg": config.lambda_dino_seg,
                     "feature_source": config.feature_source,
                     "vggt_token_source": config.vggt_token_source,
                     "vggt_model": config.vggt_model,

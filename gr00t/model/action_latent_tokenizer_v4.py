@@ -30,6 +30,17 @@ actions``. Unlike V2/V3, ``encode`` additionally consumes DINO features
 DINO feature extraction lives OUTSIDE this module (trainer- or wrapper-owned,
 frozen) so the V4 state_dict stays clean and wrapper-loadable.
 
+**Optional segment (SAM3 cutout) DINO stream** (``use_seg_stream``, default off): the
+same frozen extractor is additionally run on the cutout video's frames at the SAME two
+steps, and that stream's feature difference (``s1 - s0``) is concatenated side-by-side
+with the RGB difference along the token axis before the fusion encoder
+([B,Lp,C] → [B,2Lp,C]). Both halves land in the discarded (visual) part of the fusion
+output, so the latent shape and every downstream consumer are unchanged. A twin
+``seg_dino_decoder`` (identical to ``dino_decoder``, but predicting the cutout stream's
+future features from its own current features + the latent) can be added with its own
+loss weight ``lambda_dino_seg``. Both are additive and flag-gated: with the flags off no
+parameters, buffers, losses or code paths change.
+
 Shape trace (B, T=action_horizon, D=action_dim, Lp=DINO patches, action width
 ``emb_dim``=256, fusion width ``dino_dim``=1024, ``token_dim``=64, Ng=Nh=0):
   actions [B,T,D]; dino_diff = x1-x0 [B,Lp,1024]
@@ -380,6 +391,7 @@ class TimeWiseEncoderV4(nn.Module):
         action_proj_mlp: bool = False,
         action_proj_hidden: Optional[int] = None,
         use_embodiment_class_token: bool = False,
+        use_seg_stream: bool = False,
     ):
         super().__init__()
         self.action_dim = action_dim
@@ -389,6 +401,19 @@ class TimeWiseEncoderV4(nn.Module):
         self.dino_dim = dino_dim
         self.num_global_tokens = num_global_tokens
         self.num_hand_tokens = num_hand_tokens
+
+        # ---- segment (SAM3 cutout) DINO stream (opt-in) ----
+        # When enabled, ``forward`` additionally receives the cutout stream's DINO
+        # feature difference (s1 - s0) and concatenates it side-by-side with the RGB
+        # ``dino_diff`` along the token axis before the fusion transformer:
+        # [B, Lp, dino_dim] → [B, 2*Lp, dino_dim]. Both streams land in the discarded
+        # (visual) half of the fusion output, so the kept action-token positions — and
+        # therefore the latent shape / every downstream consumer — are unchanged.
+        # This adds NO parameters or buffers (the fusion ``input_layer`` is shared by
+        # both streams), so the state_dict stays byte-identical to standard V4; the
+        # opt-in is recorded on the tokenizer as a ``_use_seg_stream`` marker so the
+        # inference wrapper knows ``encode`` requires the seg features.
+        self.use_seg_stream = bool(use_seg_stream)
 
         # ---- per-embodiment (data-type) class token (opt-in; Stage-2 side) ----
         # Set for tokenizers trained (jointly) with per-embodiment class tokens. At
@@ -466,13 +491,30 @@ class TimeWiseEncoderV4(nn.Module):
         # Wrapper/trainer probe ``encoder.action_proj.weight.dtype``.
         return self.action_encoder.action_proj
 
-    def forward(self, actions: torch.Tensor, dino_diff: torch.Tensor):
+    def forward(
+        self,
+        actions: torch.Tensor,
+        dino_diff: torch.Tensor,
+        seg_diff: Optional[torch.Tensor] = None,
+    ):
         B, T, _ = actions.shape
         Ng = self.num_global_tokens
         Nh = self.num_hand_tokens
 
         g256, t256, h256 = self.action_encoder(actions)          # [B,*,256]
         act_tokens = torch.cat([g256, t256, h256], dim=1)         # [B, Ng+T+Nh, 256]
+
+        if self.use_seg_stream:
+            assert seg_diff is not None, (
+                "use_seg_stream=True but no seg_diff was passed to the fusion encoder "
+                "(pass s0_feat/s1_feat to encode())."
+            )
+            # Side-by-side concat along the token axis: [B, Lp + Lp_seg, dino_dim].
+            dino_diff = torch.cat([dino_diff, seg_diff.to(dtype=dino_diff.dtype)], dim=1)
+        else:
+            assert seg_diff is None, (
+                "seg_diff was passed but this encoder was built with use_seg_stream=False."
+            )
 
         if self.use_embodiment_class_token:
             # Prepend the data-type class token as an extra dino_dim patch. It lands in
@@ -652,8 +694,10 @@ class ActionLatentTokenizerV4(nn.Module):
         encoder: TimeWiseEncoderV4,
         recon_decoder: ReconDecoderV4,
         dino_decoder: Optional[SimpleTokenTransformer] = None,
+        seg_dino_decoder: Optional[SimpleTokenTransformer] = None,
         lambda_recon: float = 1.0,
         lambda_dino: float = 1.0,
+        lambda_dino_seg: float = 0.0,
         lambda_kl: float = 0.0,
         recon_loss_type: str = "mse",
         dino_loss_type: str = "l1",
@@ -669,11 +713,21 @@ class ActionLatentTokenizerV4(nn.Module):
         self.encoder = encoder
         self.recon_decoder = recon_decoder
         self.dino_decoder = dino_decoder
+        self.seg_dino_decoder = seg_dino_decoder
 
         self.lambda_recon = float(lambda_recon)
         self.lambda_dino = float(lambda_dino)
+        self.lambda_dino_seg = float(lambda_dino_seg)
         self.lambda_kl = float(lambda_kl)
         self.recon_loss_type = recon_loss_type
+
+        # Segment-stream flag: the encoder is the single source of truth (it owns the
+        # fusion-input concat). When set, record a detection marker so the inference
+        # wrapper rebuilds an encoder that expects the seg features. When unset NO
+        # buffer is registered → the state_dict stays byte-identical to standard V4.
+        self.use_seg_stream = bool(getattr(encoder, "use_seg_stream", False))
+        if self.use_seg_stream:
+            self.register_buffer("_use_seg_stream", torch.tensor(True))
 
         # VAE flag is the single source of truth on the encoder. When set, record a
         # detection marker so the inference wrapper rebuilds the matching encoder
@@ -779,10 +833,29 @@ class ActionLatentTokenizerV4(nn.Module):
 
     # ---- interface (matches V2/V3 plus DINO feats) ----
 
-    def encode(self, actions: torch.Tensor, x0_feat: torch.Tensor, x1_feat: torch.Tensor):
-        """[B,T,D] actions + DINO feats [B,Lp,C] → (global, time, hand) @ token_dim."""
+    def encode(
+        self,
+        actions: torch.Tensor,
+        x0_feat: torch.Tensor,
+        x1_feat: torch.Tensor,
+        s0_feat: Optional[torch.Tensor] = None,
+        s1_feat: Optional[torch.Tensor] = None,
+    ):
+        """[B,T,D] actions + DINO feats [B,Lp,C] → (global, time, hand) @ token_dim.
+
+        With the segment stream enabled, ``s0_feat``/``s1_feat`` are the cutout frames'
+        DINO features; their difference is concatenated side-by-side with the RGB
+        difference inside the fusion encoder.
+        """
         dino_diff = x1_feat.to(dtype=actions.dtype) - x0_feat.to(dtype=actions.dtype)
-        return self.encoder(actions, dino_diff)
+        seg_diff = None
+        if self.use_seg_stream:
+            assert s0_feat is not None and s1_feat is not None, (
+                "this tokenizer was built with use_seg_stream=True; encode() requires "
+                "s0_feat/s1_feat (segment-stream DINO features)."
+            )
+            seg_diff = s1_feat.to(dtype=actions.dtype) - s0_feat.to(dtype=actions.dtype)
+        return self.encoder(actions, dino_diff, seg_diff)
 
     def decode(self, global_tok, time_tok, hand_tok) -> torch.Tensor:
         """Action reconstruction from latent tokens (V2/V3-compatible signature)."""
@@ -795,6 +868,17 @@ class ActionLatentTokenizerV4(nn.Module):
         _, visuals = self.dino_decoder(x=x0_feat, tokens=time_tok)
         return visuals
 
+    def decode_dino_seg(self, time_tok: torch.Tensor, s0_feat: torch.Tensor) -> torch.Tensor:
+        """Segment-stream twin of :meth:`decode_dino`.
+
+        Identical mechanics — a separate ``SimpleTokenTransformer`` conditioned on the
+        latent — but the visual context/target are the CUTOUT frames' DINO features
+        instead of the raw RGB ones: predicts s1_feat from s0_feat + latent.
+        """
+        assert self.seg_dino_decoder is not None, "seg_dino_decoder was not built"
+        _, visuals = self.seg_dino_decoder(x=s0_feat, tokens=time_tok)
+        return visuals
+
     def forward(self, batch: dict = None, **kwargs) -> dict:
         if batch is None:
             batch = kwargs
@@ -804,7 +888,15 @@ class ActionLatentTokenizerV4(nn.Module):
         x1_feat = batch["x1_feat"].to(dtype=actions.dtype)
         device = actions.device
 
-        global_tok, time_tok, hand_tok = self.encode(actions, x0_feat, x1_feat)
+        s0_feat = batch.get("s0_feat")
+        s1_feat = batch.get("s1_feat")
+        if s0_feat is not None:
+            s0_feat = s0_feat.to(dtype=actions.dtype)
+            s1_feat = s1_feat.to(dtype=actions.dtype)
+
+        global_tok, time_tok, hand_tok = self.encode(
+            actions, x0_feat, x1_feat, s0_feat, s1_feat
+        )
 
         # Loss 1: action reconstruction
         if self.lambda_recon > 0:
@@ -823,6 +915,20 @@ class ActionLatentTokenizerV4(nn.Module):
 
         loss = self.lambda_recon * loss_recon + self.lambda_dino * loss_dino
 
+        # Loss 2b: segment-stream DINO future-feature reconstruction. Same mechanics as
+        # loss 2, on the cutout stream's features. Only when the seg DINO decoder was
+        # built (default: absent → this block is skipped and `loss` is unchanged).
+        out_seg = {}
+        if self.seg_dino_decoder is not None:
+            assert s0_feat is not None and s1_feat is not None, (
+                "seg_dino_decoder is present but the batch has no s0_feat/s1_feat."
+            )
+            pred_s1 = self.decode_dino_seg(time_tok, s0_feat)
+            loss_dino_seg, seg_sub = self._dino_loss(pred_s1, s1_feat)
+            loss = loss + self.lambda_dino_seg * loss_dino_seg
+            out_seg["loss_dino_seg"] = loss_dino_seg
+            out_seg.update({f"{k}_seg": v for k, v in seg_sub.items()})
+
         # Loss 3: VAE KL (only when the encoder is a VAE). The encoder stashes the
         # KL during encode; here we weight and add it. logvar_head is in the z graph
         # regardless of lambda_kl, so DDP sees no unused params even at lambda_kl=0.
@@ -831,6 +937,7 @@ class ActionLatentTokenizerV4(nn.Module):
             "loss_recon": loss_recon,
             "loss_dino": loss_dino,
         }
+        out.update(out_seg)
         if self.use_vae and self.encoder._last_kl is not None:
             loss_kl = self.encoder._last_kl
             if self.lambda_kl > 0:

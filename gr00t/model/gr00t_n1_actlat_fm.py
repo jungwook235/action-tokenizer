@@ -183,6 +183,13 @@ class GR00T_N1_5(PreTrainedModel):
             # supplies them → None → the raw-frame path above is used unchanged.
             x0_feat=inputs.get("x0_feat"),
             x1_feat=inputs.get("x1_feat"),
+            # Segment (SAM3 cutout) pair — present only when the dataset was built with
+            # a seg root. Required by tokenizers trained with the seg DINO stream;
+            # ignored (None) by every other tokenizer.
+            s0=inputs.get("seg_x0"),
+            s1=inputs.get("seg_x1"),
+            s0_feat=inputs.get("s0_feat"),
+            s1_feat=inputs.get("s1_feat"),
         )
         # Optional per-dim z-norm of the FM target (actlat_latent_norm). Applied in
         # fp32 BEFORE the dtype cast below; get_action inverts it before the decoder.

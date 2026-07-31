@@ -70,8 +70,12 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         use_vae: bool = False,
         vae_sample: bool = True,
         kl_free_bits: float = 0.0,
+        seg_dino_decoder_depth: Optional[int] = None,
+        use_seg_stream: bool = False,
+        use_seg_dino_decoder: bool = False,
         lambda_recon: float = 1.0,
         lambda_dino: float = 1.0,
+        lambda_dino_seg: float = 0.0,
         lambda_kl: float = 0.0,
         recon_loss_type: str = "mse",
         dino_loss_type: str = "l1",
@@ -104,8 +108,23 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
 
         self.lambda_recon = float(lambda_recon)
         self.lambda_dino = float(lambda_dino)
+        self.lambda_dino_seg = float(lambda_dino_seg)
         self.lambda_kl = float(lambda_kl)
         self.recon_loss_type = recon_loss_type
+
+        # ---- segment (SAM3 cutout) DINO stream (opt-in, shared across embodiments) ----
+        # When enabled the cutout stream's DINO feature difference is concatenated
+        # side-by-side with the RGB difference along the token axis before the SHARED
+        # fusion encoder; the concat adds no parameters (``input_layer`` is shared by
+        # both streams). ``use_seg_dino_decoder`` additionally builds a SHARED twin of
+        # ``dino_decoder`` that reconstructs the cutout stream's future features. Both
+        # default off → state_dict / forward byte-identical to before.
+        self.use_seg_stream = bool(use_seg_stream)
+        self.use_seg_dino_decoder = bool(use_seg_dino_decoder)
+        assert not (self.use_seg_dino_decoder and not self.use_seg_stream), (
+            "use_seg_dino_decoder=True requires use_seg_stream=True (the seg features "
+            "the decoder consumes come from the seg stream)."
+        )
         self.use_vae = bool(use_vae)
         # VAE sampling toggle (only meaningful when use_vae). True (default) →
         # reparameterize z = μ + σ·ε (existing behavior, byte-identical path). False →
@@ -191,6 +210,21 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
             zero_init=True,
             use_fp16=False,
         )
+
+        # ---- SHARED segment-stream DINO decoder (opt-in; identical config) ----
+        self.seg_dino_decoder = None
+        if self.use_seg_dino_decoder:
+            self.seg_dino_decoder = SimpleTokenTransformer(
+                in_channels=dino_dim,
+                model_channels=fusion_width,
+                out_channels=dino_dim,
+                num_blocks=int(seg_dino_decoder_depth or dino_decoder_depth),
+                num_heads=fusion_heads,
+                num_tokens=action_horizon,
+                token_channels=token_dim,
+                zero_init=True,
+                use_fp16=False,
+            )
 
         # ---- per-embodiment (data-type) learnable class token (opt-in) ----
         # When enabled, ONE learnable [dino_dim] vector per class-token id is prepended
@@ -288,6 +322,11 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         # _is_v4_multiemb routes ActionLatentTokenizerWrapper.from_checkpoint to the
         # remap path. The single-embodiment marker _is_v4 is added by remap, NOT here.
         self.register_buffer("_is_v4_multiemb", torch.tensor(True))
+        # Segment-stream marker: registered ONLY when enabled, so ordinary checkpoints
+        # stay byte-identical. Carried through remap so Stage-2 rebuilds an encoder that
+        # expects the seg features.
+        if self.use_seg_stream:
+            self.register_buffer("_use_seg_stream", torch.tensor(True))
         if self.use_vae:
             self.register_buffer("_is_vae", torch.tensor(True))
             # Sampling-off marker: registered ONLY when a VAE tokenizer disables sampling
@@ -371,8 +410,20 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         ct = ct.view(1, 1, -1).expand(x.shape[0], 1, -1)          # [B,1,dino_dim]
         return torch.cat([ct, x], dim=1)
 
-    def encode(self, name: str, actions: torch.Tensor, x0_feat: torch.Tensor, x1_feat: torch.Tensor):
+    def encode(
+        self,
+        name: str,
+        actions: torch.Tensor,
+        x0_feat: torch.Tensor,
+        x1_feat: torch.Tensor,
+        s0_feat: Optional[torch.Tensor] = None,
+        s1_feat: Optional[torch.Tensor] = None,
+    ):
         """Route ``name``'s action encoder → shared fusion → time latent [B,T,token_dim].
+
+        With the segment stream enabled, ``s0_feat``/``s1_feat`` (cutout-frame DINO
+        features) contribute a second feature-difference sequence concatenated
+        side-by-side with the RGB one.
 
         Returns ``(time_tok, kl)`` where ``kl`` is a scalar tensor (VAE) or None.
         """
@@ -383,6 +434,13 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
 
         _, t256, _ = action_encoder(actions)               # [B,T,emb_dim]
         dino_diff = x1_feat - x0_feat                       # [B,Lp,dino_dim]
+        if self.use_seg_stream:
+            assert s0_feat is not None and s1_feat is not None, (
+                "use_seg_stream=True; encode() requires s0_feat/s1_feat."
+            )
+            seg_diff = s1_feat.to(dtype=actions.dtype) - s0_feat.to(dtype=actions.dtype)
+            # Side-by-side concat along the token axis: [B, Lp + Lp_seg, dino_dim].
+            dino_diff = torch.cat([dino_diff, seg_diff], dim=1)
         if self.use_embodiment_class_token:
             # Extra class-token patch lands in the discarded (visual) half of the
             # fusion output; the kept action-token positions are unchanged in shape.
@@ -421,6 +479,20 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
             visuals = visuals[:, 1:]                              # drop class-token slot
         return visuals
 
+    def decode_dino_seg(self, time_tok: torch.Tensor, s0_feat: torch.Tensor,
+                        name: Optional[str] = None) -> torch.Tensor:
+        """Segment-stream twin of :meth:`decode_dino` (predicts s1_feat from s0_feat)."""
+        assert self.seg_dino_decoder is not None, "seg_dino_decoder was not built"
+        if self.use_embodiment_class_token:
+            assert name is not None, (
+                "decode_dino_seg needs `name` when use_embodiment_class_token=True"
+            )
+            s0_feat = self._prepend_class_token(name, s0_feat)   # [B,1+Lp,dino_dim]
+        _, visuals = self.seg_dino_decoder(x=s0_feat, tokens=time_tok)
+        if self.use_embodiment_class_token:
+            visuals = visuals[:, 1:]                              # drop class-token slot
+        return visuals
+
     def forward(self, batch: dict = None, **kwargs) -> dict:
         """Two call shapes:
 
@@ -442,7 +514,10 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
             loss = None
             for name in order:
                 g = groups[name]
-                out = self._forward_single(name, g["action"], g["x0_feat"], g["x1_feat"])
+                out = self._forward_single(
+                    name, g["action"], g["x0_feat"], g["x1_feat"],
+                    g.get("s0_feat"), g.get("s1_feat"),
+                )
                 w = int(g["action"].shape[0]) / total_n
                 loss = out["loss"] * w if loss is None else loss + out["loss"] * w
                 for k, v in out.items():
@@ -451,15 +526,17 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
             agg["loss"] = loss
             return agg
         return self._forward_single(
-            batch["embodiment"], batch["action"], batch["x0_feat"], batch["x1_feat"]
+            batch["embodiment"], batch["action"], batch["x0_feat"], batch["x1_feat"],
+            batch.get("s0_feat"), batch.get("s1_feat"),
         )
 
-    def _forward_single(self, name, actions, x0_feat, x1_feat) -> dict:
+    def _forward_single(self, name, actions, x0_feat, x1_feat,
+                        s0_feat=None, s1_feat=None) -> dict:
         if isinstance(name, (list, tuple)):
             name = name[0]
         device = actions.device
 
-        time_tok, kl = self.encode(name, actions, x0_feat, x1_feat)
+        time_tok, kl = self.encode(name, actions, x0_feat, x1_feat, s0_feat, s1_feat)
         actions = actions.to(dtype=time_tok.dtype)
 
         if self.lambda_recon > 0:
@@ -476,7 +553,24 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
             dino_sub = {}
 
         loss = self.lambda_recon * loss_recon + self.lambda_dino * loss_dino
+
+        # Segment-stream DINO future-feature reconstruction (same mechanics as the RGB
+        # DINO loss, on the cutout stream). Skipped entirely when the decoder is absent.
+        out_seg = {}
+        if self.seg_dino_decoder is not None:
+            assert s0_feat is not None and s1_feat is not None, (
+                "seg_dino_decoder is present but the batch has no s0_feat/s1_feat."
+            )
+            pred_s1 = self.decode_dino_seg(
+                time_tok, s0_feat.to(dtype=time_tok.dtype), name=name
+            )
+            loss_dino_seg, seg_sub = self._dino_loss(pred_s1, s1_feat)
+            loss = loss + self.lambda_dino_seg * loss_dino_seg
+            out_seg["loss_dino_seg"] = loss_dino_seg
+            out_seg.update({f"{k}_seg": v for k, v in seg_sub.items()})
+
         out = {"loss": loss, "loss_recon": loss_recon, "loss_dino": loss_dino}
+        out.update(out_seg)
         if self.use_vae and kl is not None:
             if self.lambda_kl > 0:
                 loss = loss + self.lambda_kl * kl
@@ -495,8 +589,10 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         Maps ``action_encoders.<name>.*`` → ``encoder.action_encoder.*``,
         ``recon_decoders.<name>.*`` → ``recon_decoder.*``, shared ``joint.*`` →
         ``encoder.joint.*`` and ``logvar_head.*`` → ``encoder.logvar_head.*``.
-        Drops ``dino_decoder.*`` (Stage-2 wrapper builds it as None). Adds the
-        ``_is_v4`` marker so ``_build_from_state_dict`` routes to the v4 builder.
+        Drops ``dino_decoder.*`` / ``seg_dino_decoder.*`` (Stage-2 wrapper builds them
+        as None). Adds the ``_is_v4`` marker so ``_build_from_state_dict`` routes to the
+        v4 builder. The ``_use_seg_stream`` marker carries over so Stage-2 rebuilds an
+        encoder that expects the segment-stream features.
 
         When the joint tokenizer was trained with per-embodiment class tokens
         (``_use_emb_class_token`` present), slices ``embodiment_class_token`` down to
@@ -540,13 +636,13 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
                 out["encoder.logvar_head." + k[len("logvar_head."):]] = v
             elif k.startswith("action_encoders.") or k.startswith("recon_decoders."):
                 continue  # other embodiment
-            elif k.startswith("dino_decoder."):
-                continue  # training-only; Stage-2 wrapper uses dino_decoder=None
+            elif k.startswith("dino_decoder.") or k.startswith("seg_dino_decoder."):
+                continue  # training-only; Stage-2 wrapper uses (seg_)dino_decoder=None
             elif k == "_is_v4_multiemb":
                 continue  # replaced by _is_v4 below
-            elif k in ("_is_vae", "_vae_no_sample", "_dino_final_norm", "_feature_source",
-                       "_vggt_token_source", "_vggt_image_size", "_vggt_model",
-                       "_vggt_final_norm"):
+            elif k in ("_is_vae", "_vae_no_sample", "_use_seg_stream", "_dino_final_norm",
+                       "_feature_source", "_vggt_token_source", "_vggt_image_size",
+                       "_vggt_model", "_vggt_final_norm"):
                 out[k] = v  # top-level detection markers carry over unchanged
         if not found:
             available = sorted(

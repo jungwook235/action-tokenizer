@@ -161,6 +161,18 @@ class ArgsConfig:
     actlat_dump_max_samples: int = 0
     """Early-stop the stats dump after N samples (0 = full pass)."""
 
+    # ── Segment (SAM3 cutout) DINO stream (V4 + actlat_frames only) ──
+    actlat_seg_dataset_root: str = ""
+    """Root of the SAM3 cutout mirror (e.g.
+    .../GR00T-X-Embodiment-Sim_sam3_robot_task). REQUIRED when the Stage-1 tokenizer was
+    trained with --use-seg-stream: its encoder consumes the cutout stream's DINO features
+    too, so the latent target cannot be computed without them. The dataset attaches
+    (seg_x0, seg_x1) read at the SAME two steps as (frame_x0, frame_x1); the frozen
+    tokenizer embeds them with the same extractor. Empty (default) → unchanged."""
+
+    actlat_seg_video_subdir: str = "cutout"
+    """Subdir inside the seg mirror holding the videos ("cutout")."""
+
     # ── Precomputed DINO cache (V4 + actlat_frames only) ──
     use_dino_cache: bool = False
     """If True, read precomputed DINO feats (x0_feat/x1_feat) from
@@ -418,6 +430,10 @@ def dump_actlat_latent_stats(model, train_dataset, config: ArgsConfig):
                     x1=_to_dev(batch.get("frame_x1")),
                     x0_feat=_to_dev(batch.get("x0_feat")),
                     x1_feat=_to_dev(batch.get("x1_feat")),
+                    s0=_to_dev(batch.get("seg_x0")),
+                    s1=_to_dev(batch.get("seg_x1")),
+                    s0_feat=_to_dev(batch.get("s0_feat")),
+                    s1_feat=_to_dev(batch.get("s1_feat")),
                 )  # [B, N, D] raw latent
                 lat = latent.double()
                 num_tokens = int(lat.shape[1])
@@ -511,6 +527,26 @@ def main(config: ArgsConfig):
             frame_image_size=config.frame_image_size,
             frame_action_horizon=len(data_config_cls.action_indices),
         )
+        if config.actlat_seg_dataset_root:
+            # Segment (cutout) stream for seg-trained V4 tokenizers. The cached-DINO
+            # dataset skips the frame decode entirely and its cache holds only the RGB
+            # stream, so the two are mutually exclusive.
+            assert not config.use_dino_cache, (
+                "--actlat-seg-dataset-root is incompatible with --use-dino-cache: the "
+                "precomputed cache holds only the RGB stream's DINO features."
+            )
+            assert os.path.isdir(config.actlat_seg_dataset_root), (
+                f"--actlat-seg-dataset-root does not exist: "
+                f"{config.actlat_seg_dataset_root}"
+            )
+            frame_kwargs.update(
+                seg_dataset_root=config.actlat_seg_dataset_root,
+                seg_video_subdir=config.actlat_seg_video_subdir,
+            )
+            print(
+                f"[actlat] segment stream ON  root={config.actlat_seg_dataset_root} "
+                f"subdir={config.actlat_seg_video_subdir}"
+            )
         if config.use_dino_cache:
             # Cache-key components — must match the precompute / Stage-1 config so
             # the reader resolves to the existing cache directory.
