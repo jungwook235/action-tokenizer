@@ -41,6 +41,13 @@ future features from its own current features + the latent) can be added with it
 loss weight ``lambda_dino_seg``. Both are additive and flag-gated: with the flags off no
 parameters, buffers, losses or code paths change.
 
+``seg_dino_decoder_input`` selects what the seg decoder conditions on: ``"seg"``
+(default, unchanged — the cutout stream's own ``s0_feat``) or ``"rgb"`` (the RAW image
+``x0_feat``, i.e. both decoders read the SAME visual context and differ only in their
+target: ``dino_decoder`` predicts ``x1_feat``, ``seg_dino_decoder`` predicts
+``s1_feat``). Shapes are identical either way, so this changes no parameters — only
+which tensor is fed in. The encoder / seg stream concat is untouched.
+
 Shape trace (B, T=action_horizon, D=action_dim, Lp=DINO patches, action width
 ``emb_dim``=256, fusion width ``dino_dim``=1024, ``token_dim``=64, Ng=Nh=0):
   actions [B,T,D]; dino_diff = x1-x0 [B,Lp,1024]
@@ -695,6 +702,7 @@ class ActionLatentTokenizerV4(nn.Module):
         recon_decoder: ReconDecoderV4,
         dino_decoder: Optional[SimpleTokenTransformer] = None,
         seg_dino_decoder: Optional[SimpleTokenTransformer] = None,
+        seg_dino_decoder_input: str = "seg",
         lambda_recon: float = 1.0,
         lambda_dino: float = 1.0,
         lambda_dino_seg: float = 0.0,
@@ -714,6 +722,19 @@ class ActionLatentTokenizerV4(nn.Module):
         self.recon_decoder = recon_decoder
         self.dino_decoder = dino_decoder
         self.seg_dino_decoder = seg_dino_decoder
+
+        # What the seg DINO decoder conditions on: "seg" (default, the cutout stream's
+        # own s0_feat — unchanged behavior) or "rgb" (the raw image x0_feat, so both
+        # decoders share the same visual context and differ only in their target).
+        assert seg_dino_decoder_input in ("seg", "rgb"), (
+            f"seg_dino_decoder_input must be 'seg' or 'rgb'; got {seg_dino_decoder_input!r}"
+        )
+        self.seg_dino_decoder_input = seg_dino_decoder_input
+        # Marker only for the non-default mode AND only when the decoder exists, so
+        # default checkpoints stay byte-identical and the inference wrapper (which
+        # builds seg_dino_decoder=None) never expects this buffer.
+        if seg_dino_decoder is not None and seg_dino_decoder_input == "rgb":
+            self.register_buffer("_seg_dino_decoder_input", _str_to_byte_tensor("rgb"))
 
         self.lambda_recon = float(lambda_recon)
         self.lambda_dino = float(lambda_dino)
@@ -868,15 +889,30 @@ class ActionLatentTokenizerV4(nn.Module):
         _, visuals = self.dino_decoder(x=x0_feat, tokens=time_tok)
         return visuals
 
-    def decode_dino_seg(self, time_tok: torch.Tensor, s0_feat: torch.Tensor) -> torch.Tensor:
+    def decode_dino_seg(
+        self,
+        time_tok: torch.Tensor,
+        s0_feat: torch.Tensor,
+        x0_feat: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         """Segment-stream twin of :meth:`decode_dino`.
 
         Identical mechanics — a separate ``SimpleTokenTransformer`` conditioned on the
-        latent — but the visual context/target are the CUTOUT frames' DINO features
-        instead of the raw RGB ones: predicts s1_feat from s0_feat + latent.
+        latent — and the TARGET is always the cutout stream's future features
+        (``s1_feat``). The visual context depends on ``seg_dino_decoder_input``:
+        ``"seg"`` (default) uses the cutout ``s0_feat``; ``"rgb"`` uses the raw image
+        ``x0_feat`` (which must then be passed), so both decoders see the same input.
         """
         assert self.seg_dino_decoder is not None, "seg_dino_decoder was not built"
-        _, visuals = self.seg_dino_decoder(x=s0_feat, tokens=time_tok)
+        if self.seg_dino_decoder_input == "rgb":
+            assert x0_feat is not None, (
+                "seg_dino_decoder_input='rgb' requires x0_feat (the raw image features) "
+                "to be passed to decode_dino_seg()."
+            )
+            ctx = x0_feat
+        else:
+            ctx = s0_feat
+        _, visuals = self.seg_dino_decoder(x=ctx, tokens=time_tok)
         return visuals
 
     def forward(self, batch: dict = None, **kwargs) -> dict:
@@ -923,7 +959,7 @@ class ActionLatentTokenizerV4(nn.Module):
             assert s0_feat is not None and s1_feat is not None, (
                 "seg_dino_decoder is present but the batch has no s0_feat/s1_feat."
             )
-            pred_s1 = self.decode_dino_seg(time_tok, s0_feat)
+            pred_s1 = self.decode_dino_seg(time_tok, s0_feat, x0_feat)
             loss_dino_seg, seg_sub = self._dino_loss(pred_s1, s1_feat)
             loss = loss + self.lambda_dino_seg * loss_dino_seg
             out_seg["loss_dino_seg"] = loss_dino_seg

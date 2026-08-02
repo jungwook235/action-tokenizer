@@ -245,7 +245,7 @@ class ActionLatentV4Trainer(transformers.Trainer):
                     1.0 - F.cosine_similarity(pred_x1, x1_feat.to(dtype=pred_x1.dtype), dim=-1).mean()
                 ).item() * B
                 if has_seg_decoder:
-                    pred_s1 = model.decode_dino_seg(t, s0_feat)
+                    pred_s1 = model.decode_dino_seg(t, s0_feat, x0_feat)
                     tgt_s1 = s1_feat.to(dtype=pred_s1.dtype)
                     total_seg_l1 += F.l1_loss(pred_s1, tgt_s1).item() * B
                     total_seg_cos += (
@@ -338,6 +338,13 @@ class ArgsConfig:
     use_seg_dino_decoder: bool = False
     # Depth of the segment DINO decoder; None → same as dino_decoder_depth.
     seg_dino_decoder_depth: Optional[int] = None
+    # What the segment DINO decoder conditions on (only when use_seg_dino_decoder):
+    #   "seg" (default, unchanged): the cutout stream's own current features s0_feat.
+    #   "rgb": the RAW image current features x0_feat — i.e. BOTH decoders get the same
+    #     visual input and differ only in their target (dino_decoder → x1_feat,
+    #     seg_dino_decoder → s1_feat). Same shapes ⇒ no parameter/architecture change.
+    # The encoder-side seg stream (feature-difference concat) is unaffected either way.
+    seg_dino_decoder_input: Literal["seg", "rgb"] = "seg"
 
     # ── Loss ──
     lambda_recon: float = 1.0
@@ -497,6 +504,7 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         recon_decoder=recon_decoder,
         dino_decoder=dino_decoder,
         seg_dino_decoder=seg_dino_decoder,
+        seg_dino_decoder_input=config.seg_dino_decoder_input,
         lambda_recon=config.lambda_recon,
         lambda_dino=config.lambda_dino,
         lambda_dino_seg=config.lambda_dino_seg,
@@ -529,6 +537,10 @@ def main(config: ArgsConfig):
             "--use-seg-dino-decoder requires --use-seg-stream (the decoder consumes the "
             "segment stream's features)."
         )
+    if config.seg_dino_decoder_input == "rgb":
+        assert config.use_seg_dino_decoder, (
+            "--seg-dino-decoder-input rgb only means anything with --use-seg-dino-decoder."
+        )
     if config.use_seg_stream:
         assert config.seg_dataset_root, (
             "--use-seg-stream requires --seg-dataset-root (root of the SAM3 cutout "
@@ -546,6 +558,7 @@ def main(config: ArgsConfig):
             f"[seg-stream] ON  root={config.seg_dataset_root} "
             f"subdir={config.seg_video_subdir} "
             f"seg_dino_decoder={config.use_seg_dino_decoder} "
+            f"seg_dino_decoder_input={config.seg_dino_decoder_input} "
             f"lambda_dino_seg={config.lambda_dino_seg}"
         )
 
@@ -788,6 +801,7 @@ def main(config: ArgsConfig):
                     "seg_video_subdir": config.seg_video_subdir,
                     "use_seg_dino_decoder": config.use_seg_dino_decoder,
                     "seg_dino_decoder_depth": config.seg_dino_decoder_depth,
+                    "seg_dino_decoder_input": config.seg_dino_decoder_input,
                     "lambda_dino_seg": config.lambda_dino_seg,
                     "feature_source": config.feature_source,
                     "vggt_token_source": config.vggt_token_source,
