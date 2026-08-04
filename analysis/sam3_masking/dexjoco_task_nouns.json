@@ -1,0 +1,13 @@
+{
+  "Move the mouse to the purple mouse pad and click the left mouse button.": ["computer mouse", "purple mouse pad"],
+  "Fold the glasses and place them into the case.": ["glasses", "brown box"],
+  "Use the hammer to drive the nail into the wooden board.": ["hammer", "nail", "wooden board"],
+  "Place the boxed food into the bucket and then lift the bucket.": ["red box", "red basket"],
+  "Grasp the tongs and perform three consecutive open-close motions.": ["red tongs", "red pliers"],
+  "Grasp the watering can and apply water to the plant.": ["red container", "red bottle", "plant"],
+  "Grasp the tray with the left hand and the peg with the right hand, then insert the peg into the hole.": ["blue stand", "yellow stick"],
+  "Execute the final two moves of the three-level Tower of Hanoi: move the medium disk from the middle peg to the right peg with the right hand, then move the small disk from the left peg to the right peg with the left hand.": ["colored block", "wooden stick"],
+  "Open the microwave door, place the food inside the microwave, close the door, and press the start button.": ["microwave", "food"],
+  "Grasp the camera with the left hand, align it with the logo, and press the shutter button with the right hand.": ["camera", "logo"],
+  "Grasp the iPad and enter the password 123 to unlock the device.": ["iPad"]
+}
