@@ -43,6 +43,7 @@ from gr00t.model.action_latent_tokenizer_v4 import (
     ActionLatentTokenizerV4,
     ReconDecoderV4,
     TimeWiseEncoderV4,
+    UnifiedDecoderV4,
 )
 from gr00t.model.rla_modules import SimpleTokenTransformer
 from gr00t.utils.dino import DINOv3FeatureExtractor
@@ -252,7 +253,11 @@ class ActionLatentV4Trainer(transformers.Trainer):
                 actions = batch["action"].to(dtype=model.encoder.action_proj.weight.dtype)
 
                 g, t, h = model.encode(actions, x0_feat, x1_feat, s0_feat, s1_feat)
-                preds = model.decode(g, t, h)
+                ud = getattr(model, "unified_decoder", None)
+                if ud is not None and ud.recon_sees_vision:
+                    preds = model.decode(g, t, h, x0_feat=x0_feat)
+                else:
+                    preds = model.decode(g, t, h)
                 pred_x1 = model.decode_dino(t, x0_feat)
 
                 B = actions.shape[0]
@@ -354,6 +359,24 @@ class ArgsConfig:
 
     # ── DINO decoder ──
     dino_decoder_depth: int = 12
+
+    # ── Unified decoder (opt-in; default "separate" = byte-identical) ──
+    # "separate" (default): the existing ReconDecoderV4 + dino_decoder pair —
+    #   nothing changes (no new modules/buffers/paths).
+    # "shared_trunk": ONE decoder over the combined [latent, x0-patch] sequence —
+    #   decoder_trunk_depth masked shared layers, then a decoder_branch_depth-layer
+    #   recon branch (latent only → action head) and dino branch (full sequence →
+    #   future-feature head). Latent rows attend only latent columns, so decode()
+    #   still works from the latent alone.
+    # "mot": mot_depth Mixture-of-Transformers layers — shared attention (same
+    #   asymmetric mask), per-group (latent/patch) FFN + norms, no branches.
+    decoder_arch: Literal["separate", "shared_trunk", "mot"] = "separate"
+    decoder_trunk_depth: int = 4
+    decoder_branch_depth: int = 2
+    mot_depth: int = 6
+    # Exploration only: lift the mask so latent rows also attend the patches.
+    # decode() then REQUIRES x0_feat (the checkpoint records a marker).
+    decoder_recon_sees_vision: bool = False
 
     # ── Segment (SAM3 cutout) DINO stream ──
     # All default-off → byte-identical to the pre-seg behavior (no extra data loading,
@@ -527,6 +550,55 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
         action_proj_hidden=config.action_proj_hidden,
         use_seg_stream=config.use_seg_stream,
     )
+
+    # ---- unified decoder (opt-in; early-return keeps the separate path below
+    # byte-identical) ----
+    if config.decoder_arch != "separate":
+        assert not (config.use_seg_dino_decoder or config.use_seg_pixel_decoder), (
+            "--decoder-arch shared_trunk/mot does not support the seg decoders "
+            "(separate-arch-only features)."
+        )
+        unified_decoder = UnifiedDecoderV4(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            token_dim=config.token_dim,
+            dino_dim=config.dino_channels,
+            width=config.fusion_width,
+            head_dim=config.head_dim,
+            arch=config.decoder_arch,
+            trunk_depth=config.decoder_trunk_depth,
+            branch_depth=config.decoder_branch_depth,
+            mot_depth=config.mot_depth,
+            pdropout=config.pdropout,
+            num_global_tokens=0,
+            num_hand_tokens=0,
+            recon_sees_vision=config.decoder_recon_sees_vision,
+        )
+        return ActionLatentTokenizerV4(
+            encoder=encoder,
+            recon_decoder=None,
+            dino_decoder=None,
+            unified_decoder=unified_decoder,
+            decoder_arch=config.decoder_arch,
+            use_mask_weighted_dino_loss=config.use_mask_weighted_dino_loss,
+            mask_patch_weight=config.mask_patch_weight,
+            lambda_recon=config.lambda_recon,
+            lambda_dino=config.lambda_dino,
+            lambda_kl=config.lambda_kl,
+            recon_loss_type=config.recon_loss_type,
+            dino_loss_type=config.dino_loss_type,
+            dino_loss_weights={
+                "l1": config.dino_w_l1,
+                "mse": config.dino_w_mse,
+                "cosine": config.dino_w_cosine,
+            },
+            feature_source=config.feature_source,
+            vggt_token_source=config.vggt_token_source,
+            vggt_image_size=config.vggt_image_size,
+            vggt_model=config.vggt_model,
+            vggt_final_norm=config.vggt_final_norm,
+            dino_final_norm=config.dino_final_norm,
+        )
 
     recon_decoder = ReconDecoderV4(
         action_dim=action_dim,
@@ -924,7 +996,12 @@ def main(config: ArgsConfig):
 
     if config.report_to == "wandb":
         os.environ["WANDB_PROJECT"] = config.wandb_project
-        os.environ["WANDB_DIR"] = config.output_dir
+        if os.environ.get("GR00T_S3_COMPAT") == "1":
+            # gpu26/AWS: output_dir is an S3 mount that rejects wandb's append
+            # writes — respect the WANDB_DIR the sbatch script pre-set (home).
+            os.environ.setdefault("WANDB_DIR", config.output_dir)
+        else:
+            os.environ["WANDB_DIR"] = config.output_dir
 
     # Resolve --resume gracefully: only resume if a checkpoint actually exists.
     # transformers.Trainer raises ValueError when resume_from_checkpoint=True but
@@ -1000,6 +1077,19 @@ def main(config: ArgsConfig):
                     "val_ratio": config.val_ratio,
                     "val_seed": config.val_seed,
                     "data_config": config.data_config,
+                    # Unified-decoder keys are recorded ONLY when the arch is not
+                    # "separate", so default final .pt files stay byte-identical.
+                    **(
+                        {
+                            "decoder_arch": config.decoder_arch,
+                            "decoder_trunk_depth": config.decoder_trunk_depth,
+                            "decoder_branch_depth": config.decoder_branch_depth,
+                            "mot_depth": config.mot_depth,
+                            "decoder_recon_sees_vision": config.decoder_recon_sees_vision,
+                        }
+                        if config.decoder_arch != "separate"
+                        else {}
+                    ),
                     # Mask-feature keys are recorded ONLY when the flags are on, so
                     # flag-off final .pt files stay byte-identical to before.
                     **(

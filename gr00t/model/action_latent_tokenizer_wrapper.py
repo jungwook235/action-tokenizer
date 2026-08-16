@@ -461,6 +461,15 @@ class ActionLatentTokenizerWrapper(nn.Module):
         # training default uses head_dim 64 for the fusion transformer too.
         fusion_heads = max(1, fusion_width // 64)
 
+        # Unified decoder marker: ONE decoder replaced recon_decoder + dino_decoder
+        # at training time. Rebuild it (decode must work at inference); absent →
+        # standard separate-decoder rebuild below, unchanged.
+        unified_arch = None
+        if "_decoder_arch" in state_dict:
+            from gr00t.model.action_latent_tokenizer_v4 import byte_tensor_to_str as _b2s
+
+            unified_arch = _b2s(state_dict["_decoder_arch"])
+
         # recon decoder discovery (same logic as v2/v3)
         dec_depth = 0
         for k in state_dict:
@@ -542,18 +551,56 @@ class ActionLatentTokenizerWrapper(nn.Module):
             use_seg_stream=use_seg_stream,
         )
 
-        recon_decoder = ReconDecoderV4(
-            action_dim=action_dim,
-            action_horizon=action_horizon,
-            emb_dim=emb_dim,
-            head_dim=head_dim,
-            depth=dec_depth,
-            pdropout=0.0,
-            decoder_mode=decoder_mode,
-            num_global_tokens=num_global,
-            num_hand_tokens=num_hand,
-            token_dim=token_dim,
-        )
+        unified_decoder = None
+        recon_decoder = None
+        if unified_arch is not None:
+            from gr00t.model.action_latent_tokenizer_v4 import UnifiedDecoderV4
+
+            ud_width = state_dict["unified_decoder.latent_up_proj.weight"].shape[0]
+            ud_dino_dim = state_dict["unified_decoder.patch_proj.weight"].shape[1]
+            trunk_depth = branch_depth = mot_depth = 0
+            for k in state_dict:
+                if k.startswith("unified_decoder.trunk.blocks."):
+                    trunk_depth = max(trunk_depth, int(k.split(".")[3]) + 1)
+                if k.startswith("unified_decoder.recon_branch.blocks."):
+                    branch_depth = max(branch_depth, int(k.split(".")[3]) + 1)
+                if k.startswith("unified_decoder.layers."):
+                    mot_depth = max(mot_depth, int(k.split(".")[2]) + 1)
+            recon_sees_vision = "_decoder_recon_sees_vision" in state_dict
+            print(
+                f"[timewise_v4] unified decoder: arch={unified_arch}, width={ud_width}, "
+                f"trunk={trunk_depth}, branch={branch_depth}, mot={mot_depth}, "
+                f"recon_sees_vision={recon_sees_vision}"
+            )
+            unified_decoder = UnifiedDecoderV4(
+                action_dim=action_dim,
+                action_horizon=action_horizon,
+                token_dim=token_dim,
+                dino_dim=ud_dino_dim,
+                width=ud_width,
+                head_dim=64,  # training default for the 1024-wide decoders
+                arch=unified_arch,
+                trunk_depth=trunk_depth,
+                branch_depth=branch_depth,
+                mot_depth=mot_depth,
+                pdropout=0.0,
+                num_global_tokens=num_global,
+                num_hand_tokens=num_hand,
+                recon_sees_vision=recon_sees_vision,
+            )
+        else:
+            recon_decoder = ReconDecoderV4(
+                action_dim=action_dim,
+                action_horizon=action_horizon,
+                emb_dim=emb_dim,
+                head_dim=head_dim,
+                depth=dec_depth,
+                pdropout=0.0,
+                decoder_mode=decoder_mode,
+                num_global_tokens=num_global,
+                num_hand_tokens=num_hand,
+                token_dim=token_dim,
+            )
 
         # Visual feature source markers (present only for VGGT-trained tokenizers;
         # DINO checkpoints have none → feature_source stays "dino" and no extra
@@ -592,6 +639,8 @@ class ActionLatentTokenizerWrapper(nn.Module):
             encoder=encoder,
             recon_decoder=recon_decoder,
             dino_decoder=None,
+            unified_decoder=unified_decoder,
+            decoder_arch=unified_arch or "separate",
             seg_dino_decoder=None,
             lambda_recon=1.0,
             lambda_dino=0.0,

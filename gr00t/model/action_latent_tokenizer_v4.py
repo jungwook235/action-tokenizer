@@ -677,6 +677,198 @@ class ReconDecoderV4(nn.Module):
 
 
 # =====================================================================
+# Unified decoders (opt-in via --decoder-arch; "separate" = everything above,
+# untouched — no new modules, buffers or code paths when the flag is off)
+# =====================================================================
+
+
+class MoTBlockV4(nn.Module):
+    """Mixture-of-Transformers block over the combined [latent, patch] sequence.
+
+    Attention is fully SHARED (one set of QKV/output projections, global softmax
+    under the caller-supplied asymmetric mask); the FFN and pre-norms exist in TWO
+    copies and each token is routed to its group's copy (latent group = the first
+    ``n_lat`` positions, patch group = the rest). The pre-norms here are non-affine
+    (like ``Block``'s), so duplicating them adds no parameters — the per-group
+    capacity lives in the twin GatedMlps.
+    """
+
+    def __init__(
+        self,
+        dim,
+        head_dim=64,
+        mlp_ratio=4.0,
+        drop=0.0,
+        norm_layer=partial(Fp32LayerNorm, bias=False, elementwise_affine=False),
+    ):
+        super().__init__()
+        self.norm1_lat = norm_layer(dim)
+        self.norm1_pat = norm_layer(dim)
+        self.attn = SelfAttention(
+            dim, num_heads=dim // head_dim, qkv_bias=False, proj_bias=False,
+            proj_drop=drop, qk_norm=True, norm_layer=norm_layer,
+        )
+        self.norm2_lat = norm_layer(dim)
+        self.norm2_pat = norm_layer(dim)
+        hidden = int(dim * mlp_ratio)
+        self.mlp_lat = GatedMlp(dim, hidden, act_layer=nn.SiLU, bias=False, drop=drop)
+        self.mlp_pat = GatedMlp(dim, hidden, act_layer=nn.SiLU, bias=False, drop=drop)
+
+    @staticmethod
+    def _per_group(x, n_lat, fn_lat, fn_pat):
+        if x.shape[1] == n_lat:  # latent-only decode: no patch group present
+            return fn_lat(x)
+        return torch.cat([fn_lat(x[:, :n_lat]), fn_pat(x[:, n_lat:])], dim=1)
+
+    def forward(self, x, n_lat, block_mask=None):
+        h = self._per_group(x, n_lat, self.norm1_lat, self.norm1_pat)
+        x = x + self.attn(h, block_mask=block_mask)
+        h = self._per_group(
+            x, n_lat,
+            lambda t: self.mlp_lat(self.norm2_lat(t)),
+            lambda t: self.mlp_pat(self.norm2_pat(t)),
+        )
+        return x + h
+
+
+class UnifiedDecoderV4(nn.Module):
+    """Unified action + DINO-feature decoder over one combined sequence X=[L, P].
+
+    L = latent tokens (global+time+hand @ token_dim → ``width`` up-projection +
+    1D sincos positional embedding); P = current-frame DINO patches
+    (dino_dim → ``width`` projection, no pos-emb — mirroring the separate
+    ``dino_decoder``'s convention). No learnable query tokens.
+
+    Asymmetric attention mask (unless ``recon_sees_vision``): L rows attend ONLY
+    L columns (vision never leaks into the latent positions, so the action
+    reconstruction — read from L's time positions — is a function of the latent
+    alone and ``decode`` works WITHOUT images); P rows attend everything (the
+    future-feature prediction is action-conditioned).
+
+    arch="shared_trunk": ``trunk_depth`` masked shared layers → a
+      ``branch_depth``-layer recon branch on L′ only (action head at the time
+      positions) and a ``branch_depth``-layer dino branch on the full [L′, P′]
+      (bidirectional, no mask; feature head at the P positions).
+    arch="mot": ``mot_depth`` MoTBlockV4 layers (shared attention with the same
+      mask, per-group FFN/norms), heads read the final sequence directly.
+
+    Both heads are zero-init (``LinearHead`` "zero"), matching the separate
+    decoders' output-layer convention.
+    """
+
+    def __init__(
+        self,
+        action_dim: int,
+        action_horizon: int,
+        token_dim: int = 64,
+        dino_dim: int = 1024,
+        width: int = 1024,
+        head_dim: int = 64,
+        arch: str = "shared_trunk",
+        trunk_depth: int = 4,
+        branch_depth: int = 2,
+        mot_depth: int = 6,
+        pdropout: float = 0.0,
+        num_global_tokens: int = 0,
+        num_hand_tokens: int = 0,
+        recon_sees_vision: bool = False,
+    ):
+        super().__init__()
+        assert arch in ("shared_trunk", "mot"), f"unknown decoder arch {arch!r}"
+        self.arch = arch
+        self.action_dim = action_dim
+        self.action_horizon = action_horizon
+        self.token_dim = token_dim
+        self.dino_dim = dino_dim
+        self.width = width
+        self.num_global_tokens = num_global_tokens
+        self.num_hand_tokens = num_hand_tokens
+        self.recon_sees_vision = bool(recon_sees_vision)
+
+        n_lat_max = num_global_tokens + action_horizon + num_hand_tokens
+        self.latent_up_proj = nn.Linear(token_dim, width)
+        self.latent_pos_emb = PositionalEmbeddingAdder(width, max_sizes=[n_lat_max])
+        self.patch_proj = nn.Linear(dino_dim, width)
+
+        if arch == "shared_trunk":
+            self.trunk = Transformer(dim=width, depth=trunk_depth, head_dim=head_dim, drop=pdropout)
+            self.recon_branch = Transformer(dim=width, depth=branch_depth, head_dim=head_dim, drop=pdropout)
+            self.dino_branch = Transformer(dim=width, depth=branch_depth, head_dim=head_dim, drop=pdropout)
+        else:
+            self.layers = nn.ModuleList(
+                [MoTBlockV4(width, head_dim=head_dim, drop=pdropout) for _ in range(mot_depth)]
+            )
+            # xavier init (MoT blocks are not Transformer instances, so they miss
+            # its _init_weights — replicate it here)
+            for m in self.layers.modules():
+                if isinstance(m, nn.Linear):
+                    nn.init.xavier_uniform_(m.weight)
+                    if m.bias is not None:
+                        nn.init.constant_(m.bias, 0)
+
+        self.action_head = LinearHead(width, action_dim, weight_init_style="zero")
+        self.feat_head = LinearHead(width, dino_dim, weight_init_style="zero")
+        for m in (self.latent_up_proj, self.patch_proj):
+            nn.init.xavier_uniform_(m.weight)
+            nn.init.constant_(m.bias, 0)
+
+    def _attn_mask(self, n_lat: int, n_all: int, device) -> Optional[torch.Tensor]:
+        """[n_all, n_all] bool mask (True = may attend). None when unmasked."""
+        if self.recon_sees_vision or n_all == n_lat:
+            return None
+        m = torch.ones(n_all, n_all, dtype=torch.bool, device=device)
+        m[:n_lat, n_lat:] = False  # latent rows must not see patch columns
+        return m
+
+    def _embed_latent(self, global_tok, time_tok, hand_tok) -> torch.Tensor:
+        parts = [
+            t for t in (global_tok, time_tok, hand_tok)
+            if t is not None and t.shape[1] > 0
+        ]
+        lat = torch.cat(parts, dim=1)  # [B, Ng+T+Nh, token_dim]
+        return self.latent_pos_emb(self.latent_up_proj(lat))
+
+    def forward(self, global_tok, time_tok, hand_tok, x0_feat=None):
+        """→ (action_pred [B,T,action_dim], x1_feat_pred [B,Lp,dino_dim] | None).
+
+        ``x0_feat=None`` is the latent-only decode path (valid because of the
+        asymmetric mask; invalid with ``recon_sees_vision``): returns
+        (action_pred, None).
+        """
+        L = self._embed_latent(global_tok, time_tok, hand_tok)
+        n_lat = L.shape[1]
+        Ng = global_tok.shape[1] if global_tok is not None else 0
+        T = time_tok.shape[1]
+
+        if x0_feat is None:
+            assert not self.recon_sees_vision, (
+                "decoder was built with recon_sees_vision=True: decode() requires "
+                "x0_feat (the latent positions attend to vision)."
+            )
+            x = L
+        else:
+            x = torch.cat([L, self.patch_proj(x0_feat.to(dtype=L.dtype))], dim=1)
+        mask = self._attn_mask(n_lat, x.shape[1], x.device)
+
+        if self.arch == "shared_trunk":
+            h = self.trunk(x, block_mask=mask)
+            hr = self.recon_branch(h[:, :n_lat])
+            action = self.action_head(hr[:, Ng:Ng + T])
+            if x0_feat is None:
+                return action, None
+            hd = self.dino_branch(h)  # bidirectional refinement, no mask
+            return action, self.feat_head(hd[:, n_lat:])
+
+        h = x
+        for layer in self.layers:
+            h = layer(h, n_lat, block_mask=mask)
+        action = self.action_head(h[:, Ng:Ng + T])
+        if x0_feat is None:
+            return action, None
+        return action, self.feat_head(h[:, n_lat:])
+
+
+# =====================================================================
 # V4 tokenizer
 # =====================================================================
 
@@ -699,8 +891,10 @@ class ActionLatentTokenizerV4(nn.Module):
     def __init__(
         self,
         encoder: TimeWiseEncoderV4,
-        recon_decoder: ReconDecoderV4,
+        recon_decoder: Optional[ReconDecoderV4],
         dino_decoder: Optional[SimpleTokenTransformer] = None,
+        unified_decoder: Optional[UnifiedDecoderV4] = None,
+        decoder_arch: str = "separate",
         seg_dino_decoder: Optional[SimpleTokenTransformer] = None,
         seg_dino_decoder_input: str = "seg",
         seg_pixel_decoder: Optional[SimpleTokenTransformer] = None,
@@ -728,6 +922,38 @@ class ActionLatentTokenizerV4(nn.Module):
         self.recon_decoder = recon_decoder
         self.dino_decoder = dino_decoder
         self.seg_dino_decoder = seg_dino_decoder
+
+        # ---- unified decoder (opt-in via decoder_arch; default "separate") ----
+        # "separate" (default): recon_decoder + dino_decoder exactly as before —
+        # unified_decoder is None, NOTHING extra is registered, and every code path
+        # below is untouched (byte-identical state_dict and losses).
+        # "shared_trunk" / "mot": ONE UnifiedDecoderV4 replaces both decoders; the
+        # ``_decoder_arch`` marker lets the inference wrapper rebuild it. The
+        # separate-only extras (seg decoders) are out of scope for unified.
+        assert decoder_arch in ("separate", "shared_trunk", "mot"), (
+            f"unknown decoder_arch {decoder_arch!r}"
+        )
+        self.decoder_arch = decoder_arch
+        self.unified_decoder = unified_decoder
+        if decoder_arch == "separate":
+            assert unified_decoder is None, "decoder_arch='separate' forbids unified_decoder"
+            assert recon_decoder is not None, "decoder_arch='separate' requires recon_decoder"
+        else:
+            assert unified_decoder is not None and unified_decoder.arch == decoder_arch, (
+                f"decoder_arch={decoder_arch!r} requires a matching UnifiedDecoderV4"
+            )
+            assert recon_decoder is None and dino_decoder is None, (
+                "unified decoder replaces recon_decoder AND dino_decoder — pass both as None"
+            )
+            assert seg_dino_decoder is None and seg_pixel_decoder is None, (
+                "seg decoders are separate-arch-only (out of the unified decoder's scope)"
+            )
+            assert encoder.num_global_tokens == 0 and encoder.num_hand_tokens == 0, (
+                "unified decoder currently supports Ng=Nh=0 only (the V4 default)"
+            )
+            self.register_buffer("_decoder_arch", _str_to_byte_tensor(decoder_arch))
+            if unified_decoder.recon_sees_vision:
+                self.register_buffer("_decoder_recon_sees_vision", torch.tensor(True))
 
         # ---- seg-mask pixel decoder (opt-in, training-only) ----
         # A twin of ``dino_decoder`` (same SimpleTokenTransformer mechanics) that
@@ -957,14 +1183,26 @@ class ActionLatentTokenizerV4(nn.Module):
             seg_diff = s1_feat.to(dtype=actions.dtype) - s0_feat.to(dtype=actions.dtype)
         return self.encoder(actions, dino_diff, seg_diff)
 
-    def decode(self, global_tok, time_tok, hand_tok) -> torch.Tensor:
-        """Action reconstruction from latent tokens (V2/V3-compatible signature)."""
+    def decode(self, global_tok, time_tok, hand_tok, x0_feat=None) -> torch.Tensor:
+        """Action reconstruction from latent tokens (V2/V3-compatible signature).
+
+        ``x0_feat`` is only consumed by a unified decoder built with
+        ``recon_sees_vision`` (exploration mode); every other configuration
+        decodes from the latent alone and ignores it.
+        """
+        if self.unified_decoder is not None:
+            ctx = x0_feat if self.unified_decoder.recon_sees_vision else None
+            action, _ = self.unified_decoder(global_tok, time_tok, hand_tok, ctx)
+            return action
         g = global_tok if (global_tok is not None and global_tok.shape[1] > 0) else None
         h = hand_tok if (hand_tok is not None and hand_tok.shape[1] > 0 and self.hand_in_recon) else None
         return self.recon_decoder(time_tok, global_tokens=g, hand_tokens=h)
 
     def decode_dino(self, time_tok: torch.Tensor, x0_feat: torch.Tensor) -> torch.Tensor:
         """Predict future-frame DINO features from current-frame feats + latent."""
+        if self.unified_decoder is not None:
+            _, visuals = self.unified_decoder(None, time_tok, None, x0_feat)
+            return visuals
         _, visuals = self.dino_decoder(x=x0_feat, tokens=time_tok)
         return visuals
 
@@ -1036,12 +1274,14 @@ class ActionLatentTokenizerV4(nn.Module):
             actions, x0_feat, x1_feat, s0_feat, s1_feat
         )
 
-        # Loss 1: action reconstruction
-        if self.lambda_recon > 0:
-            recon = self.decode(global_tok, time_tok, hand_tok)
-            loss_recon = self._recon_loss_fn(recon, actions)
-        else:
-            loss_recon = self._zero(device)
+        # Loss 1: action reconstruction (unified decoder computes losses 1+2 in one
+        # combined masked pass — see below, after the patch weights are prepared)
+        if self.unified_decoder is None:
+            if self.lambda_recon > 0:
+                recon = self.decode(global_tok, time_tok, hand_tok)
+                loss_recon = self._recon_loss_fn(recon, actions)
+            else:
+                loss_recon = self._zero(device)
 
         # Optional per-patch weights for loss 2 (mask-weighted DINO loss). None when
         # the flag is off → _dino_loss takes its original (byte-identical) branch.
@@ -1057,12 +1297,27 @@ class ActionLatentTokenizerV4(nn.Module):
             )
 
         # Loss 2: DINO future-feature reconstruction (conditioned on time latent)
-        if self.lambda_dino > 0:
-            pred_x1 = self.decode_dino(time_tok, x0_feat)
-            loss_dino, dino_sub = self._dino_loss(pred_x1, x1_feat, patch_weights=patch_w)
+        if self.unified_decoder is None:
+            if self.lambda_dino > 0:
+                pred_x1 = self.decode_dino(time_tok, x0_feat)
+                loss_dino, dino_sub = self._dino_loss(pred_x1, x1_feat, patch_weights=patch_w)
+            else:
+                loss_dino = self._zero(device)
+                dino_sub = {}
         else:
-            loss_dino = self._zero(device)
-            dino_sub = {}
+            # Unified decoder: ONE combined masked pass yields the action recon (from
+            # the latent positions, which the mask keeps vision-free) AND the future
+            # feature prediction (from the patch positions). Loss weighting/combination
+            # below is identical to the separate path.
+            recon, pred_x1 = self.unified_decoder(global_tok, time_tok, hand_tok, x0_feat)
+            loss_recon = (
+                self._recon_loss_fn(recon, actions) if self.lambda_recon > 0 else self._zero(device)
+            )
+            if self.lambda_dino > 0:
+                loss_dino, dino_sub = self._dino_loss(pred_x1, x1_feat, patch_weights=patch_w)
+            else:
+                loss_dino = self._zero(device)
+                dino_sub = {}
 
         loss = self.lambda_recon * loss_recon + self.lambda_dino * loss_dino
 
