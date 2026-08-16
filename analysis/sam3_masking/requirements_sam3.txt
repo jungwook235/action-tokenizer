@@ -1,0 +1,48 @@
+# SAM3 masking env (uv pip install -r this file).
+#
+# transformers 5.x is REQUIRED: Sam3Model / Sam3VideoModel do not exist in 4.57
+# (the version pinned by actlat-wam), which is why this pipeline needs its own
+# venv instead of reusing the training env. jetjodh/sam3's config.json was
+# written by transformers 5.0.0.dev0 and jetjodh/sam3.1's by 5.14.1.
+#
+# cu128 wheels: the GPU nodes run driver 580 and include B200 (sm_100), which the
+# PyPI cu126 build has no kernels for.
+# NOTE: install with `--index-strategy unsafe-best-match` (setup_sam3_env.sh does).
+# The pytorch index also carries stale copies of common packages (e.g. iopath
+# 0.1.9), and uv's default first-index-wins rule then refuses to look at PyPI.
+--extra-index-url https://download.pytorch.org/whl/cu128
+
+torch==2.9.1+cu128
+torchvision==0.24.1+cu128
+
+# numpy <2: the official facebookresearch/sam3 package pins numpy>=1.26,<2, and
+# this venv installs it (bench_sam31.py). Keep both routes in one env.
+numpy==1.26.4
+
+transformers==5.14.1
+tokenizers
+safetensors
+accelerate
+huggingface_hub
+pillow
+tqdm
+
+# headless build: no libGL.so.1 dependency, so cv2 imports on a bare pod image.
+opencv-python-headless==4.11.0.86
+
+# official facebookresearch/sam3 runtime deps (installed here so `uv pip install
+# --no-deps -e sam3_official` cannot renegotiate torch/numpy).
+timm>=1.0.17
+# einops: imported by sam3/sam/rope.py but only listed in the repo's optional
+# "notebooks" extra, so it must be pinned here explicitly.
+einops
+ftfy==6.1.1
+regex
+iopath>=0.1.10
+typing_extensions
+# pycocotools: sam3.model_builder -> ... -> sam3/train/data/coco_json_loaders.py
+# imports it even for pure inference, and the repo lists it only in extras.
+pycocotools
+# sam3/model_builder.py does `import pkg_resources`, which a uv venv does not
+# provide out of the box. <81 because setuptools dropped pkg_resources after 80.x.
+setuptools<81

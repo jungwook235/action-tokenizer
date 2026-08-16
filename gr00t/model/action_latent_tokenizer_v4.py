@@ -703,6 +703,12 @@ class ActionLatentTokenizerV4(nn.Module):
         dino_decoder: Optional[SimpleTokenTransformer] = None,
         seg_dino_decoder: Optional[SimpleTokenTransformer] = None,
         seg_dino_decoder_input: str = "seg",
+        seg_pixel_decoder: Optional[SimpleTokenTransformer] = None,
+        seg_pixel_head: Optional[nn.Module] = None,
+        seg_pixel_patch: int = 14,
+        lambda_seg_pixel: float = 0.0,
+        use_mask_weighted_dino_loss: bool = False,
+        mask_patch_weight: float = 2.0,
         lambda_recon: float = 1.0,
         lambda_dino: float = 1.0,
         lambda_dino_seg: float = 0.0,
@@ -722,6 +728,36 @@ class ActionLatentTokenizerV4(nn.Module):
         self.recon_decoder = recon_decoder
         self.dino_decoder = dino_decoder
         self.seg_dino_decoder = seg_dino_decoder
+
+        # ---- seg-mask pixel decoder (opt-in, training-only) ----
+        # A twin of ``dino_decoder`` (same SimpleTokenTransformer mechanics) that
+        # predicts the FUTURE (x1-step) SAM3 union mask at pixel resolution from the
+        # current-frame features x0_feat + the latent. ``seg_pixel_head`` maps each
+        # patch token to its ``seg_pixel_patch``² pixel-block logits; the blocks tile
+        # back to the full [grid*patch, grid*patch] logit map (a linear "pixel
+        # shuffle" head — the lightweight upsampler). BCE against the binary mask,
+        # weighted by ``lambda_seg_pixel``; samples with no mask npz (mask_valid=0)
+        # are excluded from the loss. Default (None) registers NO modules/buffers —
+        # state_dict and forward stay byte-identical. Like dino_decoder /
+        # seg_dino_decoder this is training-only: the inference wrapper builds it as
+        # None and ``from_checkpoint`` filters its keys generically.
+        assert (seg_pixel_decoder is None) == (seg_pixel_head is None), (
+            "seg_pixel_decoder and seg_pixel_head must be passed together."
+        )
+        self.seg_pixel_decoder = seg_pixel_decoder
+        self.seg_pixel_head = seg_pixel_head
+        self.seg_pixel_patch = int(seg_pixel_patch)
+        self.lambda_seg_pixel = float(lambda_seg_pixel)
+
+        # ---- mask-weighted DINO loss (opt-in, loss-only — adds NO params) ----
+        # Per-patch weights on the (RGB) DINO future-feature loss: the x1-step SAM3
+        # union mask is average-pooled to the DINO patch grid (per-patch coverage
+        # c ∈ [0,1]) → w = 1 + (mask_patch_weight − 1)·c → normalized by the batch
+        # mean so the total loss scale is unchanged. Samples with no mask npz get
+        # w = 1 (before normalization). Default False leaves the loss math
+        # byte-identical (the weighted branch in _dino_loss is never taken).
+        self.use_mask_weighted_dino_loss = bool(use_mask_weighted_dino_loss)
+        self.mask_patch_weight = float(mask_patch_weight)
 
         # What the seg DINO decoder conditions on: "seg" (default, the cutout stream's
         # own s0_feat — unchanged behavior) or "rgb" (the raw image x0_feat, so both
@@ -836,21 +872,64 @@ class ActionLatentTokenizerV4(nn.Module):
             return F.l1_loss(pred, target)
         return F.mse_loss(pred, target)
 
-    def _dino_loss(self, pred: torch.Tensor, target: torch.Tensor):
-        """Return (total_dino_loss, {sub_term_name: value})."""
+    def _dino_loss(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        patch_weights: Optional[torch.Tensor] = None,
+    ):
+        """Return (total_dino_loss, {sub_term_name: value}).
+
+        ``patch_weights`` ([B, Lp], mean == 1) enables the mask-weighted variant:
+        each per-patch loss is scaled by its weight before averaging, so patches
+        under the SAM3 mask count more while the TOTAL scale is unchanged. None
+        (default) keeps the original reduction — the same F.*_loss calls as before,
+        so the off-path stays byte-identical.
+        """
         sub = {}
         total = pred.new_zeros(())
         target = target.to(dtype=pred.dtype)
+        if patch_weights is not None:
+            w = patch_weights.to(dtype=pred.dtype).unsqueeze(-1)  # [B, Lp, 1]
         for t in self.dino_terms:
-            if t == "l1":
-                v = F.l1_loss(pred, target)
-            elif t == "mse":
-                v = F.mse_loss(pred, target)
-            else:  # cosine
-                v = (1.0 - F.cosine_similarity(pred, target, dim=-1)).mean()
+            if patch_weights is None:
+                if t == "l1":
+                    v = F.l1_loss(pred, target)
+                elif t == "mse":
+                    v = F.mse_loss(pred, target)
+                else:  # cosine
+                    v = (1.0 - F.cosine_similarity(pred, target, dim=-1)).mean()
+            else:
+                if t == "l1":
+                    v = ((pred - target).abs() * w).mean()
+                elif t == "mse":
+                    v = ((pred - target).pow(2) * w).mean()
+                else:  # cosine — per-patch distance [B, Lp], weight then average
+                    v = ((1.0 - F.cosine_similarity(pred, target, dim=-1)) * w.squeeze(-1)).mean()
             sub[f"loss_dino_{t}"] = v
             total = total + self.dino_loss_weights[t] * v
         return total, sub
+
+    def _mask_patch_weights(
+        self, mask_x1: torch.Tensor, mask_valid: torch.Tensor, num_patches: int
+    ) -> torch.Tensor:
+        """x1-step union mask [B, S, S] → per-patch weights [B, Lp], batch-mean 1.
+
+        Coverage c = average of the binary mask inside each DINO patch cell
+        (adaptive avg-pool to the sqrt(Lp)×sqrt(Lp) grid). w = 1 + (W−1)·c, forced
+        to 1 for samples whose mask npz is missing, then divided by the (local)
+        batch mean so the overall loss scale is invariant to W and mask density.
+        """
+        grid = int(round(num_patches ** 0.5))
+        assert grid * grid == num_patches, (
+            f"DINO token count {num_patches} is not a square grid — mask-weighted "
+            "dino loss expects square patch grids."
+        )
+        cov = F.adaptive_avg_pool2d(mask_x1.unsqueeze(1).float(), (grid, grid))
+        cov = cov.flatten(1)  # [B, Lp] ∈ [0, 1]
+        w = 1.0 + (self.mask_patch_weight - 1.0) * cov
+        w = torch.where(mask_valid.view(-1, 1).bool(), w, torch.ones_like(w))
+        return w / w.mean()
 
     # ---- interface (matches V2/V3 plus DINO feats) ----
 
@@ -915,6 +994,29 @@ class ActionLatentTokenizerV4(nn.Module):
         _, visuals = self.seg_dino_decoder(x=ctx, tokens=time_tok)
         return visuals
 
+    def decode_seg_pixel(self, time_tok: torch.Tensor, x0_feat: torch.Tensor) -> torch.Tensor:
+        """Predict the FUTURE (x1-step) union-mask logits from x0 feats + latent.
+
+        Same mechanics as :meth:`decode_dino` (a separate ``SimpleTokenTransformer``
+        conditioned on the latent, visual context = the raw image ``x0_feat``), then
+        the linear head maps each patch token to its patch² pixel-block logits and
+        the blocks are tiled to the full map. Returns [B, grid·patch, grid·patch].
+        """
+        assert self.seg_pixel_decoder is not None, "seg_pixel_decoder was not built"
+        _, visuals = self.seg_pixel_decoder(x=x0_feat, tokens=time_tok)  # [B, Lp, C]
+        blocks = self.seg_pixel_head(visuals)  # [B, Lp, patch²]
+        Lp = blocks.shape[1]
+        grid = int(round(Lp ** 0.5))
+        assert grid * grid == Lp, (
+            f"DINO token count {Lp} is not a square grid — the seg-pixel head "
+            "expects square patch grids."
+        )
+        return einops.rearrange(
+            blocks,
+            "b (h w) (p q) -> b (h p) (w q)",
+            h=grid, w=grid, p=self.seg_pixel_patch, q=self.seg_pixel_patch,
+        )
+
     def forward(self, batch: dict = None, **kwargs) -> dict:
         if batch is None:
             batch = kwargs
@@ -941,10 +1043,23 @@ class ActionLatentTokenizerV4(nn.Module):
         else:
             loss_recon = self._zero(device)
 
+        # Optional per-patch weights for loss 2 (mask-weighted DINO loss). None when
+        # the flag is off → _dino_loss takes its original (byte-identical) branch.
+        patch_w = None
+        if self.use_mask_weighted_dino_loss:
+            assert "mask_x1" in batch and "mask_valid" in batch, (
+                "use_mask_weighted_dino_loss=True but the batch has no mask_x1/"
+                "mask_valid (set --mask-dataset-root so the dataset attaches them)."
+            )
+            patch_w = self._mask_patch_weights(
+                batch["mask_x1"].to(device), batch["mask_valid"].to(device),
+                num_patches=x1_feat.shape[1],
+            )
+
         # Loss 2: DINO future-feature reconstruction (conditioned on time latent)
         if self.lambda_dino > 0:
             pred_x1 = self.decode_dino(time_tok, x0_feat)
-            loss_dino, dino_sub = self._dino_loss(pred_x1, x1_feat)
+            loss_dino, dino_sub = self._dino_loss(pred_x1, x1_feat, patch_weights=patch_w)
         else:
             loss_dino = self._zero(device)
             dino_sub = {}
@@ -964,6 +1079,30 @@ class ActionLatentTokenizerV4(nn.Module):
             loss = loss + self.lambda_dino_seg * loss_dino_seg
             out_seg["loss_dino_seg"] = loss_dino_seg
             out_seg.update({f"{k}_seg": v for k, v in seg_sub.items()})
+
+        # Loss 2c: seg-mask pixel prediction (future union mask, BCE). Only when the
+        # seg-pixel decoder was built (default: absent → skipped, `loss` unchanged).
+        # Samples whose mask npz is missing (mask_valid=0) are excluded from the
+        # average; with zero valid samples the term is 0 but the decoder/head still
+        # ran, so DDP sees no unused parameters.
+        if self.seg_pixel_decoder is not None:
+            assert "mask_x1" in batch and "mask_valid" in batch, (
+                "seg_pixel_decoder is present but the batch has no mask_x1/mask_valid "
+                "(set --mask-dataset-root so the dataset attaches them)."
+            )
+            logits = self.decode_seg_pixel(time_tok, x0_feat)  # [B, S, S]
+            target = batch["mask_x1"].to(device=logits.device).float()
+            assert logits.shape == target.shape, (
+                f"seg-pixel logits {tuple(logits.shape)} != mask {tuple(target.shape)} "
+                "— image_size must equal grid × seg_pixel_patch."
+            )
+            bce = F.binary_cross_entropy_with_logits(
+                logits.float(), target, reduction="none"
+            ).mean(dim=(1, 2))  # [B]
+            validf = batch["mask_valid"].to(device=logits.device).float()
+            loss_seg_pixel = (bce * validf).sum() / validf.sum().clamp(min=1.0)
+            loss = loss + self.lambda_seg_pixel * loss_seg_pixel
+            out_seg["loss_seg_pixel"] = loss_seg_pixel
 
         # Loss 3: VAE KL (only when the encoder is a VAE). The encoder stashes the
         # KL during encode; here we weight and add it. logvar_head is in the z graph

@@ -13,6 +13,15 @@ two steps and preprocessed through the SAME video transforms:
 When ``seg_dataset_root`` is None (the default) nothing changes — the items, the
 collator output and the trainer path are byte-identical to before.
 
+With the optional SAM3 mask npz stream enabled (``mask_dataset_root`` set) the union
+mask at the x1 (chunk-end) step is attached, read from the mask mirror of the SAME
+dataset (``<mask_root>/<dataset_dir_name>/<mask_subdir>/chunk-XXX/<video_key>/
+episode_XXXXXX.npz``, key ``mask``: (T,H,W) uint8 {0,1}, frame t == parquet step t)
+and nearest-resized to ``image_size``:
+  - ``mask_x1``   : [S, S] uint8 {0,1} mask at the SAME step as ``frame_x1``
+  - ``mask_valid``: uint8 1 when the npz exists, 0 otherwise (mask_x1 all-zero)
+When ``mask_dataset_root`` is None (the default) nothing changes.
+
 DINO features are NOT computed here — the trainer runs the frozen extractor
 on-the-fly. Frames are returned as resized uint8 (224x224 by default); the
 trainer converts to float/255 before DINO.
@@ -32,6 +41,7 @@ from typing import Optional
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 from gr00t.data.dataset import (
     LE_ROBOT_EPISODE_FILENAME,
@@ -82,6 +92,8 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
         fixed_val_path: Optional[str] = None,
         seg_dataset_root: Optional[str] = None,
         seg_video_subdir: str = "cutout",
+        mask_dataset_root: Optional[str] = None,
+        mask_subdir: str = "masks",
     ):
         assert split in ("train", "val", "all"), f"split must be train/val/all: {split}"
 
@@ -175,6 +187,19 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
                 ]
             )
             self._seg_transforms.set_metadata(self.metadata)
+
+        # ---- optional SAM3 mask npz stream (x1-step union mask) ----
+        # Off by default (root=None): no extra work at __getitem__ time and the
+        # returned item is byte-identical to before. When on, the mask mirror of this
+        # dataset is located eagerly (fails loud on a bad root, same as the seg
+        # stream); a MISSING per-episode npz is tolerated (mask_valid=0) because the
+        # SAM3 batch jobs write episodes independently.
+        self._mask_root = mask_dataset_root
+        self._mask_subdir = mask_subdir
+        self._mask_dir = None
+        self._mask_image_size = image_size
+        if mask_dataset_root is not None:
+            self._mask_dir = seg_dataset_dir(mask_dataset_root, dataset_path)
 
     @staticmethod
     def _build_transforms(
@@ -291,6 +316,53 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
         out = self._seg_transforms({self._video_key: np.asarray(frames)})
         return np.asarray(out[self._video_key])
 
+    def _load_mask_x1(self, trajectory_id: int, base_index: int) -> tuple[np.ndarray, bool]:
+        """Union mask at the SAME step as ``frame_x1``: ([S, S] uint8 {0,1}, valid).
+
+        Two npz layouts are supported (frame t == parquet step t in both, so the x1
+        STEP index — the same clamped index the video streams use — addresses the
+        frame directly, no timestamp lookup):
+          - legacy   : one ``mask`` member, (T, H, W) uint8 {0,1} — np.load inflates
+            the WHOLE episode to slice one frame (built by
+            analysis/sam3_masking/batch_sam3_robot_task.py);
+          - per-frame: one ``f{t}`` member per frame (np.packbits of the flat frame)
+            plus ``meta`` = [T, H, W] int32 — only the needed frame is inflated
+            (built by analysis/sam3_masking/convert_masks_to_perframe.py, ~13x
+            faster on Lustre; select via mask_subdir="masks_pf").
+        Native resolution is nearest-resized to ``image_size`` so the mask stays
+        binary and pixel-aligned with the resized ``frame_x1``. A missing npz
+        returns (all-zero, False) — the model then falls back to weight 1 /
+        excludes the sample from the mask-prediction loss.
+        """
+        assert self._mask_dir is not None, "mask stream is disabled"
+        traj_index = self.get_trajectory_index(trajectory_id)
+        step_indices = np.asarray(self._video_indices) + base_index
+        step_indices = np.clip(step_indices, 0, self.trajectory_lengths[traj_index] - 1)
+        x1_step = int(step_indices[-1])
+
+        sub_key = self._video_key.replace("video.", "")
+        src_path = self.get_video_path(trajectory_id, sub_key)
+        npz_path = seg_video_path_from_source(
+            src_path, self._dataset_path, self._mask_dir, self._mask_subdir
+        ).with_suffix(".npz")
+
+        size = self._mask_image_size
+        if not npz_path.is_file():
+            return np.zeros((size, size), dtype=np.uint8), False
+
+        with np.load(npz_path) as z:
+            if "mask" in z.files:  # legacy whole-episode layout
+                arr = z["mask"]  # (T, H, W) uint8 {0,1}
+                # Guard against npz/parquet length drift (clamp like the video streams).
+                frame = arr[min(x1_step, arr.shape[0] - 1)]
+            else:  # per-frame packbits layout
+                T, H, W = (int(v) for v in z["meta"])
+                row = z[f"f{min(x1_step, T - 1)}"]
+                frame = np.unpackbits(row)[: H * W].reshape(H, W)
+        t = torch.from_numpy(np.ascontiguousarray(frame))[None, None].float()
+        t = F.interpolate(t, size=(size, size), mode="nearest")
+        return (t[0, 0] > 0.5).to(torch.uint8).numpy(), True
+
     def __getitem__(self, index: int) -> dict:
         trajectory_id, base_index = self.all_steps[index]
         data = self.get_step_data(trajectory_id, base_index)
@@ -316,6 +388,11 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
             seg = self._load_seg_frames(trajectory_id, base_index)
             item["seg_x0"] = np.ascontiguousarray(seg[0])
             item["seg_x1"] = np.ascontiguousarray(seg[1] if seg.shape[0] > 1 else seg[0])
+
+        if self._mask_dir is not None:
+            mask, valid = self._load_mask_x1(trajectory_id, base_index)
+            item["mask_x1"] = mask
+            item["mask_valid"] = np.uint8(valid)
 
         return item
 
@@ -347,4 +424,11 @@ class ActionFramesCollatorV4:
         if "seg_x0" in features[0]:
             batch["seg_x0"] = stack_frames("seg_x0")
             batch["seg_x1"] = stack_frames("seg_x1")
+        if "mask_x1" in features[0]:
+            batch["mask_x1"] = torch.from_numpy(
+                np.stack([np.asarray(f["mask_x1"]) for f in features])
+            )  # [B, S, S] uint8 {0,1}
+            batch["mask_valid"] = torch.tensor(
+                [bool(f["mask_valid"]) for f in features], dtype=torch.bool
+            )  # [B]
         return batch

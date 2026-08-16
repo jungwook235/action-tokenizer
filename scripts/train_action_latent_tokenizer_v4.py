@@ -69,11 +69,21 @@ class ActionLatentV4Trainer(transformers.Trainer):
         dino_final_norm: str = "affine",
         use_dino_cache: bool = False,
         use_seg_stream: bool = False,
+        seg_feats_only: bool = False,
+        pass_masks: bool = False,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.feature_source = feature_source
         self.use_dino_cache = use_dino_cache
+        # Extract s0/s1 cutout features even though the encoder has no seg stream —
+        # they feed ONLY the seg DINO decoder's ctx/target (EXP-0004 decoder-only
+        # mode). False (default) leaves _extract_seg_feats gating byte-identical.
+        self.seg_feats_only = bool(seg_feats_only)
+        # Forward the dataset's mask_x1/mask_valid to the model batch (mask-weighted
+        # dino loss / seg-pixel decoder). False (default) leaves the batch dict
+        # byte-identical to before.
+        self.pass_masks = bool(pass_masks)
         # Segment (cutout) stream: the SAME frozen extractor embeds the seg frames, so
         # no second extractor is built — only two extra forward passes per step.
         self.use_seg_stream = bool(use_seg_stream)
@@ -154,9 +164,11 @@ class ActionLatentV4Trainer(transformers.Trainer):
         """Segment (cutout) frames → features [B, Lp, C], via the SAME frozen extractor.
 
         Returns (None, None) when the seg stream is off, so the batch built below stays
-        byte-identical to the pre-seg trainer.
+        byte-identical to the pre-seg trainer. ``seg_feats_only`` also enables the
+        extraction (decoder-only mode — the model routes s0/s1 to the seg decoder
+        while the encoder ignores them).
         """
-        if not self.use_seg_stream:
+        if not (self.use_seg_stream or self.seg_feats_only):
             return None, None
         device = self.model.device if hasattr(self.model, "device") else next(self.model.parameters()).device
         if not self._dino_on_device:
@@ -174,6 +186,9 @@ class ActionLatentV4Trainer(transformers.Trainer):
         if s0_feat is not None:
             batch["s0_feat"] = s0_feat
             batch["s1_feat"] = s1_feat
+        if self.pass_masks:
+            batch["mask_x1"] = inputs["mask_x1"]
+            batch["mask_valid"] = inputs["mask_valid"]
         return batch
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
@@ -186,7 +201,7 @@ class ActionLatentV4Trainer(transformers.Trainer):
             for key in ("loss_recon", "loss_dino", "loss_kl",
                         "loss_dino_l1", "loss_dino_mse", "loss_dino_cosine",
                         "loss_dino_seg", "loss_dino_l1_seg", "loss_dino_mse_seg",
-                        "loss_dino_cosine_seg"):
+                        "loss_dino_cosine_seg", "loss_seg_pixel"):
                 val = outputs.get(key)
                 if val is not None:
                     v = val.item() if isinstance(val, torch.Tensor) else float(val)
@@ -224,8 +239,11 @@ class ActionLatentV4Trainer(transformers.Trainer):
 
         total_mse = total_l1 = total_dino_l1 = total_dino_cos = 0.0
         total_seg_l1 = total_seg_cos = 0.0
+        total_pix_bce = total_pix_iou = 0.0
+        n_pix_samples = 0
         n_samples = 0
         has_seg_decoder = getattr(model, "seg_dino_decoder", None) is not None
+        has_pix_decoder = getattr(model, "seg_pixel_decoder", None) is not None
         with torch.no_grad():
             for batch in eval_dataloader:
                 batch = self._prepare_inputs(batch)
@@ -251,6 +269,22 @@ class ActionLatentV4Trainer(transformers.Trainer):
                     total_seg_cos += (
                         1.0 - F.cosine_similarity(pred_s1, tgt_s1, dim=-1).mean()
                     ).item() * B
+                if has_pix_decoder and "mask_x1" in batch:
+                    # Per-sample BCE + IoU@0.5, valid-mask-weighted (mask_valid=0
+                    # samples excluded, mirroring the training loss).
+                    logits = model.decode_seg_pixel(t, x0_feat)
+                    tgt = batch["mask_x1"].to(device=logits.device).float()
+                    validf = batch["mask_valid"].to(device=logits.device).float()
+                    bce = F.binary_cross_entropy_with_logits(
+                        logits.float(), tgt, reduction="none"
+                    ).mean(dim=(1, 2))
+                    pred_bin = (logits > 0).float()
+                    inter = (pred_bin * tgt).sum(dim=(1, 2))
+                    union = ((pred_bin + tgt) > 0).float().sum(dim=(1, 2))
+                    iou = inter / union.clamp(min=1.0)
+                    total_pix_bce += (bce * validf).sum().item()
+                    total_pix_iou += (iou * validf).sum().item()
+                    n_pix_samples += validf.sum().item()
                 n_samples += B
 
         if n_samples > 0:
@@ -263,6 +297,9 @@ class ActionLatentV4Trainer(transformers.Trainer):
             if has_seg_decoder:
                 extra[f"{metric_key_prefix}_dino_seg_l1"] = total_seg_l1 / n_samples
                 extra[f"{metric_key_prefix}_dino_seg_cos_dist"] = total_seg_cos / n_samples
+            if has_pix_decoder and n_pix_samples > 0:
+                extra[f"{metric_key_prefix}_seg_pixel_bce"] = total_pix_bce / n_pix_samples
+                extra[f"{metric_key_prefix}_seg_pixel_iou"] = total_pix_iou / n_pix_samples
             self.log(extra)
             metrics.update(extra)
 
@@ -345,6 +382,43 @@ class ArgsConfig:
     #     seg_dino_decoder → s1_feat). Same shapes ⇒ no parameter/architecture change.
     # The encoder-side seg stream (feature-difference concat) is unaffected either way.
     seg_dino_decoder_input: Literal["seg", "rgb"] = "seg"
+
+    # ── SAM3 mask npz stream (shared by the two mask features below) ──
+    # Root of the SAM3 mask mirror; the dataset reads the x1-step union mask from
+    # <mask_dataset_root>/<dataset_dir_name>/<mask_subdir>/chunk-XXX/<video_key>/
+    # episode_XXXXXX.npz (key 'mask': (T,H,W) uint8 {0,1}, frame t == parquet step t)
+    # and attaches mask_x1/mask_valid to each sample. Only read when one of the two
+    # features below is on; episodes with no npz are tolerated (mask_valid=0).
+    mask_dataset_root: Optional[str] = None
+    mask_subdir: str = "masks"
+
+    # ── Mask-weighted DINO loss (EXP-0002; default off = byte-identical) ──
+    # use_mask_weighted_dino_loss=True: per-patch weights on the (RGB) DINO
+    #   future-feature loss. The x1-step mask is avg-pooled to the DINO patch grid
+    #   (coverage c) → w = 1 + (mask_patch_weight − 1)·c → normalized by the batch
+    #   mean (total loss scale invariant) → multiplies the per-patch loss. Missing
+    #   npz → w = 1. Loss-only: adds NO parameters/buffers, so Stage-2 loading is
+    #   unaffected either way.
+    use_mask_weighted_dino_loss: bool = False
+    mask_patch_weight: float = 2.0
+
+    # ── Seg-mask pixel decoder (EXP-0003; default off = byte-identical) ──
+    # use_seg_pixel_decoder=True: adds a twin of the DINO decoder that predicts the
+    #   FUTURE (x1-step) union mask at pixel resolution from x0_feat + the latent,
+    #   through a linear per-patch pixel-block head (patch² logits per token, tiled
+    #   to [grid·patch, grid·patch]). BCE loss weighted by lambda_seg_pixel; samples
+    #   with mask_valid=0 are excluded. Training-only module — the Stage-2 wrapper
+    #   builds it as None and filters its checkpoint keys generically.
+    use_seg_pixel_decoder: bool = False
+    # BCE weight. Default 0.1 mirrors lambda_dino in the v4 gr1 recipes (both are
+    # auxiliary future-prediction losses; BCE starts at ln2≈0.69, the same order as
+    # the dino terms, so 0.1 keeps the auxiliary term ~an order below recon).
+    lambda_seg_pixel: float = 0.1
+    # Depth of the seg-pixel decoder; None → same as dino_decoder_depth.
+    seg_pixel_decoder_depth: Optional[int] = None
+    # Pixel-block side per patch token (dinov2-large: patch 14 → 16×16 grid @ 224).
+    # image_size must equal (image_size // seg_pixel_patch) · seg_pixel_patch.
+    seg_pixel_patch: int = 14
 
     # ── Loss ──
     lambda_recon: float = 1.0
@@ -499,12 +573,43 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
             use_fp16=False,
         )
 
+    # Seg-mask pixel decoder (EXP-0003): same SimpleTokenTransformer mechanics as the
+    # DINO decoder (visual context x0_feat + latent tokens), plus a zero-init linear
+    # head mapping each patch token to its patch² pixel-block logits. None when the
+    # flag is off → ActionLatentTokenizerV4 registers nothing extra.
+    seg_pixel_decoder = None
+    seg_pixel_head = None
+    if config.use_seg_pixel_decoder:
+        from gr00t.model.action_latent_tokenizer_v4 import LinearHead
+
+        seg_pixel_decoder = SimpleTokenTransformer(
+            in_channels=config.dino_channels,
+            model_channels=config.fusion_width,
+            out_channels=config.dino_channels,
+            num_blocks=int(config.seg_pixel_decoder_depth or config.dino_decoder_depth),
+            num_heads=config.fusion_heads,
+            num_tokens=action_horizon,
+            token_channels=config.token_dim,
+            zero_init=True,
+            use_fp16=False,
+        )
+        # Zero-init head → initial logits 0 → p=0.5 everywhere → BCE starts at ln2.
+        seg_pixel_head = LinearHead(
+            config.dino_channels, config.seg_pixel_patch ** 2, weight_init_style="zero"
+        )
+
     return ActionLatentTokenizerV4(
         encoder=encoder,
         recon_decoder=recon_decoder,
         dino_decoder=dino_decoder,
         seg_dino_decoder=seg_dino_decoder,
         seg_dino_decoder_input=config.seg_dino_decoder_input,
+        seg_pixel_decoder=seg_pixel_decoder,
+        seg_pixel_head=seg_pixel_head,
+        seg_pixel_patch=config.seg_pixel_patch,
+        lambda_seg_pixel=config.lambda_seg_pixel,
+        use_mask_weighted_dino_loss=config.use_mask_weighted_dino_loss,
+        mask_patch_weight=config.mask_patch_weight,
         lambda_recon=config.lambda_recon,
         lambda_dino=config.lambda_dino,
         lambda_dino_seg=config.lambda_dino_seg,
@@ -532,10 +637,28 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
 
 def main(config: ArgsConfig):
     # ---- segment-stream arg validation (all no-ops when the flags are off) ----
-    if config.use_seg_dino_decoder:
-        assert config.use_seg_stream, (
-            "--use-seg-dino-decoder requires --use-seg-stream (the decoder consumes the "
-            "segment stream's features)."
+    # --use-seg-dino-decoder WITHOUT --use-seg-stream (EXP-0004): the seg decoder's
+    # auxiliary loss is kept but the ENCODER never sees the cutout — the dataset
+    # still loads seg frames and the trainer still extracts s0/s1 feats, which feed
+    # ONLY decode_dino_seg (ctx s0, target s1). The encoder is built with
+    # use_seg_stream=False, so its fusion input is byte-identical to the plain base
+    # (model-side: encode() leaves seg_diff=None and the encoder asserts it).
+    if config.use_seg_dino_decoder and not config.use_seg_stream:
+        assert config.seg_dataset_root, (
+            "--use-seg-dino-decoder without --use-seg-stream still needs "
+            "--seg-dataset-root (the decoder's ctx/target come from the cutout mirror)."
+        )
+        assert os.path.isdir(config.seg_dataset_root), (
+            f"--seg-dataset-root does not exist: {config.seg_dataset_root}"
+        )
+        assert not config.use_dino_cache, (
+            "the seg decoder needs live cutout features; incompatible with --use-dino-cache."
+        )
+        print(
+            f"[seg-decoder-only] ON  root={config.seg_dataset_root} "
+            f"subdir={config.seg_video_subdir} "
+            f"seg_dino_decoder_input={config.seg_dino_decoder_input} "
+            f"lambda_dino_seg={config.lambda_dino_seg} (encoder gets NO seg stream)"
         )
     if config.seg_dino_decoder_input == "rgb":
         assert config.use_seg_dino_decoder, (
@@ -560,6 +683,50 @@ def main(config: ArgsConfig):
             f"seg_dino_decoder={config.use_seg_dino_decoder} "
             f"seg_dino_decoder_input={config.seg_dino_decoder_input} "
             f"lambda_dino_seg={config.lambda_dino_seg}"
+        )
+
+    # ---- mask-stream arg validation (all no-ops when the flags are off) ----
+    use_masks = config.use_mask_weighted_dino_loss or config.use_seg_pixel_decoder
+    if use_masks:
+        assert config.mask_dataset_root, (
+            "--use-mask-weighted-dino-loss / --use-seg-pixel-decoder require "
+            "--mask-dataset-root (root of the SAM3 mask mirror, e.g. "
+            ".../PhysicalAI-Robotics-GR00T-X-Embodiment-Sim_sam3_D_parts_nouns_norobot)."
+        )
+        assert os.path.isdir(config.mask_dataset_root), (
+            f"--mask-dataset-root does not exist: {config.mask_dataset_root}"
+        )
+        assert not config.use_dino_cache, (
+            "the mask features require the live-video dataset (ActionFramesDatasetV4); "
+            "they are not implemented for --use-dino-cache."
+        )
+    if config.use_mask_weighted_dino_loss:
+        assert config.mask_patch_weight > 0, (
+            f"--mask-patch-weight must be > 0; got {config.mask_patch_weight}"
+        )
+        assert config.lambda_dino > 0, (
+            "--use-mask-weighted-dino-loss weights the DINO loss, but --lambda-dino "
+            "is 0 — the weighted loss would never be computed."
+        )
+        print(
+            f"[mask-weight] ON  root={config.mask_dataset_root} "
+            f"subdir={config.mask_subdir} W={config.mask_patch_weight}"
+        )
+    if config.use_seg_pixel_decoder:
+        assert config.lambda_seg_pixel > 0, (
+            f"--lambda-seg-pixel must be > 0 with --use-seg-pixel-decoder; got "
+            f"{config.lambda_seg_pixel}"
+        )
+        grid = config.image_size // config.seg_pixel_patch
+        assert grid * config.seg_pixel_patch == config.image_size, (
+            f"--image-size ({config.image_size}) must be a multiple of "
+            f"--seg-pixel-patch ({config.seg_pixel_patch})."
+        )
+        print(
+            f"[seg-pixel] ON  root={config.mask_dataset_root} "
+            f"subdir={config.mask_subdir} lambda={config.lambda_seg_pixel} "
+            f"depth={config.seg_pixel_decoder_depth or config.dino_decoder_depth} "
+            f"patch={config.seg_pixel_patch} (grid {grid}x{grid} @ {config.image_size})"
         )
 
     def make_dataset(path, split):
@@ -592,8 +759,14 @@ def main(config: ArgsConfig):
             video_backend=config.video_backend,
             use_fixed_val=config.use_fixed_val,
             fixed_val_path=config.fixed_val_path,
-            seg_dataset_root=config.seg_dataset_root if config.use_seg_stream else None,
+            seg_dataset_root=(
+                config.seg_dataset_root
+                if (config.use_seg_stream or config.use_seg_dino_decoder)
+                else None
+            ),
             seg_video_subdir=config.seg_video_subdir,
+            mask_dataset_root=config.mask_dataset_root if use_masks else None,
+            mask_subdir=config.mask_subdir,
         )
 
     datasets_train, datasets_val = [], []
@@ -745,6 +918,8 @@ def main(config: ArgsConfig):
         dino_final_norm=config.dino_final_norm,
         use_dino_cache=config.use_dino_cache,
         use_seg_stream=config.use_seg_stream,
+        seg_feats_only=(config.use_seg_dino_decoder and not config.use_seg_stream),
+        pass_masks=use_masks,
     )
 
     if config.report_to == "wandb":
@@ -825,6 +1000,30 @@ def main(config: ArgsConfig):
                     "val_ratio": config.val_ratio,
                     "val_seed": config.val_seed,
                     "data_config": config.data_config,
+                    # Mask-feature keys are recorded ONLY when the flags are on, so
+                    # flag-off final .pt files stay byte-identical to before.
+                    **(
+                        {
+                            "use_mask_weighted_dino_loss": True,
+                            "mask_patch_weight": config.mask_patch_weight,
+                            "mask_dataset_root": config.mask_dataset_root,
+                            "mask_subdir": config.mask_subdir,
+                        }
+                        if config.use_mask_weighted_dino_loss
+                        else {}
+                    ),
+                    **(
+                        {
+                            "use_seg_pixel_decoder": True,
+                            "lambda_seg_pixel": config.lambda_seg_pixel,
+                            "seg_pixel_decoder_depth": config.seg_pixel_decoder_depth,
+                            "seg_pixel_patch": config.seg_pixel_patch,
+                            "mask_dataset_root": config.mask_dataset_root,
+                            "mask_subdir": config.mask_subdir,
+                        }
+                        if config.use_seg_pixel_decoder
+                        else {}
+                    ),
                 },
             },
             save_path,
