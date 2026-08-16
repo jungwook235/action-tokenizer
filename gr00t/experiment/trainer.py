@@ -15,6 +15,7 @@
 
 
 import os
+import shutil
 from typing import Optional
 
 import torch
@@ -227,6 +228,49 @@ class DualBrainTrainer(transformers.Trainer):
 
         if self.args.should_save:
             return self.model.save_pretrained(output_dir, state_dict=state_dict)
+
+    def _save_checkpoint(self, model, trial):
+        # GR00T_S3_COMPAT=1 (gpu26/AWS: output dir is an S3 mount that rejects
+        # safetensors writes, renames and chmod/utime): stage the checkpoint on a
+        # local disk (GR00T_CKPT_STAGE_DIR, e.g. node /scratch), then data-only-copy
+        # it to the real output dir. Flag off/unset → stock behavior, bit-identical.
+        if os.environ.get("GR00T_S3_COMPAT") != "1":
+            return super()._save_checkpoint(model, trial)
+        stage_root = os.environ.get("GR00T_CKPT_STAGE_DIR") or os.path.join(
+            "/scratch",
+            os.environ.get("USER", "user"),
+            f"ckpt_stage_{os.environ.get('SLURM_JOB_ID', str(os.getpid()))}",
+        )
+        real_out = self.args.output_dir
+        ckpt_name = f"checkpoint-{self.state.global_step}"
+        os.makedirs(stage_root, exist_ok=True)
+        try:
+            self.args.output_dir = stage_root
+            result = super()._save_checkpoint(model, trial)
+        finally:
+            self.args.output_dir = real_out
+        src = os.path.join(stage_root, ckpt_name)
+        dst = os.path.join(real_out, ckpt_name)
+        # all ranks write into the staging dir (rng_state etc.) — wait for them
+        # before rank 0 copies the tree out
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            torch.distributed.barrier()
+        if self.args.should_save:
+            self._copy_tree_data_only(src, dst)
+            shutil.rmtree(src)  # staging is scratch-only; the S3 copy is canonical
+        return result
+
+    @staticmethod
+    def _copy_tree_data_only(src, dst):
+        # copytree minus metadata: S3 mounts (gpu26 /s3ckpt) reject chmod/utime, so
+        # shutil.copy2/copystat — and therefore stock copytree — die with EPERM
+        # there even though the file data itself copies fine.
+        for root, _, files in os.walk(src):
+            rel = os.path.relpath(root, src)
+            troot = dst if rel == "." else os.path.join(dst, rel)
+            os.makedirs(troot, exist_ok=True)
+            for f in files:
+                shutil.copyfile(os.path.join(root, f), os.path.join(troot, f))
 
     def train(
         self,

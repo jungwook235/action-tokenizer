@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import shutil
 from pathlib import Path
 
@@ -59,4 +60,15 @@ class CheckpointFormatCallback(TrainerCallback):
             if self.exp_cfg_dir is not None:
                 exp_cfg_dst = checkpoint_dir / self.exp_cfg_dir.name
                 if self.exp_cfg_dir.exists():
-                    shutil.copytree(self.exp_cfg_dir, exp_cfg_dst, dirs_exist_ok=True)
+                    if os.environ.get("GR00T_S3_COMPAT") == "1":
+                        # gpu26/AWS: S3-mount output dirs reject copystat (chmod/
+                        # utime), which makes stock copytree raise EPERM after
+                        # copying — copy file data only. Flag off → stock path.
+                        for root, _, files in os.walk(self.exp_cfg_dir):
+                            rel = os.path.relpath(root, self.exp_cfg_dir)
+                            troot = exp_cfg_dst if rel == "." else exp_cfg_dst / rel
+                            os.makedirs(troot, exist_ok=True)
+                            for f in files:
+                                shutil.copyfile(os.path.join(root, f), os.path.join(troot, f))
+                    else:
+                        shutil.copytree(self.exp_cfg_dir, exp_cfg_dst, dirs_exist_ok=True)

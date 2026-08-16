@@ -826,7 +826,12 @@ def main(config: ArgsConfig):
     if config.report_to == "wandb":
         if "WANDB_PROJECT" not in os.environ:
             os.environ["WANDB_PROJECT"] = "gr00t-actlat-fm"
-        os.environ["WANDB_DIR"] = config.output_dir
+        if os.environ.get("GR00T_S3_COMPAT") == "1":
+            # gpu26/AWS: output_dir is an S3 mount that rejects wandb's append
+            # writes — respect the WANDB_DIR the sbatch script pre-set (home).
+            os.environ.setdefault("WANDB_DIR", config.output_dir)
+        else:
+            os.environ["WANDB_DIR"] = config.output_dir
         training_args.report_to = ["wandb"]
     elif config.report_to == "none":
         training_args.report_to = []
