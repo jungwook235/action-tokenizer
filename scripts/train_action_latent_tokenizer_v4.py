@@ -38,7 +38,7 @@ from gr00t.data.dataset_dino_cache_v4 import (
     CachedActionFramesDatasetV4,
 )
 from gr00t.experiment.data_config import DATA_CONFIG_MAP
-from gr00t.experiment.trainer import BaseSampler
+from gr00t.experiment.trainer import BaseSampler, S3CompatCheckpointStaging
 from gr00t.model.action_latent_tokenizer_v4 import (
     ActionLatentTokenizerV4,
     ReconDecoderV4,
@@ -54,8 +54,11 @@ from gr00t.utils.dino import DINOv3FeatureExtractor
 # =====================================================================
 
 
-class ActionLatentV4Trainer(transformers.Trainer):
-    """V4 trainer: owns a frozen DINO extractor, extracts feats on-the-fly."""
+class ActionLatentV4Trainer(S3CompatCheckpointStaging, transformers.Trainer):
+    """V4 trainer: owns a frozen DINO extractor, extracts feats on-the-fly.
+
+    S3CompatCheckpointStaging is inert unless GR00T_S3_COMPAT=1 (gpu26).
+    """
 
     def __init__(
         self,
