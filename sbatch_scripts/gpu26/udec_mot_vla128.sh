@@ -20,8 +20,8 @@
 # idempotent stages (background QoS restarts this script from the top; each
 # stage skips itself when its final checkpoint exists and otherwise --resume's
 # from the latest one on /s3ckpt).
-# Operational deviation from ref (server rule: checkpoint every <=30min on
-# preemptible QoS): Stage-1 save-steps 10000->5000, Stage-2 5000->3000.
+# save-steps: ref values kept (user decision 2026-08-17 — accepts >30min save
+# interval to limit undeletable checkpoint accumulation on /s3ckpt).
 
 export WANDB_API_KEY="66a73856614bc24a07523f3fbee42482fcbeffe3"
 export PYTHONUNBUFFERED=1
@@ -87,7 +87,7 @@ else
     --num-gpus 4 \
     --batch-size 64 \
     --max-steps $TOK_STEP \
-    --save-steps 5000 \
+    --save-steps 10000 \
     --save-total-limit 3 \
     --dataloader-num-workers 6 \
     --token-dim 64 \
@@ -135,7 +135,7 @@ else
     --num-gpus 4 \
     --batch-size 32 \
     --max-steps $VLA_STEP \
-    --save-steps 3000 \
+    --save-steps 5000 \
     --save-total-limit 20 \
     --eval-steps 1000 \
     --actlat-tokenizer-path "$TOK_CKPT_DIR/checkpoint-$TOK_STEP" \
