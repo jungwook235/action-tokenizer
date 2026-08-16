@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=gr1_vla128_udec_shared_trunk
-#SBATCH --partition=h100
+#SBATCH --partition=a100
 #SBATCH --qos=background
 #SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=48
