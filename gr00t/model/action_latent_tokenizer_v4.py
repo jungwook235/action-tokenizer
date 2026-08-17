@@ -772,9 +772,14 @@ class UnifiedDecoderV4(nn.Module):
         num_global_tokens: int = 0,
         num_hand_tokens: int = 0,
         recon_sees_vision: bool = False,
+        use_segpix_branch: bool = False,
     ):
         super().__init__()
         assert arch in ("shared_trunk", "mot"), f"unknown decoder arch {arch!r}"
+        assert not (use_segpix_branch and arch != "shared_trunk"), (
+            "the segpix branch is only supported with --decoder-arch shared_trunk "
+            "(mot + seg-pixel is explicitly unsupported for now)"
+        )
         self.arch = arch
         self.action_dim = action_dim
         self.action_horizon = action_horizon
@@ -812,6 +817,18 @@ class UnifiedDecoderV4(nn.Module):
             nn.init.xavier_uniform_(m.weight)
             nn.init.constant_(m.bias, 0)
 
+        # Third (seg-pixel) branch — built LAST on purpose so that, under the same
+        # seed, every module above gets identical init with the branch on or off
+        # (lets the recon/dino paths be verified unchanged at the forward level).
+        # Same structure as the dino branch: branch_depth layers over the full
+        # [L', P'], no mask; the pixel-block head lives on the tokenizer
+        # (seg_pixel_head), mirroring the separate seg_pixel_decoder split.
+        self.use_segpix_branch = bool(use_segpix_branch)
+        if self.use_segpix_branch:
+            self.segpix_branch = Transformer(
+                dim=width, depth=branch_depth, head_dim=head_dim, drop=pdropout
+            )
+
     def _attn_mask(self, n_lat: int, n_all: int, device) -> Optional[torch.Tensor]:
         """[n_all, n_all] bool mask (True = may attend). None when unmasked."""
         if self.recon_sees_vision or n_all == n_lat:
@@ -829,11 +846,14 @@ class UnifiedDecoderV4(nn.Module):
         return self.latent_pos_emb(self.latent_up_proj(lat))
 
     def forward(self, global_tok, time_tok, hand_tok, x0_feat=None):
-        """→ (action_pred [B,T,action_dim], x1_feat_pred [B,Lp,dino_dim] | None).
+        """→ (action_pred [B,T,action_dim], x1_feat_pred [B,Lp,dino_dim] | None,
+             segpix_visuals [B,Lp,width] | None).
 
         ``x0_feat=None`` is the latent-only decode path (valid because of the
         asymmetric mask; invalid with ``recon_sees_vision``): returns
-        (action_pred, None).
+        (action_pred, None, None). segpix_visuals is the RAW segpix-branch output
+        at the patch positions (the pixel-block head lives on the tokenizer);
+        None unless the branch was built and x0_feat given.
         """
         L = self._embed_latent(global_tok, time_tok, hand_tok)
         n_lat = L.shape[1]
@@ -855,17 +875,22 @@ class UnifiedDecoderV4(nn.Module):
             hr = self.recon_branch(h[:, :n_lat])
             action = self.action_head(hr[:, Ng:Ng + T])
             if x0_feat is None:
-                return action, None
+                return action, None, None
             hd = self.dino_branch(h)  # bidirectional refinement, no mask
-            return action, self.feat_head(hd[:, n_lat:])
+            feat = self.feat_head(hd[:, n_lat:])
+            seg_vis = None
+            if self.use_segpix_branch:
+                hs = self.segpix_branch(h)  # same shape/mechanics as the dino branch
+                seg_vis = hs[:, n_lat:]
+            return action, feat, seg_vis
 
         h = x
         for layer in self.layers:
             h = layer(h, n_lat, block_mask=mask)
         action = self.action_head(h[:, Ng:Ng + T])
         if x0_feat is None:
-            return action, None
-        return action, self.feat_head(h[:, n_lat:])
+            return action, None, None
+        return action, self.feat_head(h[:, n_lat:]), None
 
 
 # =====================================================================
@@ -946,8 +971,14 @@ class ActionLatentTokenizerV4(nn.Module):
                 "unified decoder replaces recon_decoder AND dino_decoder — pass both as None"
             )
             assert seg_dino_decoder is None and seg_pixel_decoder is None, (
-                "seg decoders are separate-arch-only (out of the unified decoder's scope)"
+                "separate seg decoder modules cannot be combined with a unified "
+                "decoder (segpix rides as a branch of shared_trunk instead)"
             )
+            if decoder_arch == "mot" and seg_pixel_head is not None:
+                raise ValueError(
+                    "--decoder-arch mot + --use-seg-pixel-decoder is not supported "
+                    "(the segpix branch exists only for shared_trunk)."
+                )
             assert encoder.num_global_tokens == 0 and encoder.num_hand_tokens == 0, (
                 "unified decoder currently supports Ng=Nh=0 only (the V4 default)"
             )
@@ -967,9 +998,21 @@ class ActionLatentTokenizerV4(nn.Module):
         # state_dict and forward stay byte-identical. Like dino_decoder /
         # seg_dino_decoder this is training-only: the inference wrapper builds it as
         # None and ``from_checkpoint`` filters its keys generically.
-        assert (seg_pixel_decoder is None) == (seg_pixel_head is None), (
-            "seg_pixel_decoder and seg_pixel_head must be passed together."
+        # Unified segpix: with a shared_trunk decoder carrying the segpix branch,
+        # only the head is passed (the "decoder" half IS the branch). Everywhere
+        # else the original pairing invariant holds unchanged.
+        self._unified_segpix = bool(
+            unified_decoder is not None and getattr(unified_decoder, "use_segpix_branch", False)
         )
+        if self._unified_segpix:
+            assert seg_pixel_decoder is None and seg_pixel_head is not None, (
+                "unified segpix branch requires seg_pixel_head (and no separate "
+                "seg_pixel_decoder)."
+            )
+        else:
+            assert (seg_pixel_decoder is None) == (seg_pixel_head is None), (
+                "seg_pixel_decoder and seg_pixel_head must be passed together."
+            )
         self.seg_pixel_decoder = seg_pixel_decoder
         self.seg_pixel_head = seg_pixel_head
         self.seg_pixel_patch = int(seg_pixel_patch)
@@ -1192,7 +1235,7 @@ class ActionLatentTokenizerV4(nn.Module):
         """
         if self.unified_decoder is not None:
             ctx = x0_feat if self.unified_decoder.recon_sees_vision else None
-            action, _ = self.unified_decoder(global_tok, time_tok, hand_tok, ctx)
+            action, _, _ = self.unified_decoder(global_tok, time_tok, hand_tok, ctx)
             return action
         g = global_tok if (global_tok is not None and global_tok.shape[1] > 0) else None
         h = hand_tok if (hand_tok is not None and hand_tok.shape[1] > 0 and self.hand_in_recon) else None
@@ -1201,7 +1244,7 @@ class ActionLatentTokenizerV4(nn.Module):
     def decode_dino(self, time_tok: torch.Tensor, x0_feat: torch.Tensor) -> torch.Tensor:
         """Predict future-frame DINO features from current-frame feats + latent."""
         if self.unified_decoder is not None:
-            _, visuals = self.unified_decoder(None, time_tok, None, x0_feat)
+            _, visuals, _ = self.unified_decoder(None, time_tok, None, x0_feat)
             return visuals
         _, visuals = self.dino_decoder(x=x0_feat, tokens=time_tok)
         return visuals
@@ -1240,8 +1283,16 @@ class ActionLatentTokenizerV4(nn.Module):
         the linear head maps each patch token to its patch² pixel-block logits and
         the blocks are tiled to the full map. Returns [B, grid·patch, grid·patch].
         """
-        assert self.seg_pixel_decoder is not None, "seg_pixel_decoder was not built"
-        _, visuals = self.seg_pixel_decoder(x=x0_feat, tokens=time_tok)  # [B, Lp, C]
+        if self._unified_segpix:
+            _, _, seg_vis = self.unified_decoder(None, time_tok, None, x0_feat)
+            visuals = seg_vis  # [B, Lp, width] — raw segpix-branch output
+        else:
+            assert self.seg_pixel_decoder is not None, "seg_pixel_decoder was not built"
+            _, visuals = self.seg_pixel_decoder(x=x0_feat, tokens=time_tok)  # [B, Lp, C]
+        return self._segpix_logits(visuals)
+
+    def _segpix_logits(self, visuals: torch.Tensor) -> torch.Tensor:
+        """Patch visuals [B, Lp, C] → tiled pixel-logit map [B, grid·patch, grid·patch]."""
         blocks = self.seg_pixel_head(visuals)  # [B, Lp, patch²]
         Lp = blocks.shape[1]
         grid = int(round(Lp ** 0.5))
@@ -1309,7 +1360,7 @@ class ActionLatentTokenizerV4(nn.Module):
             # the latent positions, which the mask keeps vision-free) AND the future
             # feature prediction (from the patch positions). Loss weighting/combination
             # below is identical to the separate path.
-            recon, pred_x1 = self.unified_decoder(global_tok, time_tok, hand_tok, x0_feat)
+            recon, pred_x1, seg_vis = self.unified_decoder(global_tok, time_tok, hand_tok, x0_feat)
             loss_recon = (
                 self._recon_loss_fn(recon, actions) if self.lambda_recon > 0 else self._zero(device)
             )
@@ -1340,12 +1391,16 @@ class ActionLatentTokenizerV4(nn.Module):
         # Samples whose mask npz is missing (mask_valid=0) are excluded from the
         # average; with zero valid samples the term is 0 but the decoder/head still
         # ran, so DDP sees no unused parameters.
-        if self.seg_pixel_decoder is not None:
+        if self.seg_pixel_decoder is not None or self._unified_segpix:
             assert "mask_x1" in batch and "mask_valid" in batch, (
                 "seg_pixel_decoder is present but the batch has no mask_x1/mask_valid "
                 "(set --mask-dataset-root so the dataset attaches them)."
             )
-            logits = self.decode_seg_pixel(time_tok, x0_feat)  # [B, S, S]
+            if self._unified_segpix:
+                # segpix visuals come from the SAME combined pass as losses 1+2
+                logits = self._segpix_logits(seg_vis)  # [B, S, S]
+            else:
+                logits = self.decode_seg_pixel(time_tok, x0_feat)  # [B, S, S]
             target = batch["mask_x1"].to(device=logits.device).float()
             assert logits.shape == target.shape, (
                 f"seg-pixel logits {tuple(logits.shape)} != mask {tuple(target.shape)} "

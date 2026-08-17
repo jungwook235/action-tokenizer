@@ -247,7 +247,10 @@ class ActionLatentV4Trainer(S3CompatCheckpointStaging, transformers.Trainer):
         n_pix_samples = 0
         n_samples = 0
         has_seg_decoder = getattr(model, "seg_dino_decoder", None) is not None
-        has_pix_decoder = getattr(model, "seg_pixel_decoder", None) is not None
+        has_pix_decoder = (
+            getattr(model, "seg_pixel_decoder", None) is not None
+            or getattr(model, "_unified_segpix", False)
+        )
         with torch.no_grad():
             for batch in eval_dataloader:
                 batch = self._prepare_inputs(batch)
@@ -557,10 +560,15 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
     # ---- unified decoder (opt-in; early-return keeps the separate path below
     # byte-identical) ----
     if config.decoder_arch != "separate":
-        assert not (config.use_seg_dino_decoder or config.use_seg_pixel_decoder), (
-            "--decoder-arch shared_trunk/mot does not support the seg decoders "
-            "(separate-arch-only features)."
+        assert not config.use_seg_dino_decoder, (
+            "--decoder-arch shared_trunk/mot does not support --use-seg-dino-decoder "
+            "(separate-arch-only feature)."
         )
+        if config.use_seg_pixel_decoder and config.decoder_arch != "shared_trunk":
+            raise ValueError(
+                "--use-seg-pixel-decoder with --decoder-arch mot is not supported "
+                "(the segpix branch exists only for shared_trunk)."
+            )
         unified_decoder = UnifiedDecoderV4(
             action_dim=action_dim,
             action_horizon=action_horizon,
@@ -576,13 +584,27 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
             num_global_tokens=0,
             num_hand_tokens=0,
             recon_sees_vision=config.decoder_recon_sees_vision,
+            use_segpix_branch=config.use_seg_pixel_decoder,
         )
+        # segpix branch head (built AFTER the decoder so shared-module init under a
+        # fixed seed is identical with the branch on or off). Zero-init → initial
+        # logits 0 → BCE starts at ln2, mirroring the separate seg_pixel_head.
+        seg_pixel_head = None
+        if config.use_seg_pixel_decoder:
+            from gr00t.model.action_latent_tokenizer_v4 import LinearHead
+
+            seg_pixel_head = LinearHead(
+                config.fusion_width, config.seg_pixel_patch ** 2, weight_init_style="zero"
+            )
         return ActionLatentTokenizerV4(
             encoder=encoder,
             recon_decoder=None,
             dino_decoder=None,
             unified_decoder=unified_decoder,
             decoder_arch=config.decoder_arch,
+            seg_pixel_head=seg_pixel_head,
+            seg_pixel_patch=config.seg_pixel_patch,
+            lambda_seg_pixel=config.lambda_seg_pixel,
             use_mask_weighted_dino_loss=config.use_mask_weighted_dino_loss,
             mask_patch_weight=config.mask_patch_weight,
             lambda_recon=config.lambda_recon,
@@ -786,6 +808,12 @@ def main(config: ArgsConfig):
         print(
             f"[mask-weight] ON  root={config.mask_dataset_root} "
             f"subdir={config.mask_subdir} W={config.mask_patch_weight}"
+        )
+    if config.use_seg_pixel_decoder and config.decoder_arch == "mot":
+        raise ValueError(
+            "--use-seg-pixel-decoder with --decoder-arch mot is not supported "
+            "(the segpix branch exists only for shared_trunk; separate keeps the "
+            "original EXP-0003 module)."
         )
     if config.use_seg_pixel_decoder:
         assert config.lambda_seg_pixel > 0, (
