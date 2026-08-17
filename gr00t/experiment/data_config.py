@@ -4811,6 +4811,34 @@ class HumanoidEverydayH1EgocentricDataConfig(HumanoidEverydayH1DataConfig):
     tokenizer_frame_video_key = "video.egocentric"
 
 
+
+
+class RlwrldHumanG24DataConfig(OpenARMPnpEefRightDataConfig):
+    """rlwrld_human_g24 (mano_g24 human keypoints), single RIGHT ego camera.
+
+    Action/state: 24-dim keypoint format — g24_tips(15: 5 fingertips x,y,z)
+    + g24_wrist_pos(3) + g24_wrist_rot6d(6). min_max normalization.
+    Same modality/transform pipeline as OpenARMPnpEefRightDataConfig; only the
+    keys and action_dim differ (added for EXP-0007 natfmt-g24; existing configs
+    untouched).
+    """
+    state_keys = [
+        "state.g24_tips",
+        "state.g24_wrist_pos",
+        "state.g24_wrist_rot6d",
+    ]
+    action_keys = [
+        "action.g24_tips",
+        "action.g24_wrist_pos",
+        "action.g24_wrist_rot6d",
+    ]
+    action_dim = 24
+
+    state_normalization_modes = {key: "min_max" for key in state_keys}
+    action_normalization_modes = {key: "min_max" for key in action_keys}
+
+
+
 DATA_CONFIG_MAP = {
     "fourier_gr1_arms_waist_actlat_fm": FourierGr1ArmsWaistActlatFMDataConfig(),
     "fourier_gr1_arms_waist_actlat_fm_1000demos": FourierGr1ArmsWaistActlatFM1000DemosDataConfig(),
@@ -4852,6 +4880,7 @@ DATA_CONFIG_MAP = {
     "openarm_teleop_joint_right": OpenARMTeleopJointRightDataConfig(),
     "openarm_prq_actlat_fm": OpenARMPrqActlatFMDataConfig(),
     "openarm_pnp_eef_right": OpenARMPnpEefRightDataConfig(),
+    "rlwrld_human_g24": RlwrldHumanG24DataConfig(),
     "dexmg_single_view_arms_hands": DexmgSingleViewArmsHandsDataConfig(),
     "allex": AllexDataConfig(),
     "allex_rlwrld": AllexRLWRldDataConfig(),
