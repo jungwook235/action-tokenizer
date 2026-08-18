@@ -24,6 +24,7 @@
 
 export WANDB_API_KEY="66a73856614bc24a07523f3fbee42482fcbeffe3"
 export PYTHONUNBUFFERED=1
+export WANDB_DISABLE_STATS=true
 set -euxo pipefail
 
 ARCH=shared_trunk

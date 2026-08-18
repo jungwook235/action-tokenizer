@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=gr1_vla128_udec_mot
+#SBATCH --job-name=gr1_vla128_udec_st_segpix
 #SBATCH --partition=h200
 #SBATCH --qos=background
 #SBATCH --gres=gpu:4
@@ -16,27 +16,33 @@
 # recon_dino_bn64_l1_mse_naiveln_vae_4gpus_bs256_vla128.sh). ONLY the decoder-
 # architecture flags differ from the ref; every other Stage-1/Stage-2
 # hyperparameter is kept verbatim. gpu26 adaptations: storage-contract paths,
-# flock-guarded tar->/scratch extraction, idempotent stages (requeue/preemption
-# restarts this script from the top; each stage skips itself when its final
-# checkpoint exists and otherwise --resume's from the latest under /ckpt).
-# 2026-08-18: h200 background insurance run; /ckpt policy (no S3_COMPAT).
+# flock-guarded tar->/scratch extraction, idempotent stages (a requeue restarts
+# this script from the top; each stage skips itself when its final checkpoint
+# exists and otherwise --resume's from the latest one under /ckpt).
+# h200 run (2026-08-18): normal QoS (assigned partition, no preemption);
+# checkpoints on /ckpt per the 2026-08-18 policy. save-steps: ref values
+# (user decision 2026-08-17).
 
 export WANDB_API_KEY="66a73856614bc24a07523f3fbee42482fcbeffe3"
 export PYTHONUNBUFFERED=1
 export WANDB_DISABLE_STATS=true
 set -euxo pipefail
 
-ARCH=mot
-DECODER_FLAGS=(--decoder-arch mot --mot-depth 6)
+ARCH=shared_trunk
+DECODER_FLAGS=(--decoder-arch shared_trunk --decoder-trunk-depth 4 --decoder-branch-depth 2)
+# segpix third branch (flags mirror mlxp udec-st-segpix); mask root is set
+# after the masks_pf extraction below
+SEGPIX_STATIC_FLAGS=(--use-seg-pixel-decoder --lambda-seg-pixel 0.1 --seg-pixel-patch 14 --mask-subdir masks_pf)
 
 # --- storage contract (submit filter checks these literals) ---
+# 2026-08-18 policy: checkpoints go to /ckpt/$USER (real POSIX FS, auto-archived
+# to S3 in ~20s) — the GR00T_S3_COMPAT staging workaround is no longer needed.
 S3_DATA_ROOT=/s3data/gr1-unified-lerobot/v1
-TOK_CKPT_DIR=/ckpt/$USER/tok_gr1_v4_udec_${ARCH}_bs256
-VLA_CKPT_DIR=/ckpt/$USER/vla_gr1_v4_udec_${ARCH}_vla128
+TOK_CKPT_DIR=/ckpt/$USER/tok_gr1_v4_udec_st_segpix_bs256
+VLA_CKPT_DIR=/ckpt/$USER/vla_gr1_v4_udec_st_segpix_vla128
 SCRATCH_DATA=/scratch/$USER/gr1_unified
 TOK_STEP=100000
 VLA_STEP=60000
-
 
 BASE_DIR=/home/wook/action-tokenizer
 cd "$BASE_DIR"
@@ -63,6 +69,28 @@ DATA_DIR=("$SCRATCH_DATA"/gr1_unified.*/)
 echo "[data-check] ${#DATA_DIR[@]} dataset roots (expect 24)"
 [ "${#DATA_DIR[@]}" -eq 24 ]
 
+# --- Stage 0b: masks_pf tar extraction (segpix targets; cutout not needed) ---
+S3_MASK_ROOT=/s3data/gr1-sam3-norobot/v1
+SCRATCH_MASKS=/scratch/$USER/gr1_sam3
+mkdir -p "$SCRATCH_MASKS"
+(
+  flock -x 201
+  for tarpath in "$S3_MASK_ROOT"/*.masks_pf.tar; do
+    base=$(basename "$tarpath" .tar)
+    marker="$SCRATCH_MASKS/.done.$base"
+    [ -f "$marker" ] && continue
+    [ -f "$tarpath.ok" ] || { echo "[extract-mask] missing .ok for $base"; exit 1; }
+    tar -xf "$tarpath" -C "$SCRATCH_MASKS"
+    touch "$marker"
+    echo "[extract-mask] done: $base"
+  done
+) 201>"$SCRATCH_MASKS/.extract.lock"
+
+MASK_DIRS=("$SCRATCH_MASKS"/gr1_unified.*/)
+echo "[data-check] ${#MASK_DIRS[@]} mask roots (expect 24)"
+[ "${#MASK_DIRS[@]}" -eq 24 ]
+SEGPIX_FLAGS=("${SEGPIX_STATIC_FLAGS[@]}" --mask-dataset-root "$SCRATCH_MASKS")
+
 export WANDB_PROJECT="Action-Tokenizer-GR1-1000demos"
 
 # === Stage 1: V4 tokenizer — ref recipe + unified decoder flags ===
@@ -76,7 +104,7 @@ else
     --output-dir "$TOK_CKPT_DIR" \
     --data-config fourier_gr1_arms_waist \
     --embodiment-tag new_embodiment \
-    --run-name "actlat_v4_gr1_udec_${ARCH}_1000demos_bs256_vla128" \
+    --run-name "actlat_v4_gr1_udec_st_segpix_1000demos_bs256_vla128" \
     --num-gpus 4 \
     --batch-size 64 \
     --max-steps $TOK_STEP \
@@ -107,7 +135,8 @@ else
     --eval-steps 1000 \
     --report-to wandb \
     --resume \
-    "${DECODER_FLAGS[@]}"
+    "${DECODER_FLAGS[@]}" \
+    "${SEGPIX_FLAGS[@]}"
 fi
 
 # Re-enable HF network for Stage-2 (GR00T base is pre-cached in ~/.cache, but
@@ -124,7 +153,7 @@ else
     --data-config fourier_gr1_arms_waist_actlat_fm \
     --embodiment-tag new_embodiment \
     --base-model-path "nvidia/GR00T-N1.5-3B" \
-    --run-name "actlat_fm_v4_gr1_udec_${ARCH}_1000demos_bs256_vla128" \
+    --run-name "actlat_fm_v4_gr1_udec_st_segpix_1000demos_bs256_vla128" \
     --num-gpus 4 \
     --batch-size 32 \
     --max-steps $VLA_STEP \
@@ -142,4 +171,4 @@ else
     --video-backend "decord"
 fi
 
-echo "[done] udec_${ARCH} pipeline complete"
+echo "[done] udec_st_segpix pipeline complete"
