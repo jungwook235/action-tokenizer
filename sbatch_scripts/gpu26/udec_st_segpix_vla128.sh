@@ -93,6 +93,30 @@ SEGPIX_FLAGS=("${SEGPIX_STATIC_FLAGS[@]}" --mask-dataset-root "$SCRATCH_MASKS")
 
 export WANDB_PROJECT="Action-Tokenizer-GR1-1000demos"
 
+# --- Stage 0c: seed the Stage-1 resume checkpoint into /ckpt (h200 AZ) ---
+# The 50k checkpoint was produced elsewhere (RLDX relay) and /ckpt is per-AZ: the
+# head node mounts a different filesystem (ale7jb4v) than the h200 nodes
+# (ape7jb4v), so the relay lands in home and THIS job — which runs on h200 —
+# copies it into the real Stage-1 output dir once. Skipped when the output dir
+# already holds checkpoints (requeue after further progress). Fails loudly on a
+# partial copy so training never silently restarts from scratch.
+RESUME_SEED=/home/wook/incoming_rldx/st_segpix/checkpoint-50000
+mkdir -p "$TOK_CKPT_DIR"
+if compgen -G "$TOK_CKPT_DIR/checkpoint-*" > /dev/null; then
+  echo "[seed] $TOK_CKPT_DIR already has checkpoints — skipping seed"
+elif [ -d "$RESUME_SEED" ]; then
+  n_src=$(find "$RESUME_SEED" -type f | wc -l)
+  b_src=$(du -sb "$RESUME_SEED" | cut -f1)
+  cp -a "$RESUME_SEED" "$TOK_CKPT_DIR/"
+  n_dst=$(find "$TOK_CKPT_DIR/checkpoint-50000" -type f | wc -l)
+  b_dst=$(du -sb "$TOK_CKPT_DIR/checkpoint-50000" | cut -f1)
+  echo "[seed] $RESUME_SEED -> $TOK_CKPT_DIR/checkpoint-50000 files $n_src/$n_dst bytes $b_src/$b_dst"
+  [ "$n_src" -eq "$n_dst" ] && [ "$b_src" -eq "$b_dst" ]
+else
+  echo "[seed] ERROR: no seed checkpoint at $RESUME_SEED (this run must resume from 50k)"
+  exit 1
+fi
+
 # === Stage 1: V4 tokenizer — ref recipe + unified decoder flags ===
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
