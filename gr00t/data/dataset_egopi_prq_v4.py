@@ -187,4 +187,10 @@ class EgoPiPrqCachedDatasetV4(CachedActionFramesDatasetV4):
             "action": torch.from_numpy(chunk.astype(np.float32)),  # [T, 15]
             "x0_feat": x0_feat,
             "x1_feat": x1_feat,
+            # [EXP-0010] per-sample domain label. robot and human sources live in the
+            # SAME embodiment group here (one shared {p,r,q} action space), so the group
+            # name cannot tell them apart -- the label has to ride along with the sample.
+            # Always emitted; the collators pick keys explicitly, so this is inert unless
+            # MultiEmbActionFramesCollator(pass_is_human=True) asks for it.
+            "is_human": float(self._prq_mode == "human"),
         }

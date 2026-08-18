@@ -36,7 +36,13 @@ from gr00t.model.action_latent_tokenizer_v4 import (
     ReconDecoderV4,
     _str_to_byte_tensor,
 )
+from gr00t.model.embod_reg import EmbodAgnosticReg
 from gr00t.model.rla_modules import SimpleTokenTransformer
+
+# [EXP-0010] Suffix of the per-domain (human) recon decoder twin. The BASE key keeps the
+# plain embodiment name, so existing checkpoints and Stage-2 exports are unaffected when
+# the split is off, and the twin shows up as a plain new module when it is on.
+HUMAN_DECODER_SUFFIX = "__human"
 
 
 class MultiEmbActionLatentTokenizerV4(nn.Module):
@@ -90,6 +96,15 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         tokenizer_finetuning_mode: bool = False,
         new_class_token: int = 0,
         num_pretrain_class_tokens: int = 0,
+        embod_reg_mode: str = "",
+        embod_reg_weight: float = 0.0,
+        embod_reg_gather: bool = True,
+        embod_reg_pool: str = "mean",
+        embod_reg_vic_var: float = 1.0,
+        embod_reg_vic_cov: float = 0.04,
+        embod_reg_lambda: float = 1.0,
+        embod_reg_human_names: Optional[list] = None,
+        split_recon_decoder: bool = False,
     ):
         super().__init__()
         assert len(embodiment_specs) >= 1, "need at least one embodiment"
@@ -176,6 +191,52 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
                 for s in embodiment_specs
             }
         )
+
+        # ---- [EXP-0010] Change B: per-domain recon decoder split (opt-in) ----
+        # ONE shared action encoder, TWO recon decoders. The base key
+        # ``recon_decoders.<name>`` stays the ROBOT decoder (so a pretrained checkpoint
+        # still loads strict) and the human twin is added as a NEW key
+        # ``recon_decoders.<name>__human``. In finetuning-freeze mode the twin is picked
+        # up automatically as a new trainable module (the "recon_decoders." prefix is
+        # already on the allowed-new list). Default off -> nothing is registered.
+        self.split_recon_decoder = bool(split_recon_decoder)
+        self.human_decoder_suffix = HUMAN_DECODER_SUFFIX
+        if self.split_recon_decoder:
+            for s in embodiment_specs:
+                self.recon_decoders[str(s["name"]) + HUMAN_DECODER_SUFFIX] = ReconDecoderV4(
+                    action_dim=int(s["action_dim"]),
+                    action_horizon=action_horizon,
+                    emb_dim=emb_dim,
+                    head_dim=head_dim,
+                    depth=decoder_depth,
+                    pdropout=pdropout,
+                    decoder_mode=decoder_mode,
+                    num_global_tokens=0,
+                    num_hand_tokens=0,
+                    token_dim=token_dim,
+                )
+
+        # ---- [EXP-0010] Change A: embodiment-agnostic regularizer on z (opt-in) ----
+        # Applied to the ACTION LATENT the Stage-2 policy consumes, pooled over the time
+        # axis (``mean``) or kept per time token with the token index as a stratification
+        # bin (``tokens``). Default mode "" -> no module, no params, no forward change.
+        self.embod_reg_mode = str(embod_reg_mode or "")
+        self.embod_reg_weight = float(embod_reg_weight)
+        self.embod_reg_pool = str(embod_reg_pool)
+        assert self.embod_reg_pool in ("mean", "tokens"), (
+            f"embod_reg_pool must be mean|tokens, got {self.embod_reg_pool!r}"
+        )
+        self.embod_reg_human_names = set(embod_reg_human_names or [])
+        self.embod_reg = None
+        if self.embod_reg_mode:
+            self.embod_reg = EmbodAgnosticReg(
+                d=token_dim,
+                mode=self.embod_reg_mode,
+                lambda_=embod_reg_lambda,
+                gather=embod_reg_gather,
+                vic_var=embod_reg_vic_var,
+                vic_cov=embod_reg_vic_cov,
+            )
 
         # ---- SHARED fusion encoder (one instance) ----
         # num_tokens=0 → action latents injected as external tokens
@@ -469,6 +530,87 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
     def decode(self, name: str, time_tok: torch.Tensor) -> torch.Tensor:
         return self.recon_decoders[name](time_tok)
 
+    def _recon_loss(self, name, time_tok, actions, is_human):
+        """Reconstruction loss, optionally routed to per-domain decoders (Change B).
+
+        Off (default) or without labels: the single ``recon_decoders[name]`` -- the
+        original path. On: robot rows decode through ``recon_decoders[name]``, human rows
+        through the ``__human`` twin, and the two subset means are recombined weighted by
+        row count. That weighting reproduces the plain mean EXACTLY, so with the twin
+        copy-initialized from the base decoder, enabling the split cannot by itself move
+        the loss -- the two only diverge as their own domain's gradients arrive.
+        """
+        if not self.split_recon_decoder or is_human is None:
+            return self._recon_loss_fn(self.decode(name, time_tok), actions)
+        hm = is_human.reshape(-1).to(time_tok.device) > 0.5
+        n = int(hm.numel())
+        n_h = int(hm.sum().item())
+        human_name = name + self.human_decoder_suffix
+        if n_h == 0:
+            return self._recon_loss_fn(self.decode(name, time_tok), actions)
+        if n_h == n:
+            return self._recon_loss_fn(self.decode(human_name, time_tok), actions)
+        l_r = self._recon_loss_fn(self.decode(name, time_tok[~hm]), actions[~hm])
+        l_h = self._recon_loss_fn(self.decode(human_name, time_tok[hm]), actions[hm])
+        return (float(n - n_h) * l_r + float(n_h) * l_h) / float(n)
+
+    def _reg_labels(self, name, is_human, B, device):
+        """Per-sample domain label for the regularizer.
+
+        Prefers the batch's own ``is_human``: in the {p,r,q} config robot and human
+        sources are MIXED inside one embodiment group, so the group name alone cannot
+        tell them apart. Falls back to group membership (``embod_reg_human_names``) for
+        configs where a whole embodiment is one domain.
+        """
+        if is_human is not None:
+            return is_human.reshape(-1).float().to(device)
+        return torch.full((B,), float(name in self.embod_reg_human_names),
+                          device=device, dtype=torch.float32)
+
+    def _pool_for_reg(self, time_tok, name, is_human):
+        """(h, labels, bin_ids) for the regularizer, from the latent z [B,T,token_dim].
+
+        ``mean``   -> [B, token_dim]; isomorphic to the reference implementation's
+                      pooled hidden, and the safe default.
+        ``tokens`` -> [B*T, token_dim] with ``bin_ids`` = the time-token index, so the
+                      invariance term contrasts human vs robot AT THE SAME chunk phase
+                      ("same phase -> same latent") instead of only matching marginals.
+        """
+        B, T, _ = time_tok.shape
+        lbl = self._reg_labels(name, is_human, B, time_tok.device)
+        if self.embod_reg_pool == "tokens":
+            h = time_tok.reshape(B * T, -1)                       # index = b*T + t
+            bins = torch.arange(T, device=time_tok.device).repeat(B)
+            return h, lbl.repeat_interleave(T), bins
+        return time_tok.mean(dim=1), lbl, None
+
+    def _apply_reg(self, out: dict, reg_collect) -> dict:
+        """Add the regularizer once over ALL groups' latents (one contrast per step).
+
+        Pooling across groups first is also what makes ``gather=True`` safe: N is then
+        the full per-rank micro-batch, identical on every rank.
+        """
+        if self.embod_reg is None or not reg_collect:
+            return out
+        h = torch.cat([c[0] for c in reg_collect], 0)
+        lbl = torch.cat([c[1] for c in reg_collect], 0)
+        bins = (torch.cat([c[2] for c in reg_collect], 0)
+                if reg_collect[0][2] is not None else None)
+        reg = self.embod_reg(h, lbl, bins)
+        out["loss"] = out["loss"] + self.embod_reg_weight * reg
+        dev = h.device
+        # Scalars only (the trainer .item()s every non-"loss" entry). The two counts are
+        # the proof that the domain labels actually arrived -- they are what the contrast
+        # was computed on, after the all-gather when gather=True.
+        out["loss_embod_reg"] = reg.detach()
+        out["embod_reg_n_human"] = torch.tensor(self.embod_reg.last_nh, device=dev)
+        out["embod_reg_n_robot"] = torch.tensor(self.embod_reg.last_nr, device=dev)
+        out["embod_reg_gap"] = torch.tensor(self.embod_reg.last_gap, device=dev)
+        out["embod_reg_std_min"] = torch.tensor(self.embod_reg.last_std_min, device=dev)
+        if bins is not None:
+            out["embod_reg_bins"] = torch.tensor(self.embod_reg.last_bins, device=dev)
+        return out
+
     def decode_dino(self, time_tok: torch.Tensor, x0_feat: torch.Tensor,
                     name: Optional[str] = None) -> torch.Tensor:
         if self.use_embodiment_class_token:
@@ -512,11 +654,14 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
             total_n = max(total_n, 1)
             agg: dict = {}
             loss = None
+            # [EXP-0010] one regularizer contrast per step, over every group's latents.
+            reg_collect = [] if self.embod_reg is not None else None
             for name in order:
                 g = groups[name]
                 out = self._forward_single(
                     name, g["action"], g["x0_feat"], g["x1_feat"],
                     g.get("s0_feat"), g.get("s1_feat"),
+                    is_human=g.get("is_human"), reg_collect=reg_collect,
                 )
                 w = int(g["action"].shape[0]) / total_n
                 loss = out["loss"] * w if loss is None else loss + out["loss"] * w
@@ -524,14 +669,18 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
                     if k != "loss":
                         agg[f"{k}/{name}"] = v
             agg["loss"] = loss
-            return agg
-        return self._forward_single(
+            return self._apply_reg(agg, reg_collect)
+        reg_collect = [] if self.embod_reg is not None else None
+        out = self._forward_single(
             batch["embodiment"], batch["action"], batch["x0_feat"], batch["x1_feat"],
             batch.get("s0_feat"), batch.get("s1_feat"),
+            is_human=batch.get("is_human"), reg_collect=reg_collect,
         )
+        return self._apply_reg(out, reg_collect)
 
     def _forward_single(self, name, actions, x0_feat, x1_feat,
-                        s0_feat=None, s1_feat=None) -> dict:
+                        s0_feat=None, s1_feat=None,
+                        is_human=None, reg_collect=None) -> dict:
         if isinstance(name, (list, tuple)):
             name = name[0]
         device = actions.device
@@ -539,9 +688,12 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         time_tok, kl = self.encode(name, actions, x0_feat, x1_feat, s0_feat, s1_feat)
         actions = actions.to(dtype=time_tok.dtype)
 
+        # [EXP-0010] hand the latent to the caller for one pooled contrast per step.
+        if reg_collect is not None:
+            reg_collect.append(self._pool_for_reg(time_tok, name, is_human))
+
         if self.lambda_recon > 0:
-            recon = self.decode(name, time_tok)
-            loss_recon = self._recon_loss_fn(recon, actions)
+            loss_recon = self._recon_loss(name, time_tok, actions, is_human)
         else:
             loss_recon = torch.zeros((), device=device)
 
@@ -600,7 +752,17 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         ``encoder.embodiment_class_token`` so Stage-2's ``TimeWiseEncoderV4`` prepends
         the same token. The multiemb-only class-token keys are dropped.
         """
-        pfx_ae = f"action_encoders.{name}."
+        # [EXP-0010] ``name`` may carry the per-domain decoder suffix (e.g.
+        # "openarm_prq__human"). The action ENCODER and the class token are shared, so
+        # they come from the BASE embodiment; only the recon DECODER is the twin. That is
+        # how Stage-2 selects "decode this latent the human way" vs "the robot way" --
+        # same encoder, same latent space, different output style.
+        base = name
+        if HUMAN_DECODER_SUFFIX in name and not any(
+            k.startswith(f"action_encoders.{name}.") for k in state_dict
+        ):
+            base = name[: name.rindex(HUMAN_DECODER_SUFFIX)]
+        pfx_ae = f"action_encoders.{base}."
         pfx_rd = f"recon_decoders.{name}."
 
         # Per-embodiment class token → single-embodiment encoder buffer.
@@ -610,7 +772,7 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         # in shape/meaning either way, so Stage-2 stays unchanged.
         emb_class_token = None
         if "_use_emb_class_token" in state_dict:
-            id_key = f"_class_token_id__{name}"
+            id_key = f"_class_token_id__{base}"
             assert id_key in state_dict, (
                 f"class-token checkpoint missing {id_key!r} for embodiment {name!r}"
             )

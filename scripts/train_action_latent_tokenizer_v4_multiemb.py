@@ -51,7 +51,10 @@ from gr00t.data.dataset_action_frames_v4_multiemb import (
 )
 from gr00t.data.merge_norm_stats import apply_merged_normalization_metadata
 from gr00t.experiment.trainer import BaseSampler
-from gr00t.model.action_latent_tokenizer_v4_multiemb import MultiEmbActionLatentTokenizerV4
+from gr00t.model.action_latent_tokenizer_v4_multiemb import (
+    HUMAN_DECODER_SUFFIX,
+    MultiEmbActionLatentTokenizerV4,
+)
 from gr00t.utils.dino import DINOv3FeatureExtractor
 
 
@@ -193,6 +196,8 @@ class MultiEmbActionLatentV4Trainer(transformers.Trainer):
         for name, g in inputs["groups"].items():
             x0_feat, x1_feat = self._group_feats(g)
             entry = {"action": g["action"], "x0_feat": x0_feat, "x1_feat": x1_feat}
+            if "is_human" in g:  # [EXP-0010] per-sample domain label
+                entry["is_human"] = g["is_human"]
             s0_feat, s1_feat = self._group_seg_feats(g)
             if s0_feat is not None:
                 entry["s0_feat"] = s0_feat
@@ -411,6 +416,27 @@ class ArgsConfig:
     run_name: Optional[str] = None
     wandb_project: str = "action-latent-tokenizer-v4-multiemb"
     resume: bool = False
+
+    # ── [EXP-0010] Change A: embodiment-agnostic regularizer on the action latent ──
+    # Default None/0 -> the module is never built: no params, no forward change.
+    # vicreg is the recommended mode; meanshift alone collapsed in the reference study
+    # (its apparent gain was a small-batch variance-shrinkage artifact), and the variance
+    # hinge in vicreg is exactly the term that prevents that.
+    embod_reg_mode: Optional[str] = None  # vicreg | coral | meanshift | dann
+    embod_reg_weight: float = 0.0
+    embod_reg_gather: bool = True  # all-gather before contrasting; effectively mandatory
+    embod_reg_pool: Literal["mean", "tokens"] = "mean"
+    embod_reg_vic_var: float = 1.0
+    embod_reg_vic_cov: float = 0.04
+    embod_reg_lambda: float = 1.0  # GRL strength (dann only)
+    # Fallback labelling for configs where a whole embodiment group is one domain
+    # (comma-separated group names). Unused when the data carries per-sample is_human,
+    # which the egopi_prq loader does.
+    embod_reg_human_embodiments: Optional[str] = None
+
+    # ── [EXP-0010] Change B: per-domain recon decoder split (encoder stays shared) ──
+    split_recon_decoder: bool = False
+    split_recon_decoder_init: Literal["copy", "random"] = "copy"
 
     # ── Validation ──
     val_ratio: float = 0.003
@@ -724,6 +750,17 @@ def _build_model(config: ArgsConfig, embodiment_specs, action_horizon,
         tokenizer_finetuning_mode=config.tokenizer_finetuning_mode,
         new_class_token=config.new_class_token,
         num_pretrain_class_tokens=num_pretrain_class_tokens,
+        embod_reg_mode=config.embod_reg_mode or "",
+        embod_reg_weight=config.embod_reg_weight,
+        embod_reg_gather=config.embod_reg_gather,
+        embod_reg_pool=config.embod_reg_pool,
+        embod_reg_vic_var=config.embod_reg_vic_var,
+        embod_reg_vic_cov=config.embod_reg_vic_cov,
+        embod_reg_lambda=config.embod_reg_lambda,
+        embod_reg_human_names=[
+            s.strip() for s in (config.embod_reg_human_embodiments or "").split(",") if s.strip()
+        ],
+        split_recon_decoder=config.split_recon_decoder,
     )
 
 
@@ -760,6 +797,19 @@ def main(config: ArgsConfig):
         assert config.tokenizer_finetuning_mode, (
             "finetuning_freeze_mode requires tokenizer_finetuning_mode."
         )
+
+    # [EXP-0010] arg validation (no-ops when both features are off).
+    if config.embod_reg_mode:
+        assert config.embod_reg_weight > 0, (
+            f"--embod-reg-mode {config.embod_reg_mode} is set but --embod-reg-weight is "
+            f"{config.embod_reg_weight}; the regularizer would be a no-op."
+        )
+        print(f"[embod-reg] ON mode={config.embod_reg_mode} weight={config.embod_reg_weight} "
+              f"pool={config.embod_reg_pool} gather={config.embod_reg_gather} "
+              f"vic_var={config.embod_reg_vic_var} vic_cov={config.embod_reg_vic_cov}")
+    if config.split_recon_decoder:
+        print(f"[split-decoder] ON init={config.split_recon_decoder_init} "
+              f"(shared action encoder + per-domain recon decoders)")
 
     (train_dataset, val_dataset, embodiment_specs, train_group_sizes,
      group_weights, any_weight_set) = _load_embodiment_groups(config)
@@ -808,7 +858,8 @@ def main(config: ArgsConfig):
         # seg-stream fusion concat itself adds no params, so it never shows up here).
         new_param_names = [n for n, _ in model.named_parameters() if n not in pretrained_sd]
         for n in new_param_names:
-            assert n.startswith(("action_encoders.", "recon_decoders.", "seg_dino_decoder.")) or n == "finetuning_class_token", (
+            assert n.startswith(("action_encoders.", "recon_decoders.", "seg_dino_decoder.",
+                                 "embod_reg.")) or n == "finetuning_class_token", (
                 f"[finetune] unexpected new (missing-from-checkpoint) param {n!r}; the "
                 f"pretrained checkpoint likely has a different config (fusion/decoder/etc.)."
             )
@@ -826,6 +877,24 @@ def main(config: ArgsConfig):
                 p.requires_grad = n in trainable
             print(f"[finetune] freeze mode ON: only {len(trainable)} newly-added param "
                   "tensors train; all pretrained/shared modules frozen.")
+
+    # [EXP-0010] Change B init: start the human recon decoder as an exact copy of the
+    # (already-loaded, pretrained) robot decoder, so enabling the split does not perturb
+    # the loss at step 0 -- the twins diverge only as their own domain's gradients arrive.
+    # --split-recon-decoder-init random keeps the fresh init instead.
+    if (config.split_recon_decoder and config.split_recon_decoder_init == "copy"
+            and not is_resuming):
+        n_copied = 0
+        for nm in [k for k in model.recon_decoders.keys()
+                   if not k.endswith(HUMAN_DECODER_SUFFIX)]:
+            twin = nm + HUMAN_DECODER_SUFFIX
+            if twin in model.recon_decoders:
+                model.recon_decoders[twin].load_state_dict(
+                    model.recon_decoders[nm].state_dict()
+                )
+                n_copied += 1
+        print(f"[split-decoder] human recon decoder copy-initialized from the robot "
+              f"decoder ({n_copied} pair(s))")
 
     total_params = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -885,7 +954,10 @@ def main(config: ArgsConfig):
         f"micro_batch(global)={micro_batch_global:,} steps/epoch={steps_per_epoch:,}"
     )
 
-    collator = MultiEmbActionFramesCollator()
+    # [EXP-0010] the per-sample domain label is only stacked when something needs it.
+    collator = MultiEmbActionFramesCollator(
+        pass_is_human=bool(config.embod_reg_mode) or config.split_recon_decoder
+    )
 
     trainer = MultiEmbActionLatentV4Trainer(
         model=model,
