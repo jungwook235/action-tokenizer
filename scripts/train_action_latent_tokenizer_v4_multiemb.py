@@ -428,6 +428,9 @@ class ArgsConfig:
     embod_reg_pool: Literal["mean", "tokens"] = "mean"
     embod_reg_vic_var: float = 1.0
     embod_reg_vic_cov: float = 0.04
+    # Per-dim std floor of the variance hinge. 1.0 is the reference constant, calibrated
+    # for its feature scale, not ours (measured ~1.8 pooled / ~2.2 per-token here).
+    embod_reg_vic_std: float = 1.0
     embod_reg_lambda: float = 1.0  # GRL strength (dann only)
     # Fallback labelling for configs where a whole embodiment group is one domain
     # (comma-separated group names). Unused when the data carries per-sample is_human,
@@ -756,6 +759,7 @@ def _build_model(config: ArgsConfig, embodiment_specs, action_horizon,
         embod_reg_pool=config.embod_reg_pool,
         embod_reg_vic_var=config.embod_reg_vic_var,
         embod_reg_vic_cov=config.embod_reg_vic_cov,
+        embod_reg_vic_std=config.embod_reg_vic_std,
         embod_reg_lambda=config.embod_reg_lambda,
         embod_reg_human_names=[
             s.strip() for s in (config.embod_reg_human_embodiments or "").split(",") if s.strip()
@@ -806,7 +810,8 @@ def main(config: ArgsConfig):
         )
         print(f"[embod-reg] ON mode={config.embod_reg_mode} weight={config.embod_reg_weight} "
               f"pool={config.embod_reg_pool} gather={config.embod_reg_gather} "
-              f"vic_var={config.embod_reg_vic_var} vic_cov={config.embod_reg_vic_cov}")
+              f"vic_var={config.embod_reg_vic_var} vic_cov={config.embod_reg_vic_cov} "
+              f"vic_std={config.embod_reg_vic_std}")
     if config.split_recon_decoder:
         print(f"[split-decoder] ON init={config.split_recon_decoder_init} "
               f"(shared action encoder + per-domain recon decoders)")

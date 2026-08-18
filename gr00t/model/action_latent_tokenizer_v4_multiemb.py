@@ -102,6 +102,7 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
         embod_reg_pool: str = "mean",
         embod_reg_vic_var: float = 1.0,
         embod_reg_vic_cov: float = 0.04,
+        embod_reg_vic_std: float = 1.0,
         embod_reg_lambda: float = 1.0,
         embod_reg_human_names: Optional[list] = None,
         split_recon_decoder: bool = False,
@@ -236,6 +237,7 @@ class MultiEmbActionLatentTokenizerV4(nn.Module):
                 gather=embod_reg_gather,
                 vic_var=embod_reg_vic_var,
                 vic_cov=embod_reg_vic_cov,
+                vic_std=embod_reg_vic_std,
             )
 
         # ---- SHARED fusion encoder (one instance) ----

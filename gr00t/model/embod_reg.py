@@ -108,7 +108,8 @@ class EmbodAgnosticReg(nn.Module):
     """
 
     def __init__(self, d: int, mode: str = "vicreg", lambda_: float = 1.0,
-                 gather: bool = True, vic_var: float = 1.0, vic_cov: float = 0.04):
+                 gather: bool = True, vic_var: float = 1.0, vic_cov: float = 0.04,
+                 vic_std: float = 1.0):
         super().__init__()
         if mode not in VALID_EMBOD_REG_MODES:
             raise ValueError(f"unknown embod_reg mode: {mode!r} (valid: {VALID_EMBOD_REG_MODES})")
@@ -118,6 +119,13 @@ class EmbodAgnosticReg(nn.Module):
         self.gather = bool(gather)
         self.vic_var = float(vic_var)
         self.vic_cov = float(vic_cov)
+        # vic_std: the hinge's per-dim std FLOOR. The reference hardcodes 1.0, calibrated
+        # for its own feature scale, not ours: measured on the trained prq tokenizer our
+        # latent sits at std ~1.8 (pooled) / ~2.2 (per-token), so at 1.0 the hinge is
+        # inert and both clouds could shrink ~45% before meeting any resistance -- the
+        # exact collapse the term exists to prevent. Set it just under the measured
+        # operating point to restore the protection; 1.0 keeps the reference behavior.
+        self.vic_std = float(vic_std)
         # Diagnostics, refreshed every forward (the trainer logs them as scalars).
         self.last_nh = 0.0        # human sample count actually contrasted
         self.last_nr = 0.0        # robot sample count actually contrasted
@@ -220,7 +228,8 @@ class EmbodAgnosticReg(nn.Module):
         if self.mode == "vicreg":
             # Variance-PRESERVING alignment:
             #   invariance  the centroid pull (what we want)
-            #   variance    hinge keeping EACH stream's per-dim std >= 1 (anti-collapse)
+            #   variance    hinge keeping EACH stream's per-dim std >= vic_std, the
+            #               anti-collapse floor (see the ctor note on choosing it)
             #   covariance  off-diagonal penalty per stream, so the preserved variance is
             #               spread over directions instead of piling into one
             # Standard VICReg weights (25/25/1) are rescaled so the invariance term keeps
@@ -240,7 +249,7 @@ class EmbodAgnosticReg(nn.Module):
             cov = h.new_zeros(())
             for X in (H, R):
                 std = torch.sqrt(X.var(0, unbiased=False) + 1e-4)
-                var = var + F.relu(1.0 - std).pow(2).mean()
+                var = var + F.relu(self.vic_std - std).pow(2).mean()
                 C = self._cov(X)
                 off = C - torch.diag_embed(torch.diagonal(C))
                 cov = cov + (off * off).sum() / self.d

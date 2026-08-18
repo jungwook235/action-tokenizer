@@ -46,12 +46,33 @@ ulimit -Sn "$(ulimit -Hn)"
 #    (--split-recon-decoder-init copy) so step 0 is numerically unchanged. Motivation is
 #    inference flexibility: decode the same latent "the robot way" or "the human way".
 #    Stage-2 selects with --embodiment-id openarm_prq (robot) or openarm_prq__human.
+# MEASURED BASIS for the embod-reg values below (scripts/exp0010_zstats.py, 4096 samples
+# off .../ft_openarm_prq_400k/checkpoint-200000, 2026-08-19). Nothing here is a guess:
+#   * z per-dim std = 1.79 med (pooled) / 2.18 med (per-token). The reference's hardcoded
+#     hinge floor of 1.0 is therefore INERT for us (var term 1e-5) and would permit a ~45%
+#     shrink before resisting -- so --embod-reg-vic-std 1.75, just under the p10 of the
+#     measured per-token std, which blocks collapse without pulling at the current point.
+#   * cov at the reference vic_cov=0.04 was 5.41, i.e. 84% of the whole regularizer: the
+#     term would have been a decorrelation objective wearing an alignment objective's
+#     name. --embod-reg-vic-cov 0.004 puts it at 31% (inv 69%).
+#   * H/R centroid gap = 0.887 unstratified, but 1.223 when contrasted WITHIN time-token
+#     bins, and the per-bin gap grows down the chunk (t0 0.89 -> t15 1.90, max 2.86). The
+#     misalignment is concentrated LATE and the marginal contrast hides a third of it,
+#     hence --embod-reg-pool tokens.
+#   * centroid estimator floor: 0.324 on a per-rank micro-batch vs 0.040 with the 8-GPU
+#     all-gather, against a true gap of 0.89 -- 36% bias without gather, 4% with it.
+#     --embod-reg-gather is not optional.
+#   * loss_embod_reg at these settings evaluates to 1.766 on the trained tokenizer, and
+#     that run's total loss was 0.0189 (recon 0.00208, dino 0.1635 x 0.1, kl 407 x 1e-6).
+#     --embod-reg-weight 0.003 -> a 0.0053 contribution: ~28% of the total and ~2.5x the
+#     recon term, which has room to give (it converged at 0.002). If loss_recon more than
+#     doubles by 5k steps, or embod_reg_gap has not started falling, stop and re-weight.
 EMB_CONFIG=/sjw_alinlab1/home/jungwook/action_tokenizer/sbatch_scripts/multiemb/v4_soupv1/embodiments_openarm_prq_finetune.json
 PRETRAIN_CKPT_DIR=checkpoints_action_tokenizer/joint_soupv1_v4_recon_dino_bn64_l1_mse_naiveln_vae_embtok
 PRETRAIN_STEP=400000
 ABS_PRETRAIN="$BASE_DIR/$PRETRAIN_CKPT_DIR/checkpoint-$PRETRAIN_STEP"
-TOK_CKPT_DIR=$MODEL_OUTPUT_DIR/checkpoints_action_tokenizer/joint_soupv1_v4_recon_dino_bn64_l1_mse_naiveln_vae_embtok_ft_openarm_prq_embodreg_vicreg_splitdec_400k
-FT_STEP=200000
+TOK_CKPT_DIR=$MODEL_OUTPUT_DIR/checkpoints_action_tokenizer/joint_soupv1_v4_recon_dino_bn64_l1_mse_naiveln_vae_embtok_ft_openarm_prq_embodreg_vicreg_splitdec_400k_ft100k
+FT_STEP=100000
 
 python scripts/train_action_latent_tokenizer_v4_multiemb.py \
     --resume \
@@ -88,11 +109,12 @@ python scripts/train_action_latent_tokenizer_v4_multiemb.py \
     --new-class-token 1 \
     --finetuning-pretrained-path "$ABS_PRETRAIN" \
     --embod-reg-mode vicreg \
-    --embod-reg-weight 0.1 \
+    --embod-reg-weight 0.003 \
     --embod-reg-gather \
-    --embod-reg-pool mean \
+    --embod-reg-pool tokens \
     --embod-reg-vic-var 1.0 \
-    --embod-reg-vic-cov 0.04 \
+    --embod-reg-vic-std 1.75 \
+    --embod-reg-vic-cov 0.004 \
     --split-recon-decoder \
     --split-recon-decoder-init copy \
     --video-backend decord \
