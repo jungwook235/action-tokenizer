@@ -96,6 +96,15 @@ def main():
                     help="which mask the cutout video keeps (default: union of all prompts)")
     ap.add_argument("--bg", default="green", choices=sorted(BG_COLORS),
                     help="cutout background; green keeps masked-out area distinct from the black GR-1 hands")
+    # Our own runs pass --no-prompt-masks: the training path uses only robot_mask and
+    # object_mask (and mask == robot | object is recoverable from them), so the P per-prompt
+    # planes are dead weight there -- roughly a third of the npz. Keep them only when you
+    # actually want per-prompt analysis; recovering them later means re-running SAM3.
+    ap.add_argument("--overlay-limit", type=int, default=None, metavar="N",
+                    help="render the overlay video only for the first N episodes of this "
+                         "shard (default: all). The overlay is a human spot-check aid that "
+                         "nothing downstream reads; a few dozen per shard is plenty, and "
+                         "skipping the rest saves disk and CPU encode time.")
     ap.add_argument("--no-prompt-masks", action="store_true",
                     help="drop the per-prompt planes from the npz (keeps mask/robot_mask/object_mask)")
     ap.add_argument("--fps", type=float, default=None,
@@ -126,16 +135,23 @@ def main():
     manifest = os.path.join(args.out_root, f"manifest_shard{args.shard_id}.jsonl")
     os.makedirs(args.out_root, exist_ok=True)
     n_done = n_skip = n_err = 0
-    for ep, chunk, video_path, task, nouns in mine:
+    for i, (ep, chunk, video_path, task, nouns) in enumerate(mine):
         sub = os.path.join(chunk, CAMERA)
         stem = f"episode_{ep:06d}"
         cut_path = os.path.join(args.out_root, "cutout", sub, stem + ".mp4")
         ovl_path = os.path.join(args.out_root, "overlay", sub, stem + ".mp4")
         msk_path = os.path.join(args.out_root, "masks", sub, stem + ".npz")
-        if all(os.path.exists(p) for p in (cut_path, ovl_path, msk_path)):
+        # `mine` is deterministic for a given (num_shards, shard_id), so "the first N"
+        # picks the same episodes on every restart.
+        want_overlay = args.overlay_limit is None or i < args.overlay_limit
+        # Resume: only require the outputs this run would actually produce. Demanding the
+        # overlay unconditionally would make the skip test fail forever on every episode
+        # past --overlay-limit, and each restart would re-run SAM3 over the whole shard.
+        expected = (cut_path, msk_path) + ((ovl_path,) if want_overlay else ())
+        if all(os.path.exists(p) for p in expected):
             n_skip += 1
             continue
-        for p in (cut_path, ovl_path, msk_path):
+        for p in expected:
             os.makedirs(os.path.dirname(p), exist_ok=True)
 
         prompts = ROBOT_PROMPTS + list(nouns)
@@ -149,6 +165,7 @@ def main():
                 cut_path, ovl_path, msk_path, bg_color,
                 cutout_from=args.cutout_from,
                 keep_prompt_masks=not args.no_prompt_masks,
+                write_overlay=want_overlay,
             )
             rec = {"episode_index": ep, "chunk": chunk, "camera": CAMERA, "task": task,
                    **stats, "seconds": round(time.time() - t0, 1)}

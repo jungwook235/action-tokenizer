@@ -68,8 +68,24 @@ python batch_sam3_actionnet.py --root ... --out-root /tmp/smoke \
 
 Useful flags: `--limit N` (first N of the shard), `--max-nouns` (default 3),
 `--cutout-from {union,robot,object}`, `--no-prompt-masks` (drops the per-prompt
-planes to save disk), `--bg {green,black,white}`, `--fps` (override; default is
+planes), `--overlay-limit N` (render the overlay for only the first N episodes of
+the shard), `--bg {green,black,white}`, `--fps` (override; default is
 `meta/info.json`, i.e. 15.0), `--nouns` (a different noun table).
+
+**What we actually run**: `--no-prompt-masks --overlay-limit 30`.
+
+* `--no-prompt-masks`: the training path reads `robot_mask` and `object_mask` only,
+  and `mask == robot | object` is recoverable from those two, so the P per-prompt
+  planes are dead weight -- about a third of the npz. Keep them only if you want
+  per-prompt analysis; recovering them later means re-running SAM3 on that episode.
+* `--overlay-limit 30`: the overlay is a human spot-check aid that nothing
+  downstream reads. A few dozen per shard is enough to eyeball mask quality, and
+  skipping the rest saves both disk and CPU encode time (the encode is inside the
+  0.27 s/frame budget). The cutout is always written.
+
+Both flags are resume-safe: the skip test only requires the outputs that the
+current invocation would produce, so an episode past `--overlay-limit` is not
+re-inferred on restart just because it has no overlay.
 
 **Sharding / resume.** Episode j goes to shard `j % num_shards`; a shard skips any
 episode whose three outputs already exist. So a killed job is restarted by
@@ -140,5 +156,23 @@ assert (robot | obj == d["mask"]).all()
 | 24 | ~24 h |
 | 48 | ~12 h |
 
-Disk ≈ 1.0 MB/episode for the npz plus the two mp4s → roughly 30–50 GB total.
-Give each job ≥4 CPUs: the mp4 encoding is on the CPU and is part of that 0.27 s.
+Give each job >=4 CPUs: the mp4 encoding is on the CPU and is part of that 0.27 s.
+
+Disk, from two measurements on this cluster -- a compressed 256x256 binary mask
+plane costs **0.91 KB/frame** (8 real mask npz, 1,670 frames, 15% foreground) and a
+256x256 h264 clip costs **1.27 KB/frame** (5 real mp4s). At 29,968 episodes x 257.3
+frames:
+
+| what | per episode | total |
+|---|---|---|
+| npz with `prompt_masks` | 0.70 MB | 21.0 GB |
+| npz with `--no-prompt-masks` | 0.47 MB | 14.0 GB |
+| cutout mp4 | ~0.33 MB | ~9.8 GB |
+| overlay mp4 (all episodes) | ~0.33 MB | ~9.8 GB |
+| **default, everything** | ~1.36 MB | **~40.6 GB** |
+| `--no-prompt-masks --overlay-limit 30` | ~0.80 MB | **~24 GB** |
+
+So the full run is tens of GB, not hundreds -- it is GPU time, not disk, that costs
+here. The npz saving from `--no-prompt-masks` is 7-13 GB depending on whether zlib's
+cost tracks plane count or foreground area; the five prompt planes barely overlap
+(hand, arm, three nouns), so the area model (~7 GB) is the realistic one.

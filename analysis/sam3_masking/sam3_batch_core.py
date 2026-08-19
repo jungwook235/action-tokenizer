@@ -121,14 +121,22 @@ def per_prompt_stats(prompt_masks, prompts):
 
 def write_outputs(frames, fps, prompt_masks, prompts, n_robot, ep,
                   cut_path, ovl_path, msk_path, bg_color,
-                  cutout_from="union", keep_prompt_masks=True, write_videos=True):
+                  cutout_from="union", keep_prompt_masks=True, write_videos=True,
+                  write_overlay=True):
     """Render the videos (unless write_videos=False) and save the role-separated npz.
-    Returns the stats dict that the caller logs to the manifest."""
+
+    ``write_overlay=False`` writes the cutout but skips the overlay. The overlay exists
+    for humans to spot-check the masks -- nothing downstream reads it -- so a caller
+    processing tens of thousands of episodes should render only a sample of them.
+
+    Returns the stats dict that the caller logs to the manifest.
+    """
     robot_mask, object_mask, union = split_masks(prompt_masks, n_robot)
     if write_videos:
         source = {"union": union, "robot": robot_mask, "object": object_mask}[cutout_from]
         write_video(cut_path, cutout_frames(frames, source, bg_color), fps)
-        write_video(ovl_path, overlay_by_prompt(frames, prompt_masks), fps)
+        if write_overlay:
+            write_video(ovl_path, overlay_by_prompt(frames, prompt_masks), fps)
 
     payload = dict(
         mask=union,
