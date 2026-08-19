@@ -64,7 +64,11 @@ class MultiEmbActionFramesCollator:
     the cached feats directly or runs DINO on the frames, per group.
     """
 
-    def __init__(self):
+    def __init__(self, pass_is_human: bool = False):
+        # pass_is_human ([EXP-0010]): also stack the per-sample ``is_human`` label into
+        # each group, for the embodiment regularizer and/or the per-domain decoder split.
+        # Off by default -> the emitted batch is byte-identical to before.
+        self.pass_is_human = bool(pass_is_human)
         self._frame_collator = ActionFramesCollatorV4()
         self._cached_collator = CachedActionFramesCollatorV4()
 
@@ -86,6 +90,12 @@ class MultiEmbActionFramesCollator:
                 groups[name] = self._cached_collator(feats)
             else:
                 groups[name] = self._frame_collator(feats)
+            # [EXP-0010] Stacked here rather than inside the two sub-collators so both
+            # the cached and the live path get it from one place.
+            if self.pass_is_human and "is_human" in feats[0]:
+                groups[name]["is_human"] = torch.tensor(
+                    [float(f["is_human"]) for f in feats], dtype=torch.float32
+                )
         return {"embodiment_order": order, "groups": groups}
 
 

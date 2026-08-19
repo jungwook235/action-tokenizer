@@ -28,7 +28,18 @@ PALETTE = np.array(
 )
 
 
+DEFAULT_FPS = 20.0
+
+
 def load_video(path):
+    """Decode every frame; return (frames_rgb, fps).
+
+    fps comes from the container. It used to be hardcoded to 20.0, which happened
+    to match gr1_unified and so went unnoticed until ActionNet (15 fps) stamped
+    20.0 into its mask npz. fps never reaches SAM3 — it only labels the written
+    mp4s and the npz metadata — but a wrong value there is a real bug for anything
+    that derives timing from it, so read it instead of assuming.
+    """
     cap = cv2.VideoCapture(path)
     frames = []
     while True:
@@ -36,9 +47,11 @@ def load_video(path):
         if not ok:
             break
         frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    fps = cap.get(cv2.CAP_PROP_FPS)
     cap.release()
-    fps = 20.0
-    return frames, fps
+    if not fps or not np.isfinite(fps) or fps <= 0:  # unreadable header
+        fps = DEFAULT_FPS
+    return frames, float(fps)
 
 
 def overlay(frame_rgb, masks, ids, scores=None, alpha=0.55):
