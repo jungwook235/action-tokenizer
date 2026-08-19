@@ -1,0 +1,6087 @@
+{
+ "1. Pick up the green apple. 2. Put the green apple in the rack.": [
+  "green apple",
+  "rack"
+ ],
+ "1. Pick up the red cup. 2. Pour the beans from the red cup into the green bowl. 3. Place the red cup back on the table.": [
+  "beans",
+  "red cup",
+  "green bowl"
+ ],
+ "1. Pick up the red cup. 2. Transfer the red cup into the white container.": [
+  "red cup",
+  "white container"
+ ],
+ "Acquire the orange cup, transfer its contents into the pink cup, and then place the orange cup back on the table.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Cap the cup into the pan.": [
+  "cap",
+  "cup",
+  "pan"
+ ],
+ "Capture an apple and place it in the container.": [
+  "apple",
+  "container"
+ ],
+ "Capture the green ball with the gripper and place it on the surface.": [
+  "green ball"
+ ],
+ "Capture the green sphere with the robotic arm and place it inside the white rectangular structure.": [
+  "green sphere"
+ ],
+ "Close the cabinet door.": [
+  "cabinet door",
+  "white cabinet"
+ ],
+ "Close the container": [
+  "container"
+ ],
+ "Close the container.": [
+  "container"
+ ],
+ "Close the drawer.": [
+  "drawer"
+ ],
+ "Close the right door of the white box.": [
+  "white box"
+ ],
+ "Close the white drawer": [
+  "white drawer"
+ ],
+ "Drive the clock into the transparent container.": [
+  "clock",
+  "transparent container"
+ ],
+ "Elevate the approaching object and place it in the white container.": [
+  "white container"
+ ],
+ "Fetch the pink mug and place it in the container.": [
+  "pink mug",
+  "container"
+ ],
+ "Fetch the yellow object from the table and place it in the container.": [
+  "container"
+ ],
+ "Fill the pink cup with red beans from the orange cup, then place the orange cup back on the table.": [
+  "red beans",
+  "pink cup",
+  "orange cup"
+ ],
+ "Flatten the ring doughnut and drop it into the plastic bin.": [
+  "ring",
+  "doughnut",
+  "plastic bin"
+ ],
+ "GRASP the red-handled tool and place it into the clear plastic cup.": [
+  "plastic cup"
+ ],
+ "Get the lemon and put it in the container.": [
+  "lemon",
+  "container"
+ ],
+ "Go close to the green apple, grab it, and drop it into the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Grab and place the blue clamp tongs into the cooking pan.": [
+  "blue clamp",
+  "tongs",
+  "pan"
+ ],
+ "Grab the blue object and place it into the rack.": [
+  "rack"
+ ],
+ "Grab the bread and place it in the container.": [
+  "bread",
+  "container"
+ ],
+ "Grab the bread and place it into the transparent container.": [
+  "bread",
+  "transparent container"
+ ],
+ "Grab the bread and put it into the container.": [
+  "bread",
+  "container"
+ ],
+ "Grab the bread, lift it, and place it in the container.": [
+  "bread",
+  "container"
+ ],
+ "Grab the clock and drop it into the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Grab the cup filled with red beans and pour it into the container.": [
+  "red beans",
+  "cup",
+  "container"
+ ],
+ "Grab the doughnut and place it in the container.": [
+  "doughnut",
+  "container"
+ ],
+ "Grab the green apple and place it in the bowl.": [
+  "green apple",
+  "bowl"
+ ],
+ "Grab the green apples on the table and put them in the container": [
+  "green apple",
+  "container"
+ ],
+ "Grab the measuring tape and place it into the bowl.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Grab the mouse and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Grab the mouse and place it in the black container.": [
+  "mouse",
+  "black container"
+ ],
+ "Grab the pink cup and place it in the white tray.": [
+  "pink cup",
+  "white tray"
+ ],
+ "Grab the pink cup and place it into the tray.": [
+  "pink cup",
+  "tray"
+ ],
+ "Grab the potato and place it in the bowl.": [
+  "potato",
+  "bowl"
+ ],
+ "Grab the red cup, pour the contents into the pink cup, and then place the red cup back on the table.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Grab the tape measure and place it in the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Grab the white mouse and place it in the basket.": [
+  "white mouse",
+  "basket"
+ ],
+ "Grab the white mouse and place it in the black basket.": [
+  "white mouse",
+  "black basket"
+ ],
+ "Grab the white mouse and place it in the black rack.": [
+  "white mouse",
+  "black rack"
+ ],
+ "Grab the white mouse and place it in the black tray.": [
+  "white mouse",
+  "black tray"
+ ],
+ "Grab the yellow tape measure on the table and place it into the white tray.": [
+  "yellow tape measure",
+  "white tray"
+ ],
+ "Grasp the Rubiks cube, lift it, and place it into the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Grasp the Rubiks cube, rotate it, and place it in the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Grasp the blue cup from the table and place it into the white plastic basket.": [
+  "blue cup",
+  "plastic basket"
+ ],
+ "Grasp the bread, and place it in the basket.": [
+  "bread",
+  "basket"
+ ],
+ "Grasp the clock and place it inside the transparent container.": [
+  "clock",
+  "transparent container"
+ ],
+ "Grasp the clock and place it into the wooden box.": [
+  "clock",
+  "wooden box"
+ ],
+ "Grasp the clock, lift it, and place it into the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Grasp the clock, move it to the basket, and place it inside the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Grasp the clock, release it into the container, and then return to an idle position.": [
+  "clock",
+  "container"
+ ],
+ "Grasp the computer mouse and place it in the basket.": [
+  "computer",
+  "mouse",
+  "basket"
+ ],
+ "Grasp the computer mouse and transfer it from the table to the basket.": [
+  "computer",
+  "mouse",
+  "basket"
+ ],
+ "Grasp the doughnut and place it in the transparent container.": [
+  "doughnut",
+  "transparent container"
+ ],
+ "Grasp the doughnut and place it into the container.": [
+  "doughnut",
+  "container"
+ ],
+ "Grasp the eggplant and place it in the frying pan.": [
+  "eggplant",
+  "frying pan"
+ ],
+ "Grasp the green apple and place it in the white cage.": [
+  "green apple",
+  "white cage"
+ ],
+ "Grasp the green apple and place it in the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Grasp the green apple and place it inside the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Grasp the green apple and place it into the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Grasp the green apple and place it on the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Grasp the green apple. Place the apple in the crate.": [
+  "green apple",
+  "apple",
+  "crate"
+ ],
+ "Grasp the lemon and place it in the container.": [
+  "lemon",
+  "container"
+ ],
+ "Grasp the lemon and place it inside the transparent container.": [
+  "lemon",
+  "transparent container"
+ ],
+ "Grasp the lemon with the right hand and place it inside the plastic container.": [
+  "lemon",
+  "plastic container"
+ ],
+ "Grasp the measuring tape and place it into the tray.": [
+  "measuring tape",
+  "tray"
+ ],
+ "Grasp the mouse and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Grasp the mouse and place it in the metal tray.": [
+  "mouse",
+  "metal tray"
+ ],
+ "Grasp the mouse and place it in the tray.": [
+  "mouse",
+  "tray"
+ ],
+ "Grasp the mouse and place it into the black tray.": [
+  "mouse",
+  "black tray"
+ ],
+ "Grasp the mouse with both hands and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Grasp the orange cup, transfer its contents into the pink cup, and then return the orange cup to its original position.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Grasp the orange tape dispenser with the robotic arm and lift it to the transparent box. Drop the tape dispenser into the box and hold the transparent lid.": [
+  "orange",
+  "transparent lid",
+  "dispenser"
+ ],
+ "Grasp the pink cup and lift it, then place it into the white container.": [
+  "pink cup",
+  "white container"
+ ],
+ "Grasp the pink cup and place it into the white tray.": [
+  "pink cup",
+  "white tray"
+ ],
+ "Grasp the pink cup, pick it up, and place it into the white basket.": [
+  "pink cup",
+  "white basket"
+ ],
+ "Grasp the pink mug and place it in the white tray.": [
+  "pink mug",
+  "white tray"
+ ],
+ "Grasp the tape measure and place it in the basket.": [
+  "tape measure",
+  "basket"
+ ],
+ "Grasp the yellow lemon and place it into the transparent container.": [
+  "yellow lemon",
+  "transparent container"
+ ],
+ "Grasp the yellow tape measure and drop it into the black container.": [
+  "yellow tape measure",
+  "black container"
+ ],
+ "Grasp the yellow tape measure and place it in the white bowl.": [
+  "yellow tape measure",
+  "white bowl"
+ ],
+ "Hold the orange container and pour the contents into the blue bowl.": [
+  "orange container",
+  "blue bowl"
+ ],
+ "Identify and lift the green sphere, then place it in the tray.": [
+  "green sphere",
+  "tray"
+ ],
+ "Instruction: Pick up the green cube from the table and place it into the bucket.": [
+  "green cube",
+  "bucket"
+ ],
+ "Lift the orange cup, transfer its contents to the pink cup, and then place the orange cup back on the table.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Locate the mouse, grasp it, and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Mobile robot grabbers, picking up green apples from the table and placing them in a basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Move close to the clock and pick it up, then place it in the plastic bin.": [
+  "clock",
+  "plastic bin"
+ ],
+ "Move close to the donut, pick it up, and place it in the basket.": [
+  "donut",
+  "basket"
+ ],
+ "Move close to the green apple and pick it up using the robotic hand,and put it in the container": [
+  "green apple",
+  "container"
+ ],
+ "Move closer to the blue cup, pick it up, and place it in the bowl.": [
+  "blue cup",
+  "bowl"
+ ],
+ "Move closer to the clock, grasp it firmly, and place it into the transparent container.": [
+  "clock",
+  "transparent container"
+ ],
+ "Move closer to the green apple, grab it, and lower it into the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Move closer to the lemon to grab it, lift it, and place it into the clear container.": [
+  "lemon",
+  "clear container"
+ ],
+ "Move closer to the mouse, pick it up, and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move closer to the mouse, pick it up, and place it in the black tray.": [
+  "mouse",
+  "black tray"
+ ],
+ "Move closer to the orange cup, pick it up, and pour the beans into the green bowl.": [
+  "beans",
+  "orange cup",
+  "green bowl"
+ ],
+ "Move closer to the orange cup, pick it up, transfer its contents into the pink bucket, and then place the orange cup back on the table.": [
+  "orange cup",
+  "pink bucket"
+ ],
+ "Move closer to the table, pick up the pink cup, place it in the sink, then move back to the table.": [
+  "pink cup",
+  "sink"
+ ],
+ "Move closer to the tape measure and pick it up, then place it in the tray.": [
+  "tape measure",
+  "tray"
+ ],
+ "Move potatoes into a white basket": [
+  "potato",
+  "white basket"
+ ],
+ "Move potatoes into white basket": [
+  "potato",
+  "white basket"
+ ],
+ "Move the Magenta cup towards the white tray and place it carefully.": [
+  "magenta cup",
+  "white tray"
+ ],
+ "Move the Rubiks Cube to the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Move the Rubiks cube closer, lift it up, and place it in the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Move the Rubiks cube from the table to the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Move the Rubiks cube into the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Move the Rubiks cube to the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Move the Rubiks cube towards the basket and place it inside.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Move the alarm clock into the white basket": [
+  "alarm clock",
+  "white basket"
+ ],
+ "Move the alarm clock into the white basket.": [
+  "alarm clock",
+  "white basket"
+ ],
+ "Move the alarm clock to the basket.": [
+  "alarm clock",
+  "basket"
+ ],
+ "Move the apple into the basket.": [
+  "apple",
+  "basket"
+ ],
+ "Move the apple into the bowl.": [
+  "apple",
+  "bowl"
+ ],
+ "Move the apple into the bucket.": [
+  "apple",
+  "bucket"
+ ],
+ "Move the apple into the container.": [
+  "apple",
+  "container"
+ ],
+ "Move the apple into the tray.": [
+  "apple",
+  "tray"
+ ],
+ "Move the apple into the white container.": [
+  "apple",
+  "white container"
+ ],
+ "Move the apple to the container.": [
+  "apple",
+  "container"
+ ],
+ "Move the apple to the white bowl.": [
+  "apple",
+  "white bowl"
+ ],
+ "Move the apple towards the bowl and place it inside.": [
+  "apple",
+  "bowl"
+ ],
+ "Move the apple towards the tray with the gripper.": [
+  "apple",
+  "tray"
+ ],
+ "Move the arm to pick up the pink cup from the table and place it into the white tray.": [
+  "pink cup",
+  "white tray"
+ ],
+ "Move the arm towards the lemon on the table, pick it up, and place it inside the transparent container.": [
+  "lemon",
+  "transparent container"
+ ],
+ "Move the aubergine from the table into the pan.": [
+  "aubergine",
+  "pan"
+ ],
+ "Move the ball into the container.": [
+  "ball",
+  "container"
+ ],
+ "Move the blue clamp towards the bowl and place it inside.": [
+  "blue clamp",
+  "bowl"
+ ],
+ "Move the blue cup into the white basket": [
+  "blue cup",
+  "white basket"
+ ],
+ "Move the blue cup towards the bowl and place it inside.": [
+  "blue cup",
+  "bowl"
+ ],
+ "Move the blue object into the container.": [
+  "container"
+ ],
+ "Move the blue plastic block into the black basket.": [
+  "plastic block",
+  "black basket"
+ ],
+ "Move the bread and place it in the container.": [
+  "bread",
+  "container"
+ ],
+ "Move the bread to the plate.": [
+  "bread",
+  "plate"
+ ],
+ "Move the bread towards the container and place it inside.": [
+  "bread",
+  "container"
+ ],
+ "Move the cabbage into a black basket": [
+  "cabbage",
+  "black basket"
+ ],
+ "Move the cabbage into a white basket": [
+  "cabbage",
+  "white basket"
+ ],
+ "Move the cabbage into the black basket": [
+  "cabbage",
+  "black basket"
+ ],
+ "Move the cabbage into the white basket": [
+  "cabbage",
+  "white basket"
+ ],
+ "Move the cabbage to the pan": [
+  "cabbage",
+  "pan"
+ ],
+ "Move the cake cup into the basket": [
+  "cake",
+  "cup",
+  "basket"
+ ],
+ "Move the cake into the basket": [
+  "cake",
+  "basket"
+ ],
+ "Move the cake into the white basket": [
+  "cake",
+  "white basket"
+ ],
+ "Move the clamp into the pan.": [
+  "clamp",
+  "pan"
+ ],
+ "Move the claw hand towards the green apple on the table and drop it into the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Move the clip into the white basket": [
+  "clip",
+  "white basket"
+ ],
+ "Move the clock and place it in the transparent container.": [
+  "clock",
+  "transparent container"
+ ],
+ "Move the clock and place it into the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Move the clock and place it into the transparent container.": [
+  "clock",
+  "transparent container"
+ ],
+ "Move the clock into the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Move the clock into the bowl.": [
+  "clock",
+  "bowl"
+ ],
+ "Move the clock into the container.": [
+  "clock",
+  "container"
+ ],
+ "Move the clock into the transparent container.": [
+  "clock",
+  "transparent container"
+ ],
+ "Move the clock to the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Move the clock to the shelf.": [
+  "clock",
+  "shelf"
+ ],
+ "Move the clock towards the basket and drop it in.": [
+  "clock",
+  "basket"
+ ],
+ "Move the clock towards the basket and place it inside.": [
+  "clock",
+  "basket"
+ ],
+ "Move the clock towards the plate and place it on the plate.": [
+  "clock",
+  "plate"
+ ],
+ "Move the croissant into a clear plastic box": [
+  "croissant",
+  "plastic box"
+ ],
+ "Move the cube into a clear plastic box": [
+  "cube",
+  "plastic box"
+ ],
+ "Move the cup into the black basket": [
+  "cup",
+  "black basket"
+ ],
+ "Move the cup into the pan": [
+  "cup",
+  "pan"
+ ],
+ "Move the cup into the white basket": [
+  "cup",
+  "white basket"
+ ],
+ "Move the cup with the metal pole and place it on the plate.": [
+  "metal pole",
+  "cup",
+  "plate"
+ ],
+ "Move the doughnut into the transparent container.": [
+  "doughnut",
+  "transparent container"
+ ],
+ "Move the eggplant into the white basket": [
+  "eggplant",
+  "white basket"
+ ],
+ "Move the eggplant into the white grid basket.": [
+  "eggplant",
+  "white grid",
+  "basket"
+ ],
+ "Move the fruit in the basket": [
+  "fruit",
+  "basket"
+ ],
+ "Move the green apple from the table and place it into the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Move the green apple into the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Move the green apple into the container using both robotic arms.": [
+  "green apple",
+  "container"
+ ],
+ "Move the green apple into the space.": [
+  "green apple"
+ ],
+ "Move the green apple into the tray.": [
+  "green apple",
+  "tray"
+ ],
+ "Move the green apple into the white basket.": [
+  "green apple",
+  "white basket"
+ ],
+ "Move the green apple into the white box": [
+  "green apple",
+  "white box"
+ ],
+ "Move the green apple into the white bucket.": [
+  "green apple",
+  "white bucket"
+ ],
+ "Move the green apple towards the bowl and place it inside.": [
+  "green apple",
+  "bowl"
+ ],
+ "Move the green apple towards the white grid.": [
+  "green apple",
+  "white grid"
+ ],
+ "Move the green fruit into the white container.": [
+  "green fruit",
+  "white container"
+ ],
+ "Move the green object from the table into the white container.": [
+  "white container"
+ ],
+ "Move the green object into the container.": [
+  "container"
+ ],
+ "Move the gripper to grasp the lemon, lift it, and place the lemon into the plastic container.": [
+  "lemon",
+  "plastic container"
+ ],
+ "Move the hand to the lemon and pick it up. Then, move the hand towards the container and drop the lemon into the container.": [
+  "lemon",
+  "container"
+ ],
+ "Move the hand towards the blue underside surface tool on the table, pick it up, and place it in the shallow dish.": [
+  "dish"
+ ],
+ "Move the into a white basket": [
+  "white basket"
+ ],
+ "Move the left hand towards the lemon, grasp it, lift it up, and place the lemon in the container.": [
+  "lemon",
+  "container"
+ ],
+ "Move the lemon from the table into the container.": [
+  "lemon",
+  "container"
+ ],
+ "Move the lemon into the transparent container.": [
+  "lemon",
+  "transparent container"
+ ],
+ "Move the lemon towards the transparent container.": [
+  "lemon",
+  "transparent container"
+ ],
+ "Move the measuring tape closer to the bowl and place it inside.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Move the measuring tape from the table and place it in the container.": [
+  "measuring tape",
+  "container"
+ ],
+ "Move the measuring tape from the table into the bowl.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Move the measuring tape into the bowl while the person redirects the robot.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Move the measuring tape into the bowl.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Move the measuring tape into the tray.": [
+  "measuring tape",
+  "tray"
+ ],
+ "Move the measuring tape into the white bowl.": [
+  "measuring tape",
+  "white bowl"
+ ],
+ "Move the measuring tape to the bowl and place it inside.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Move the measuring tape to the white container and place it inside.": [
+  "measuring tape",
+  "white container"
+ ],
+ "Move the measuring tape towards the bowl and drop it inside.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Move the mouse in the black basket": [
+  "mouse",
+  "black basket"
+ ],
+ "Move the mouse in the pan": [
+  "mouse",
+  "pan"
+ ],
+ "Move the mouse into a black basket": [
+  "mouse",
+  "black basket"
+ ],
+ "Move the mouse into the white basket": [
+  "mouse",
+  "white basket"
+ ],
+ "Move the mouse to the basket": [
+  "mouse",
+  "basket"
+ ],
+ "Move the mouse towards the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the object closer to the box and place it inside. Then cover the box with a lid.": [
+  "lid",
+  "box"
+ ],
+ "Move the orange cup and pour the black object into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Move the orange cup to pour its contents into the green bowl.": [
+  "orange cup",
+  "green bowl"
+ ],
+ "Move the orange cup to pour the beans into the green bowl.": [
+  "beans",
+  "orange cup",
+  "green bowl"
+ ],
+ "Move the orange cup to the pink cup and pour the contents of the orange cup into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Move the orange cup towards the pink cup and pour the contents of the orange cup into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Move the orange cup towards the pink cup and pour the objects into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Move the orange cup towards the pink cup and pour the red beans into it.": [
+  "red beans",
+  "orange cup",
+  "pink cup"
+ ],
+ "Move the orange cup towards the pink cup to pour the red objects into it. Once the pouring is done, return the orange cup to its original position. Monitor the robots movements for accuracy and adjust as necessary.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Move the orange cup towards the pink cup. Pour the red objects from the orange cup into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Move the pastry onto the plate.": [
+  "pastry",
+  "plate"
+ ],
+ "Move the persimmon into a black basket": [
+  "persimmon",
+  "black basket"
+ ],
+ "Move the persimmon into a white basket": [
+  "persimmon",
+  "white basket"
+ ],
+ "Move the persimmon into the frying pan.": [
+  "persimmon",
+  "frying pan"
+ ],
+ "Move the pink cup into the tray.": [
+  "pink cup",
+  "tray"
+ ],
+ "Move the pink cup into the white container.": [
+  "pink cup",
+  "white container"
+ ],
+ "Move the potato closer and place it in the container.": [
+  "potato",
+  "container"
+ ],
+ "Move the potato into the container.": [
+  "potato",
+  "container"
+ ],
+ "Move the potato to the container and place it inside.": [
+  "potato",
+  "container"
+ ],
+ "Move the potato to the left and drop it into the plastic container.": [
+  "potato",
+  "plastic container"
+ ],
+ "Move the potatoes in the earthy bowl": [
+  "potato",
+  "bowl"
+ ],
+ "Move the potatoes into a white basket": [
+  "potato",
+  "white basket"
+ ],
+ "Move the potatoes into the clear plastic box": [
+  "potato",
+  "plastic box"
+ ],
+ "Move the red cup and pour the red object into the pink cup.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Move the red cup towards the green cup and pour the beans into the green cup.": [
+  "beans",
+  "red cup",
+  "green cup"
+ ],
+ "Move the red cup towards the pink cup and pour the black objects from the red cup into the pink cup.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Move the right arm closer to the green apple, grab it, and place it in the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Move the robot arm to grasp the green apple, lift it, and place it into the white rack.": [
+  "green apple",
+  "white rack"
+ ],
+ "Move the robot arm to pick the apple and place it in the bowl.": [
+  "apple",
+  "bowl"
+ ],
+ "Move the robot arm to pick up the Rubiks cube from the table and place it inside the container.": [
+  "rubiks cube",
+  "container"
+ ],
+ "Move the robot arm to pick up the green apple and place it into the white basket.": [
+  "green apple",
+  "white basket"
+ ],
+ "Move the robot arm to the green apple on the table and place it into the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Move the robot arm towards the bread, grab it, and place it into the plastic container.": [
+  "bread",
+  "plastic container"
+ ],
+ "Move the robot arm towards the green apple and then place it into the white bowl.": [
+  "green apple",
+  "white bowl"
+ ],
+ "Move the robot hand to grab the green object on the table, then drop it into the container.": [
+  "container"
+ ],
+ "Move the robot hand towards the green apple, grasp it, and place the apple into the white container.": [
+  "green apple",
+  "apple",
+  "white container"
+ ],
+ "Move the robotic arm close to the mouse, grasp it, pick it up, and place it into the tray.": [
+  "mouse",
+  "tray"
+ ],
+ "Move the robotic arm close to the mouse, grasp the mouse, lift it up, and place it into the plastic bin.": [
+  "mouse",
+  "plastic bin"
+ ],
+ "Move the robotic arm close to the white mouse, grab it, and place it into the black container.": [
+  "white mouse",
+  "black container"
+ ],
+ "Move the robotic arm closer to the mouse and place it into the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic arm over the table, grasp the white computer mouse, and place it into the black magnetic mouse tray on the table.": [
+  "white computer",
+  "mouse",
+  "tray"
+ ],
+ "Move the robotic arm to grab and pick up the white mouse, then place it into the black basket.": [
+  "white mouse",
+  "black basket"
+ ],
+ "Move the robotic arm to grab the clock, then place it into the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Move the robotic arm to grab the mouse and place it into the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic arm to grasp and transfer the pink cup into the white container.": [
+  "pink cup",
+  "white container"
+ ],
+ "Move the robotic arm to grasp the green object on the table and place it inside the rack.": [
+  "rack"
+ ],
+ "Move the robotic arm to grasp the mouse and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic arm to grasp the persimmon, lift it up, and place it in the white basket.": [
+  "persimmon",
+  "white basket"
+ ],
+ "Move the robotic arm to lift the computer mouse and place it into the basket.": [
+  "computer",
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic arm to lift the mouse towards the tray and place it inside the tray.": [
+  "mouse",
+  "tray"
+ ],
+ "Move the robotic arm to pick the measuring tape and place it inside the tray.": [
+  "measuring tape",
+  "tray"
+ ],
+ "Move the robotic arm to pick up the computer mouse on the table and place it in the basket.": [
+  "computer",
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic arm to pick up the green apple and place it in the metal rack.": [
+  "green apple",
+  "metal rack"
+ ],
+ "Move the robotic arm to pick up the mouse from the table and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic arm to pick up the tape measure and place it inside the tray.": [
+  "tape measure",
+  "tray"
+ ],
+ "Move the robotic arm to pick up the tennis ball and place it in the basket.": [
+  "tennis ball",
+  "basket"
+ ],
+ "Move the robotic arm to pick up the white computer mouse and place it into the black grid container.": [
+  "white computer",
+  "mouse",
+  "black grid"
+ ],
+ "Move the robotic arm to pick up the white computer mouse from the red cloth, place it into the metal Slotger, and release it.": [
+  "white computer",
+  "mouse",
+  "red cloth"
+ ],
+ "Move the robotic arm to pick up the white mouse and place it into the tray.": [
+  "white mouse",
+  "tray"
+ ],
+ "Move the robotic arm to pick up the white mouse from the table, place it into the basket, and then retract the arm.": [
+  "white mouse",
+  "basket"
+ ],
+ "Move the robotic arm to the white mouse, pick it up, and place it in the black basket.": [
+  "white mouse",
+  "black basket"
+ ],
+ "Move the robotic arm towards the mouse and place it inside the container.": [
+  "mouse",
+  "container"
+ ],
+ "Move the robotic arm towards the mouse on the table, pick it up, and place it into the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic arm towards the mouse, grab it, and place it in the black container.": [
+  "mouse",
+  "black container"
+ ],
+ "Move the robotic arm towards the mouse, grasp it, and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic arm towards the mouse, pick it up, and place it into the black tray.": [
+  "mouse",
+  "black tray"
+ ],
+ "Move the robotic arm towards the mouse, pick it up, and place it into the container.": [
+  "mouse",
+  "container"
+ ],
+ "Move the robotic arm towards the mouse, pick it up, place it in the basket, and then return the robotic arm to its original position.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic arm towards the white computer mouse on the table, lift it up, and place it in the black rectangular basket.": [
+  "white computer",
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic arm towards the white mouse on the red surface, and then place the mouse into the black tray.": [
+  "white mouse",
+  "mouse",
+  "black tray"
+ ],
+ "Move the robotic arm towards the white mouse. - Grasp the mouse. - Lift the mouse and move it towards the white container. - Release the mouse in the container.": [
+  "white mouse",
+  "mouse",
+  "white container"
+ ],
+ "Move the robotic gripper to grab and place the green apple inside the black container.": [
+  "green apple",
+  "black container"
+ ],
+ "Move the robotic hand to grab the mouse and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic hand to grasp the mouse and place it inside the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic hand to grasp the orange, then place it in the wooden tray.": [
+  "orange",
+  "wooden tray"
+ ],
+ "Move the robotic hand to grasp the pastry, lift it, and place it in the grill.": [
+  "pastry",
+  "grill"
+ ],
+ "Move the robotic hand to place the green apple in the white grid container.": [
+  "green apple",
+  "white grid",
+  "container"
+ ],
+ "Move the robotic hand to the mouse and place it into the container.": [
+  "mouse",
+  "container"
+ ],
+ "Move the robotic hand to the mouse, grab it, pick it up, and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic hand toward the mouse, pick up the mouse, and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move the robotic hand towards the left, grab the mouse, and place it inside the black and red grid container.": [
+  "mouse",
+  "red grid",
+  "container"
+ ],
+ "Move the robotic hand towards the lemon, grab it, lift it, and place it inside the transparent container.": [
+  "lemon",
+  "transparent container"
+ ],
+ "Move the robotic hand towards the mouse and pick it up. Place the mouse into the designated tray.": [
+  "mouse",
+  "tray"
+ ],
+ "Move the robotic hand towards the mouse, grasp it, and place it in the black container.": [
+  "mouse",
+  "black container"
+ ],
+ "Move the robotic hand towards the mouse. Grasp the mouse with the robotic hand. Release the mouse into the tray.": [
+  "mouse",
+  "tray"
+ ],
+ "Move the robotic hand towards the white computer mouse on the table, grab the mouse, and place it into the black tray on the table.": [
+  "white computer",
+  "mouse",
+  "black tray"
+ ],
+ "Move the robotic hand towards the white mouse and gently place it on the red tray.": [
+  "white mouse",
+  "red tray"
+ ],
+ "Move the robots arm towards the green apple and gently place it in the black tray.": [
+  "green apple",
+  "black tray"
+ ],
+ "Move the robots arm towards the lemon on the table, then move the lemon towards the clear container. Release the lemon in the container.": [
+  "lemon",
+  "clear container",
+  "container"
+ ],
+ "Move the robots gripper to grab the clock and place it into the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Move the staple into the earthy bowl": [
+  "bowl"
+ ],
+ "Move the stapler towards the basket and place it inside the basket.": [
+  "stapler",
+  "basket"
+ ],
+ "Move the tape measure from the table to the bowl and place it.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Move the tape measure into the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Move the tape measure into the container and place it inside the container.": [
+  "tape measure",
+  "container"
+ ],
+ "Move the tape measure into the container.": [
+  "tape measure",
+  "container"
+ ],
+ "Move the tape measure into the tray.": [
+  "tape measure",
+  "tray"
+ ],
+ "Move the tape measure into the white basket": [
+  "tape measure",
+  "white basket"
+ ],
+ "Move the tape measure into the white plate.": [
+  "tape measure",
+  "white plate"
+ ],
+ "Move the tape measure to place it in the center of the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Move the tape measure to the plate and drop it in the bowl.": [
+  "tape measure",
+  "plate",
+  "bowl"
+ ],
+ "Move the tape measure to the tray.": [
+  "tape measure",
+  "tray"
+ ],
+ "Move the tape measure to the white container.": [
+  "tape measure",
+  "white container"
+ ],
+ "Move the tape measure to the white tray.": [
+  "tape measure",
+  "white tray"
+ ],
+ "Move the tape measure towards the bowl and place it in the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Move the tennis ball into a clear plastic box": [
+  "tennis ball",
+  "plastic box"
+ ],
+ "Move the tennis ball into the earthenware bowl": [
+  "tennis ball",
+  "earthenware bowl"
+ ],
+ "Move the tool into the tray.": [
+  "tray"
+ ],
+ "Move the white apple into the basket.": [
+  "white apple",
+  "basket"
+ ],
+ "Move the white mouse into the rack.": [
+  "white mouse",
+  "rack"
+ ],
+ "Move the white object into the white container.": [
+  "white container"
+ ],
+ "Move the yellow cup to pour the black objects into the pink cup.": [
+  "yellow cup",
+  "pink cup"
+ ],
+ "Move the yellow measuring tape into the white container.": [
+  "yellow measuring tape",
+  "white container"
+ ],
+ "Move the yellow tape measure into the black basket": [
+  "yellow tape measure",
+  "black basket"
+ ],
+ "Move the yellow tape measure into the mesh basket.": [
+  "yellow tape measure",
+  "mesh",
+  "basket"
+ ],
+ "Move the yellow tape measure into the pan": [
+  "yellow tape measure",
+  "pan"
+ ],
+ "Move the yellow tape measure into the tray.": [
+  "yellow tape measure",
+  "tray"
+ ],
+ "Move the yellow tape measure into the white basket": [
+  "yellow tape measure",
+  "white basket"
+ ],
+ "Move the yellow tape measure into the white tray.": [
+  "yellow tape measure",
+  "white tray"
+ ],
+ "Move the yellow tape measure to place it in the bowl.": [
+  "yellow tape measure",
+  "bowl"
+ ],
+ "Move the yellow tape measure to the container.": [
+  "yellow tape measure",
+  "container"
+ ],
+ "Move to grasp the persimmon, lift it, and place it into the basket.": [
+  "persimmon",
+  "basket"
+ ],
+ "Move to the lemon, grasp it, and place it in the container.": [
+  "lemon",
+  "container"
+ ],
+ "Move to the measuring tape, lift it, and place it in the container.": [
+  "measuring tape",
+  "container"
+ ],
+ "Move to the mouse, pick it up, and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move to the mouse, pick it up, and place it into the container.": [
+  "mouse",
+  "container"
+ ],
+ "Move to the red mouse on the table. Grasp the mouse. Pull the mouse up and swing it. Place the mouse back on the table.": [
+  "red mouse",
+  "mouse"
+ ],
+ "Move to the rellow bread and place it in the white box.": [
+  "yellow bread",
+  "white box"
+ ],
+ "Move to the rellow bread and place it in the white container.": [
+  "yellow bread",
+  "white container"
+ ],
+ "Move to the rellow bread and place it in the white frying pan.": [
+  "yellow bread",
+  "white frying pan"
+ ],
+ "Move to the rellow potato and place it in the white box.": [
+  "yellow potato",
+  "white box"
+ ],
+ "Move to the yellow tape measure, pick it up, and place it in the white container.": [
+  "yellow tape measure",
+  "white container"
+ ],
+ "Move towards the bread, pick it up, and place it in the container.": [
+  "bread",
+  "container"
+ ],
+ "Move towards the clock and gently place it into the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Move towards the clock, grasp it, lift it, and drop it into the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Move towards the green apple and place it in the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Move towards the green apple and use the gripper hand to pick it up and place it into the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Move towards the green apple on the table and place it into the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Move towards the green apple on the table, pick it up, and place it into the white basket.": [
+  "green apple",
+  "white basket"
+ ],
+ "Move towards the green apple, grab it with the gripper, and place it in the white tray.": [
+  "green apple",
+  "white tray"
+ ],
+ "Move towards the green apple, grab it, and place it into the container.": [
+  "green apple",
+  "container"
+ ],
+ "Move towards the green apple, pick it up, and place it into the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Move towards the lemon and place it into the container.": [
+  "lemon",
+  "container"
+ ],
+ "Move towards the lemon on the table and pick it up, then place the lemon in the transparent container.": [
+  "lemon",
+  "transparent container"
+ ],
+ "Move towards the lemon, grasp it with the gripper, lift it up, and drop it into the container.": [
+  "lemon",
+  "container"
+ ],
+ "Move towards the mouse and place it in the tray.": [
+  "mouse",
+  "tray"
+ ],
+ "Move towards the orange on the table and place it into the bowl.": [
+  "orange",
+  "bowl"
+ ],
+ "Move towards the piece of bread and pick it up. Move the bread towards the container and place it inside.": [
+  "bread",
+  "container"
+ ],
+ "Move towards the tape measure and place it in the white container.": [
+  "tape measure",
+  "white container"
+ ],
+ "Move towards the white mouse, pick it up, place it in the basket, and then report back.": [
+  "white mouse",
+  "basket"
+ ],
+ "Move towards the white mouse. Grasp the mouse and place it into the black tray on the table.": [
+  "white mouse",
+  "mouse",
+  "black tray"
+ ],
+ "Move towards the yellow measuring tape on the table, grip it, and place it into the white container.": [
+  "yellow measuring tape",
+  "white container"
+ ],
+ "Move towards the yellow object, pick it up, and place it in the basket.": [
+  "basket"
+ ],
+ "Move you hands to the clock.": [
+  "clock"
+ ],
+ "Move you hands to the croissant.": [
+  "croissant"
+ ],
+ "Move you hands to the cup.": [
+  "cup"
+ ],
+ "Move you hands to the donut .": [
+  "donut"
+ ],
+ "Move you hands to the lemon.": [
+  "lemon"
+ ],
+ "Move you hands to the orange.": [
+  "orange"
+ ],
+ "Move you hands to the pear.": [
+  "pear"
+ ],
+ "Move you hands to the stapler.": [
+  "stapler"
+ ],
+ "Move you hands to the tennis ball.": [
+  "tennis ball"
+ ],
+ "Move your arm close to the bread, grab it, and place it in the container.": [
+  "bread",
+  "container"
+ ],
+ "Move your arm close to the lemon on the table, grab it, place it in the container, and then retract your arm back to its original position.": [
+  "lemon",
+  "container"
+ ],
+ "Move your arm close to the mouse, grab it, and place the mouse in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move your arm close to the pastry, pick it up, and place it on the plate.": [
+  "pastry",
+  "plate"
+ ],
+ "Move your arm to grasp the mouse and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move your arm to pick up the green apple and place it into the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Move your arm toward the green apple and place it in the bowl.": [
+  "green apple",
+  "bowl"
+ ],
+ "Move your arm towards the Rubiks cube, grab it, lift it up, and place it into the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Move your arm towards the measuring tape, pick it up, and place it in the tray.": [
+  "measuring tape",
+  "tray"
+ ],
+ "Move your arm towards the mouse and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move your arm towards the white mouse and pick it up, then place it in the basket.": [
+  "white mouse",
+  "basket"
+ ],
+ "Move your claw towards the mouse, grab it, and place it into the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Move your gripper in and out of the cage, carefully avoiding any obstacles.": [
+  "cage"
+ ],
+ "Move your gripper towards the green object, grab it, and place it in the container.": [
+  "container"
+ ],
+ "Move your hand to an apple on the table and place it in the container.": [
+  "apple",
+  "container"
+ ],
+ "Move your hand to grab the lemon, lift it up, and place it in the plastic container.": [
+  "lemon",
+  "plastic container"
+ ],
+ "Move your hand to place the yellow measuring tape into the white bowl.": [
+  "yellow measuring tape",
+  "white bowl"
+ ],
+ "Move your hands to close the drawer.": [
+  "drawer"
+ ],
+ "Move your hans to donut.": [
+  "donut"
+ ],
+ "Move your right hand closer to the tennis ball; pick up the ball; drop the ball into the plastic container.": [
+  "tennis ball",
+  "ball",
+  "plastic container"
+ ],
+ "Open the box, pick up the green tennis ball, and place it inside the box.": [
+  "green tennis ball",
+  "box"
+ ],
+ "Open the cabinet door and take out the potato.": [
+  "potato"
+ ],
+ "Open the cabinet with a robotic arm": [
+  "cabinet door",
+  "white cabinet"
+ ],
+ "Open the cabinet.": [
+  "cabinet door",
+  "white cabinet"
+ ],
+ "Open the door of the cabinet.": [
+  "cabinet door",
+  "white cabinet"
+ ],
+ "Open the door of the white cabinet": [
+  "cabinet door",
+  "white cabinet"
+ ],
+ "Open the white drawer": [
+  "white drawer"
+ ],
+ "PICK up the green apple and put it in the container": [
+  "green apple",
+  "container"
+ ],
+ "Pack up the croissant and place it into the plate .": [
+  "croissant",
+  "plate"
+ ],
+ "Pack up the croissant and place it into the plate.": [
+  "croissant",
+  "plate"
+ ],
+ "Pack up the doughnut and place it into the plate.": [
+  "doughnut",
+  "plate"
+ ],
+ "Pack up the magic cube and place it into the plate.": [
+  "magic cube",
+  "plate"
+ ],
+ "Pack up the orange and place it into the bowl.": [
+  "orange",
+  "bowl"
+ ],
+ "Pack up the orange and place it into the plate.": [
+  "orange",
+  "plate"
+ ],
+ "Pack up the potato and place it into the basket .": [
+  "potato",
+  "basket"
+ ],
+ "Pack up the potato and place it into the box .": [
+  "potato",
+  "box"
+ ],
+ "Pack up the tennis and place it into the plate.": [
+  "plate"
+ ],
+ "Pick a cup from the table, transfer the contents into another cup, and then place the cup back on the table.": [
+  "cup"
+ ],
+ "Pick the Rubiks cube from the table and place it into the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Pick the blue cup and place it in the bowl.": [
+  "blue cup",
+  "bowl"
+ ],
+ "Pick the blue object and place it in the container.": [
+  "container"
+ ],
+ "Pick the blue scissors and place them into the white container.": [
+  "blue scissors",
+  "white container"
+ ],
+ "Pick the blue scissors from the table and place them in the basket.": [
+  "blue scissors",
+  "basket"
+ ],
+ "Pick the bread and put it into the container.": [
+  "bread",
+  "container"
+ ],
+ "Pick the bread from the table and move it to the basket.": [
+  "bread",
+  "basket"
+ ],
+ "Pick the bread from the table and place it into the container.": [
+  "bread",
+  "container"
+ ],
+ "Pick the bun on the table and place it in the white tray.": [
+  "bun",
+  "white tray"
+ ],
+ "Pick the clock and place it in the container.": [
+  "clock",
+  "container"
+ ],
+ "Pick the cup and place it in the basket.": [
+  "cup",
+  "basket"
+ ],
+ "Pick the eggplant from the table and place it in the pot.": [
+  "eggplant",
+  "pot"
+ ],
+ "Pick the green apple and place it in the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Pick the green apple and place it in the bowl.": [
+  "green apple",
+  "bowl"
+ ],
+ "Pick the green apple and place it in the white bowl.": [
+  "green apple",
+  "white bowl"
+ ],
+ "Pick the green apple and place it in the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Pick the green apple from the table and place it in the bowl.": [
+  "green apple",
+  "bowl"
+ ],
+ "Pick the green apple from the table and place it in the tray.": [
+  "green apple",
+  "tray"
+ ],
+ "Pick the lemon from the table and drop it into the container.": [
+  "lemon",
+  "container"
+ ],
+ "Pick the lemon from the table and put it into the container.": [
+  "lemon",
+  "container"
+ ],
+ "Pick the measuring tape and drop it into the container.": [
+  "measuring tape",
+  "container"
+ ],
+ "Pick the measuring tape and place it in the bowl.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Pick the measuring tape and place it in the container.": [
+  "measuring tape",
+  "container"
+ ],
+ "Pick the measuring tape and place it in the tray.": [
+  "measuring tape",
+  "tray"
+ ],
+ "Pick the measuring tape and place it in the white tray.": [
+  "measuring tape",
+  "white tray"
+ ],
+ "Pick the mouse and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Pick the mug from the table and place it in the basket.": [
+  "mug",
+  "basket"
+ ],
+ "Pick the orange cup and pour the objects into the clear cup.": [
+  "orange cup",
+  "clear cup"
+ ],
+ "Pick the orange cup, pour the red object into the pink cup, and then return the objects to their original positions.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pick the piece of bread and place it in the container.": [
+  "bread",
+  "container"
+ ],
+ "Pick the pink cup and place it in the basket.": [
+  "pink cup",
+  "basket"
+ ],
+ "Pick the pink cup and place it in the tray.": [
+  "pink cup",
+  "tray"
+ ],
+ "Pick the pink cup and place it into the white tray.": [
+  "pink cup",
+  "white tray"
+ ],
+ "Pick the pink cup from the table and put it into the container.": [
+  "pink cup",
+  "container"
+ ],
+ "Pick the red cup, pour the contents into the pink cup, and place the empty red cup back on the table.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pick the small yellow object and place it in the bowl.": [
+  "bowl"
+ ],
+ "Pick the tape measure and place it in the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Pick the tape measure and place it in the tray.": [
+  "tape measure",
+  "tray"
+ ],
+ "Pick the tape measure and place it into the tray.": [
+  "tape measure",
+  "tray"
+ ],
+ "Pick the tape measure from the table and place it in the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Pick the tape measure from the table and place it in the container.": [
+  "tape measure",
+  "container"
+ ],
+ "Pick the tape measure from the table and place it in the tray.": [
+  "tape measure",
+  "tray"
+ ],
+ "Pick the tape measure from the table and place it into the container.": [
+  "tape measure",
+  "container"
+ ],
+ "Pick the yellow measure and place it in the container.": [
+  "container"
+ ],
+ "Pick the yellow measure from the table and place it into the basket.": [
+  "basket"
+ ],
+ "Pick the yellow measuring tape from the table.": [
+  "yellow measuring tape"
+ ],
+ "Pick the yellow object from the table and place it in the container.": [
+  "container"
+ ],
+ "Pick the yellow tape measure and place it in the white tray.": [
+  "yellow tape measure",
+  "white tray"
+ ],
+ "Pick the yellow tape measure from the pile and place it in the bowl.": [
+  "yellow tape measure",
+  "bowl"
+ ],
+ "Pick up a tape measure from the table and place it in the container.": [
+  "tape measure",
+  "container"
+ ],
+ "Pick up and place the yellow tape measure in the tray.": [
+  "yellow tape measure",
+  "tray"
+ ],
+ "Pick up the Rubik's cube and place it into the container.": [
+  "cube",
+  "container"
+ ],
+ "Pick up the Rubik's cube and place it on the first level of the shelf.": [
+  "cube",
+  "shelf"
+ ],
+ "Pick up the Rubik's cube and place it on the second level of the shelf.": [
+  "cube",
+  "shelf"
+ ],
+ "Pick up the Rubik's cube and place it on the thirdly level of the shelf.": [
+  "cube",
+  "shelf"
+ ],
+ "Pick up the Rubiks Cube and Put it into the container.": [
+  "rubiks cube",
+  "container"
+ ],
+ "Pick up the Rubiks Cube and place it in the container.": [
+  "rubiks cube",
+  "container"
+ ],
+ "Pick up the Rubiks Cube and place it on the third level of the shelf.": [
+  "rubiks cube",
+  "shelf"
+ ],
+ "Pick up the Rubiks Cube and put it on the black shelf.": [
+  "rubiks cube",
+  "black shelf"
+ ],
+ "Pick up the Rubiks Cube and put it on the white shelf.": [
+  "rubiks cube",
+  "white shelf"
+ ],
+ "Pick up the Rubiks Cube from the table and place it in the container": [
+  "rubiks cube",
+  "container"
+ ],
+ "Pick up the Rubiks Cube from the table and place it in the container.": [
+  "rubiks cube",
+  "container"
+ ],
+ "Pick up the Rubiks Cube.": [
+  "rubiks cube"
+ ],
+ "Pick up the Rubiks cube and drop it into the basket": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Pick up the Rubiks cube and drop it into the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Pick up the Rubiks cube and place it in the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Pick up the Rubiks cube and place it in the bowl.": [
+  "rubiks cube",
+  "bowl"
+ ],
+ "Pick up the Rubiks cube and place it in the second-layer wooden crate.": [
+  "rubiks cube",
+  "wooden crate"
+ ],
+ "Pick up the Rubiks cube and place it into the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Pick up the Rubiks cube and place it into the container.": [
+  "rubiks cube",
+  "container"
+ ],
+ "Pick up the Rubiks cube and place it into the transparent container.": [
+  "rubiks cube",
+  "transparent container"
+ ],
+ "Pick up the Rubiks cube and place it on the first level of the double shelf.": [
+  "rubiks cube",
+  "shelf"
+ ],
+ "Pick up the Rubiks cube and place it on the plate.": [
+  "rubiks cube",
+  "plate"
+ ],
+ "Pick up the Rubiks cube and place it on the second level of the shelf.": [
+  "rubiks cube",
+  "shelf"
+ ],
+ "Pick up the Rubiks cube and place it on the third level of the shelf.": [
+  "rubiks cube",
+  "shelf"
+ ],
+ "Pick up the Rubiks cube and put it into the container.": [
+  "rubiks cube",
+  "container"
+ ],
+ "Pick up the Rubiks cube from the table and place it in the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Pick up the Rubiks cube from the table and place it into the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Pick up the Rubiks cube on the table and put it in a container": [
+  "rubiks cube",
+  "container"
+ ],
+ "Pick up the Rubiks cube.": [
+  "rubiks cube"
+ ],
+ "Pick up the alarm clock and place it on the second level of the shelf.": [
+  "alarm clock",
+  "shelf"
+ ],
+ "Pick up the alarm clock and place it on the third level of the shelf.": [
+  "alarm clock",
+  "shelf"
+ ],
+ "Pick up the alarm clock and put it in the white basket.": [
+  "alarm clock",
+  "white basket"
+ ],
+ "Pick up the alarm clock and put it in the white container.": [
+  "alarm clock",
+  "white container"
+ ],
+ "Pick up the alarm clock and put it on the black shelf.": [
+  "alarm clock",
+  "black shelf"
+ ],
+ "Pick up the alarm clock and put it on the second shelf": [
+  "alarm clock",
+  "shelf"
+ ],
+ "Pick up the alarm clock and put it on the third shelf": [
+  "alarm clock",
+  "shelf"
+ ],
+ "Pick up the alarm clock and put it on the top of the white shelf.": [
+  "alarm clock",
+  "white shelf"
+ ],
+ "Pick up the alarm clock and put it on the white shelf.": [
+  "alarm clock",
+  "white shelf"
+ ],
+ "Pick up the alarm clock from the table and place it in the container": [
+  "alarm clock",
+  "container"
+ ],
+ "Pick up the alarm clock from the table and place it in the container.": [
+  "alarm clock",
+  "container"
+ ],
+ "Pick up the alarm clock from the table and place it into the basket.": [
+  "alarm clock",
+  "basket"
+ ],
+ "Pick up the alarm clock from the table and place it into the container.": [
+  "alarm clock",
+  "container"
+ ],
+ "Pick up the alarm clock on the desk and put it in the container": [
+  "alarm clock",
+  "container"
+ ],
+ "Pick up the alarm clock, put it inside the basket, and then lift the basket.": [
+  "alarm clock",
+  "basket"
+ ],
+ "Pick up the and put it on the third shelf": [
+  "shelf"
+ ],
+ "Pick up the apple and drop it into the basket.": [
+  "apple",
+  "basket"
+ ],
+ "Pick up the apple and place it in the basket.": [
+  "apple",
+  "basket"
+ ],
+ "Pick up the apple and place it in the bucket.": [
+  "apple",
+  "bucket"
+ ],
+ "Pick up the apple and place it into the basket.": [
+  "apple",
+  "basket"
+ ],
+ "Pick up the apple and place it into the bowl.": [
+  "apple",
+  "bowl"
+ ],
+ "Pick up the apple and place it into the box, then close the door.": [
+  "apple",
+  "box"
+ ],
+ "Pick up the apple and place it into the cabinet, then close the door.": [
+  "apple"
+ ],
+ "Pick up the apple and place it into the container.": [
+  "apple",
+  "container"
+ ],
+ "Pick up the apple and place it into the pan.": [
+  "apple",
+  "pan"
+ ],
+ "Pick up the apple and place it on the third level of the shelf.": [
+  "apple",
+  "shelf"
+ ],
+ "Pick up the apple and put it in the black basket.": [
+  "apple",
+  "black basket"
+ ],
+ "Pick up the apple and put it in the white basket.": [
+  "apple",
+  "white basket"
+ ],
+ "Pick up the apple and put it into the pan.": [
+  "apple",
+  "pan"
+ ],
+ "Pick up the apple and put it on the second shelfs": [
+  "apple",
+  "shelf"
+ ],
+ "Pick up the apple and put it on the third layer of the basket.": [
+  "apple",
+  "basket"
+ ],
+ "Pick up the apple for and put it into the cabinet, then close the cabinet door.": [
+  "apple"
+ ],
+ "Pick up the apple for and put it into the cabinet, then open the cabinet door.": [
+  "apple"
+ ],
+ "Pick up the apple from the table and place it in the container.": [
+  "apple",
+  "container"
+ ],
+ "Pick up the apple,place it into the box,and close the door.": [
+  "apple",
+  "box"
+ ],
+ "Pick up the apples and put them in the basket": [
+  "apple",
+  "basket"
+ ],
+ "Pick up the apples and put them in the white basket": [
+  "apple",
+  "white basket"
+ ],
+ "Pick up the apples on the table and put them in the container": [
+  "apple",
+  "container"
+ ],
+ "Pick up the aubergine and place it in the pan.": [
+  "aubergine",
+  "pan"
+ ],
+ "Pick up the aubergine and place it in the white pot.": [
+  "aubergine",
+  "white pot"
+ ],
+ "Pick up the aubergine from the table and place it in the pan.": [
+  "aubergine",
+  "pan"
+ ],
+ "Pick up the ball and drop it into the basket": [
+  "ball",
+  "basket"
+ ],
+ "Pick up the ball from the table and drop it into the container.": [
+  "ball",
+  "container"
+ ],
+ "Pick up the banana from the table and place it in the container.": [
+  "banana",
+  "container"
+ ],
+ "Pick up the black stapler and put it in the white basket.": [
+  "black stapler",
+  "white basket"
+ ],
+ "Pick up the blue brush from the table next to the red cup, dip it into the cup, and then place the brush back on the table.": [
+  "red cup",
+  "cup"
+ ],
+ "Pick up the blue clamp and place it in the frying pan.": [
+  "blue clamp",
+  "frying pan"
+ ],
+ "Pick up the blue clamp and place it in the plate.": [
+  "blue clamp",
+  "plate"
+ ],
+ "Pick up the blue clamp and place it in the white bowl.": [
+  "blue clamp",
+  "white bowl"
+ ],
+ "Pick up the blue clamp from the table and place it in the bowl.": [
+  "blue clamp",
+  "bowl"
+ ],
+ "Pick up the blue clamp from the table and place it in the frying pan.": [
+  "blue clamp",
+  "frying pan"
+ ],
+ "Pick up the blue clamp from the table and place it in the pan.": [
+  "blue clamp",
+  "pan"
+ ],
+ "Pick up the blue clamp from the table and place it in the plate.": [
+  "blue clamp",
+  "plate"
+ ],
+ "Pick up the blue clamp from the table and place it in the white bowl.": [
+  "blue clamp",
+  "white bowl"
+ ],
+ "Pick up the blue clamp on the table and place it in the black container.": [
+  "blue clamp",
+  "black container"
+ ],
+ "Pick up the blue clamp on the table and place it in the plate.": [
+  "blue clamp",
+  "plate"
+ ],
+ "Pick up the blue clamp on the table and place it in the white bowl.": [
+  "blue clamp",
+  "white bowl"
+ ],
+ "Pick up the blue clamp on the table and place it in the white container.": [
+  "blue clamp",
+  "white container"
+ ],
+ "Pick up the blue clamp, carry it to the black container, and place it inside. Then, close the container.": [
+  "blue clamp",
+  "black container",
+  "container"
+ ],
+ "Pick up the blue clip and place it on the tray.": [
+  "blue clip",
+  "tray"
+ ],
+ "Pick up the blue clip and put it in a white plastic container.": [
+  "blue clip",
+  "plastic container"
+ ],
+ "Pick up the blue clip from the table and place it in the bowl.": [
+  "blue clip",
+  "bowl"
+ ],
+ "Pick up the blue clip from the table and place it in the white bowl.": [
+  "blue clip",
+  "white bowl"
+ ],
+ "Pick up the blue clip from the table and place it in the white container.": [
+  "blue clip",
+  "white container"
+ ],
+ "Pick up the blue clip from the table and place it into the white tray.": [
+  "blue clip",
+  "white tray"
+ ],
+ "Pick up the blue clip on the table and put it in the container": [
+  "blue clip",
+  "container"
+ ],
+ "Pick up the blue cup Cube and put it on the black shelf.": [
+  "cube",
+  "blue cup",
+  "black shelf"
+ ],
+ "Pick up the blue cup and place it in the basket.": [
+  "blue cup",
+  "basket"
+ ],
+ "Pick up the blue cup and place it in the bowl.": [
+  "blue cup",
+  "bowl"
+ ],
+ "Pick up the blue cup and place it in the green plate.": [
+  "blue cup",
+  "green plate"
+ ],
+ "Pick up the blue cup and place it in the white basket.": [
+  "blue cup",
+  "white basket"
+ ],
+ "Pick up the blue cup and place it inside the bowl.": [
+  "blue cup",
+  "bowl"
+ ],
+ "Pick up the blue cup and place it into the basket.": [
+  "blue cup",
+  "basket"
+ ],
+ "Pick up the blue cup and place it into the white bowl.": [
+  "blue cup",
+  "white bowl"
+ ],
+ "Pick up the blue cup and place it on the blue plate.": [
+  "blue cup",
+  "blue plate"
+ ],
+ "Pick up the blue cup and place it on the green plate.": [
+  "blue cup",
+  "green plate"
+ ],
+ "Pick up the blue cup and place it on the plate.": [
+  "blue cup",
+  "plate"
+ ],
+ "Pick up the blue cup and pour its contents into the white bowl.": [
+  "blue cup",
+  "white bowl"
+ ],
+ "Pick up the blue cup and put it in the white basket.": [
+  "blue cup",
+  "white basket"
+ ],
+ "Pick up the blue cup and put it on the black shelf.": [
+  "blue cup",
+  "black shelf"
+ ],
+ "Pick up the blue cup and put it on the second shelf": [
+  "blue cup",
+  "shelf"
+ ],
+ "Pick up the blue cup and put it on the second shelfs": [
+  "blue cup",
+  "shelf"
+ ],
+ "Pick up the blue cup and put it on the third shelf": [
+  "blue cup",
+  "shelf"
+ ],
+ "Pick up the blue cup and put it on the top of the white shelf.": [
+  "blue cup",
+  "white shelf"
+ ],
+ "Pick up the blue cup and put it on the white shelf.": [
+  "blue cup",
+  "white shelf"
+ ],
+ "Pick up the blue cup from the table and place it in the white basket.": [
+  "blue cup",
+  "white basket"
+ ],
+ "Pick up the blue mug and place it in the basket.": [
+  "blue mug",
+  "basket"
+ ],
+ "Pick up the blue mug and place it in the bowl.": [
+  "blue mug",
+  "bowl"
+ ],
+ "Pick up the blue mug and place it in the white basket.": [
+  "blue mug",
+  "white basket"
+ ],
+ "Pick up the blue mug and place it on the green plate.": [
+  "blue mug",
+  "green plate"
+ ],
+ "Pick up the blue mug and place it onto the green plate.": [
+  "blue mug",
+  "green plate"
+ ],
+ "Pick up the blue object and place it in the black container.": [
+  "black container"
+ ],
+ "Pick up the blue object and place it in the container.": [
+  "container"
+ ],
+ "Pick up the blue object from the table and place it in the bowl.": [
+  "bowl"
+ ],
+ "Pick up the blue object from the table and place it in the container.": [
+  "container"
+ ],
+ "Pick up the blue object from the table and place it in the frying pan.": [
+  "frying pan"
+ ],
+ "Pick up the blue object from the table and place it in the pot.": [
+  "pot"
+ ],
+ "Pick up the blue object from the table and place it into the white bowl.": [
+  "white bowl"
+ ],
+ "Pick up the blue plastic clamp from the table and place it in the bowl.": [
+  "plastic clamp",
+  "bowl"
+ ],
+ "Pick up the blue plastic clip from the table and place it into the frying pan.": [
+  "plastic clip",
+  "frying pan"
+ ],
+ "Pick up the bok choy and place it inside the basket.": [
+  "bok choy",
+  "basket"
+ ],
+ "Pick up the book sewer and put it on the second shelfs": [
+  "book",
+  "shelf"
+ ],
+ "Pick up the bread and place into the container": [
+  "bread",
+  "container"
+ ],
+ "Pick up the bread and place it in the basket.": [
+  "bread",
+  "basket"
+ ],
+ "Pick up the bread and place it in the clear container.": [
+  "bread",
+  "clear container"
+ ],
+ "Pick up the bread and place it in the container": [
+  "bread",
+  "container"
+ ],
+ "Pick up the bread and place it in the container.": [
+  "bread",
+  "container"
+ ],
+ "Pick up the bread and place it in the container.`": [
+  "bread",
+  "container"
+ ],
+ "Pick up the bread and place it in the pan.": [
+  "bread",
+  "pan"
+ ],
+ "Pick up the bread and place it in the transparent container.": [
+  "bread",
+  "transparent container"
+ ],
+ "Pick up the bread and place it into the basket.": [
+  "bread",
+  "basket"
+ ],
+ "Pick up the bread and place it into the box.": [
+  "bread",
+  "box"
+ ],
+ "Pick up the bread and place it into the cabinet, then close the door.": [
+  "bread"
+ ],
+ "Pick up the bread and place it into the container.": [
+  "bread",
+  "container"
+ ],
+ "Pick up the bread and place it on the first level of the double shelf.": [
+  "bread",
+  "shelf"
+ ],
+ "Pick up the bread and place it on the plate.": [
+  "bread",
+  "plate"
+ ],
+ "Pick up the bread and place it on the second level of the shelf.": [
+  "bread",
+  "shelf"
+ ],
+ "Pick up the bread and place it on the third level of the shelf.": [
+  "bread",
+  "shelf"
+ ],
+ "Pick up the bread and pour it into the container.": [
+  "bread",
+  "container"
+ ],
+ "Pick up the bread and put it in the basket.": [
+  "bread",
+  "basket"
+ ],
+ "Pick up the bread and put it in the container.": [
+  "bread",
+  "container"
+ ],
+ "Pick up the bread and put it on the third shelf": [
+  "bread",
+  "shelf"
+ ],
+ "Pick up the bread for and put it into the cabinet, then close the cabinet door.": [
+  "bread"
+ ],
+ "Pick up the bread for and put it into the cabinet, then open the cabinet door.": [
+  "bread"
+ ],
+ "Pick up the bread from the table and place it in the basket.": [
+  "bread",
+  "basket"
+ ],
+ "Pick up the bread from the table and place it in the container.": [
+  "bread",
+  "container"
+ ],
+ "Pick up the bread from the table and place it into the container.": [
+  "bread",
+  "container"
+ ],
+ "Pick up the bread into the cabinet and close the door.": [
+  "bread"
+ ],
+ "Pick up the bread on the table and place it in the container.": [
+  "bread",
+  "container"
+ ],
+ "Pick up the bread on the table and put it in the container": [
+  "bread",
+  "container"
+ ],
+ "Pick up the bread roll and drop it into the white container.": [
+  "bread",
+  "white container"
+ ],
+ "Pick up the bread roll and place it in the bin.": [
+  "bread",
+  "bin"
+ ],
+ "Pick up the bread roll and place it in the plastic container.": [
+  "bread",
+  "plastic container"
+ ],
+ "Pick up the bread roll and place it in the tray.": [
+  "bread",
+  "tray"
+ ],
+ "Pick up the bread, carry it to the white box, and place it inside. Then, close the box.": [
+  "bread",
+  "white box",
+  "box"
+ ],
+ "Pick up the bread, place it in the transparent container.": [
+  "bread",
+  "transparent container"
+ ],
+ "Pick up the bread,place it into the box,and close the door.": [
+  "bread",
+  "box"
+ ],
+ "Pick up the bread,place it into the container,and close the container.": [
+  "bread",
+  "container"
+ ],
+ "Pick up the cabbage on the table and put it in a container": [
+  "cabbage",
+  "container"
+ ],
+ "Pick up the cabbage, put it in the cupboard and close the door": [
+  "cabbage"
+ ],
+ "Pick up the cake and place it in the basket": [
+  "cake",
+  "basket"
+ ],
+ "Pick up the cake and place it in the basket.": [
+  "cake",
+  "basket"
+ ],
+ "Pick up the cake and place it into the basket.": [
+  "cake",
+  "basket"
+ ],
+ "Pick up the cake and place it into the pan.": [
+  "cake",
+  "pan"
+ ],
+ "Pick up the cake and put it in the basket.": [
+  "cake",
+  "basket"
+ ],
+ "Pick up the cake and put it in the black basket.": [
+  "cake",
+  "black basket"
+ ],
+ "Pick up the cake and put it in the white basket.": [
+  "cake",
+  "white basket"
+ ],
+ "Pick up the cake into the cabinet and close the door.": [
+  "cake"
+ ],
+ "Pick up the clamp and place it into the basket.": [
+  "clamp",
+  "basket"
+ ],
+ "Pick up the clamp and place it into the box, then close the door.": [
+  "clamp",
+  "box"
+ ],
+ "Pick up the clamp and place it into the cabinet, then close the door.": [
+  "clamp"
+ ],
+ "Pick up the clamp and place it into the container.": [
+  "clamp",
+  "container"
+ ],
+ "Pick up the clamp and place it into the pan.": [
+  "clamp",
+  "pan"
+ ],
+ "Pick up the clamp from the table and place it in the container.": [
+  "clamp",
+  "container"
+ ],
+ "Pick up the clamp into the cabinet ,and then close the door.": [
+  "clamp"
+ ],
+ "Pick up the clamp into the cabinet and close the door.": [
+  "clamp"
+ ],
+ "Pick up the clip and put it in the black basket.": [
+  "clip",
+  "black basket"
+ ],
+ "Pick up the clip and put it in the white basket.": [
+  "clip",
+  "white basket"
+ ],
+ "Pick up the clip,place it into the box,and close the door.": [
+  "clip",
+  "box"
+ ],
+ "Pick up the clip,place it into the container,and close the container.": [
+  "clip",
+  "container"
+ ],
+ "Pick up the clock and drop it into the container.": [
+  "clock",
+  "container"
+ ],
+ "Pick up the clock and place it in the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Pick up the clock and place it in the bowl.": [
+  "clock",
+  "bowl"
+ ],
+ "Pick up the clock and place it in the container.": [
+  "clock",
+  "container"
+ ],
+ "Pick up the clock and place it in the plastic container.": [
+  "clock",
+  "plastic container"
+ ],
+ "Pick up the clock and place it in the transparent container.": [
+  "clock",
+  "transparent container"
+ ],
+ "Pick up the clock and place it into the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Pick up the clock and place it into the bowl.": [
+  "clock",
+  "bowl"
+ ],
+ "Pick up the clock and place it into the box.": [
+  "clock",
+  "box"
+ ],
+ "Pick up the clock and place it into the container.": [
+  "clock",
+  "container"
+ ],
+ "Pick up the clock and place it into the transparent container.": [
+  "clock",
+  "transparent container"
+ ],
+ "Pick up the clock and place it into the wooden drawer.": [
+  "clock",
+  "wooden drawer"
+ ],
+ "Pick up the clock and place it on the first level of the double shelf.": [
+  "clock",
+  "shelf"
+ ],
+ "Pick up the clock and place it on the first level of the shelf.": [
+  "clock",
+  "shelf"
+ ],
+ "Pick up the clock and place it on the plate.": [
+  "clock",
+  "plate"
+ ],
+ "Pick up the clock and place it on the second level of the shelf.": [
+  "clock",
+  "shelf"
+ ],
+ "Pick up the clock and place it on the third level of the shelf.": [
+  "clock",
+  "shelf"
+ ],
+ "Pick up the clock and place it on the thirdly level of the shelf.": [
+  "clock",
+  "shelf"
+ ],
+ "Pick up the clock and place it on the top of the double shelf.": [
+  "clock",
+  "shelf"
+ ],
+ "Pick up the clock and put it in the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Pick up the clock and put it into the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Pick up the clock and release it into the container.": [
+  "clock",
+  "container"
+ ],
+ "Pick up the clock from the table and place it in the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Pick up the clock from the table and place it in the container.": [
+  "clock",
+  "container"
+ ],
+ "Pick up the clock from the table and place it into the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Pick up the clock from the table and put it in the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Pick up the computer mouse and place it in the basket.": [
+  "computer",
+  "mouse",
+  "basket"
+ ],
+ "Pick up the computer mouse and place it in the metal tray.": [
+  "computer",
+  "mouse",
+  "metal tray"
+ ],
+ "Pick up the computer mouse and place it in the tray.": [
+  "computer",
+  "mouse",
+  "tray"
+ ],
+ "Pick up the computer mouse from the table and place it into the basket.": [
+  "computer",
+  "mouse",
+  "basket"
+ ],
+ "Pick up the conissant and put it on the second floor of the black shelf.": [
+  "croissant",
+  "black shelf"
+ ],
+ "Pick up the coressant and put it on the white shelf.": [
+  "croissant",
+  "white shelf"
+ ],
+ "Pick up the croissant and place it in the second-layer wooden crate.": [
+  "croissant",
+  "wooden crate"
+ ],
+ "Pick up the croissant and place it on the first level of the shelf.": [
+  "croissant",
+  "shelf"
+ ],
+ "Pick up the croissant and place it on the second level of the shelf.": [
+  "croissant",
+  "shelf"
+ ],
+ "Pick up the croissant and place it on the second level of the white shelf": [
+  "croissant",
+  "white shelf"
+ ],
+ "Pick up the croissant and place it on the third level of the shelf.": [
+  "croissant",
+  "shelf"
+ ],
+ "Pick up the croissant and place it on the thirdly level of the shelf.": [
+  "croissant",
+  "shelf"
+ ],
+ "Pick up the croissant and put it in the white basket.": [
+  "croissant",
+  "white basket"
+ ],
+ "Pick up the croissant and put it on a plate": [
+  "croissant",
+  "plate"
+ ],
+ "Pick up the croissant from the table and place it in the container": [
+  "croissant",
+  "container"
+ ],
+ "Pick up the croissant from the table and place it in the container.": [
+  "croissant",
+  "container"
+ ],
+ "Pick up the croissant on the table and put it in the container": [
+  "croissant",
+  "container"
+ ],
+ "Pick up the croissants and place it on the thirdly level of the shelf.": [
+  "croissant",
+  "shelf"
+ ],
+ "Pick up the cube and put it on the second shelf": [
+  "cube",
+  "shelf"
+ ],
+ "Pick up the cube and put it on the second shelfs": [
+  "cube",
+  "shelf"
+ ],
+ "Pick up the cube and put it on the third shelf": [
+  "cube",
+  "shelf"
+ ],
+ "Pick up the cup and place it in the basket.": [
+  "cup",
+  "basket"
+ ],
+ "Pick up the cup and place it in the container.": [
+  "cup",
+  "container"
+ ],
+ "Pick up the cup and place it in the sink.": [
+  "cup",
+  "sink"
+ ],
+ "Pick up the cup and place it in the tray.": [
+  "cup",
+  "tray"
+ ],
+ "Pick up the cup and place it into the basket.": [
+  "cup",
+  "basket"
+ ],
+ "Pick up the cup and place it into the cabinet, then close the door.": [
+  "cup"
+ ],
+ "Pick up the cup and place it into the container.": [
+  "cup",
+  "container"
+ ],
+ "Pick up the cup and place it into the tray.": [
+  "cup",
+  "tray"
+ ],
+ "Pick up the cup and place it on the first level of the double shelf.": [
+  "cup",
+  "shelf"
+ ],
+ "Pick up the cup and place it on the first level of the shelf.": [
+  "cup",
+  "shelf"
+ ],
+ "Pick up the cup and place it on the second level of the shelf.": [
+  "cup",
+  "shelf"
+ ],
+ "Pick up the cup and place it on the third level of the shelf.": [
+  "cup",
+  "shelf"
+ ],
+ "Pick up the cup and pour it into the container.": [
+  "cup",
+  "container"
+ ],
+ "Pick up the cup and put it in the tray.": [
+  "cup",
+  "tray"
+ ],
+ "Pick up the cup and put it on the top of the white shelf.": [
+  "cup",
+  "white shelf"
+ ],
+ "Pick up the cup containing red beans and pour it into the container.": [
+  "red beans",
+  "cup",
+  "container"
+ ],
+ "Pick up the cup filled with soybeans and pour it into another cup.": [
+  "soybeans",
+  "cup"
+ ],
+ "Pick up the cup for and put it into the cabinet, then close the cabinet door.": [
+  "cup"
+ ],
+ "Pick up the cup for and put it into the cabinet, then open the cabinet door.": [
+  "cup"
+ ],
+ "Pick up the cup from the table and place it in the bucket.": [
+  "cup",
+  "bucket"
+ ],
+ "Pick up the cup from the table and place it in the container": [
+  "cup",
+  "container"
+ ],
+ "Pick up the cup from the table and place it in the container.": [
+  "cup",
+  "container"
+ ],
+ "Pick up the cup from the table and place it in the pan": [
+  "cup",
+  "pan"
+ ],
+ "Pick up the cup from the table and place it into the container.": [
+  "cup",
+  "container"
+ ],
+ "Pick up the cup into the cabinet and close the door.": [
+  "cup"
+ ],
+ "Pick up the cup with red beans and pour the red beans into the beaker.": [
+  "red beans",
+  "cup",
+  "beaker"
+ ],
+ "Pick up the cup with red beans and pour the red beans into the bowl.": [
+  "red beans",
+  "cup",
+  "bowl"
+ ],
+ "Pick up the cup with red beans and pour the red beans into the cup.": [
+  "red beans",
+  "cup"
+ ],
+ "Pick up the cup with the red beans and pour the red beans into another container.": [
+  "red beans",
+  "cup",
+  "container"
+ ],
+ "Pick up the cup,place it into the box,and close the door.": [
+  "cup",
+  "box"
+ ],
+ "Pick up the cup,place it into the container,and close the container.": [
+  "cup",
+  "container"
+ ],
+ "Pick up the donut and drop it into the basket.": [
+  "donut",
+  "basket"
+ ],
+ "Pick up the donut and place it in the container.": [
+  "donut",
+  "container"
+ ],
+ "Pick up the donut and place it into the basket.": [
+  "donut",
+  "basket"
+ ],
+ "Pick up the donut and place it into the bowl.": [
+  "donut",
+  "bowl"
+ ],
+ "Pick up the donut and place it into the container.": [
+  "donut",
+  "container"
+ ],
+ "Pick up the donut and place it on the first level of the double shelf.": [
+  "donut",
+  "shelf"
+ ],
+ "Pick up the donut and place it on the first level of the shelf.": [
+  "donut",
+  "shelf"
+ ],
+ "Pick up the donut and place it on the plate.": [
+  "donut",
+  "plate"
+ ],
+ "Pick up the donut and place it on the second level of the shelf.": [
+  "donut",
+  "shelf"
+ ],
+ "Pick up the donut and place it on the second level of the white shelf": [
+  "donut",
+  "white shelf"
+ ],
+ "Pick up the donut and place it on the third level of the shelf.": [
+  "donut",
+  "shelf"
+ ],
+ "Pick up the donut and place it on the thirdly level of the shelf.": [
+  "donut",
+  "shelf"
+ ],
+ "Pick up the donut and place it on top of the basket.": [
+  "donut",
+  "basket"
+ ],
+ "Pick up the donut and put it on the second layer of the black shelf.": [
+  "donut",
+  "black shelf"
+ ],
+ "Pick up the donut and put it on the second shelf": [
+  "donut",
+  "shelf"
+ ],
+ "Pick up the donut and put it on the third shelf": [
+  "donut",
+  "shelf"
+ ],
+ "Pick up the donut and put it on the top of the white shelf.": [
+  "donut",
+  "white shelf"
+ ],
+ "Pick up the donut and put it on the white shelf.": [
+  "donut",
+  "white shelf"
+ ],
+ "Pick up the donut from the table and place it in the container": [
+  "donut",
+  "container"
+ ],
+ "Pick up the donut from the table and place it in the container.": [
+  "donut",
+  "container"
+ ],
+ "Pick up the donuts and put them on a plate": [
+  "donut",
+  "plate"
+ ],
+ "Pick up the doughnut and place it in the basket.": [
+  "doughnut",
+  "basket"
+ ],
+ "Pick up the doughnut and place it in the container.": [
+  "doughnut",
+  "container"
+ ],
+ "Pick up the doughnut and place it in the second-layer wooden crate.": [
+  "doughnut",
+  "wooden crate"
+ ],
+ "Pick up the doughnut and place it in the transparent container.": [
+  "doughnut",
+  "transparent container"
+ ],
+ "Pick up the doughnut and place it into the basket.": [
+  "doughnut",
+  "basket"
+ ],
+ "Pick up the doughnut and place it into the bowl .": [
+  "doughnut",
+  "bowl"
+ ],
+ "Pick up the doughnut and place it into the container.": [
+  "doughnut",
+  "container"
+ ],
+ "Pick up the doughnut and place it into the plastic container.": [
+  "doughnut",
+  "plastic container"
+ ],
+ "Pick up the doughnut and place it into the plate.": [
+  "doughnut",
+  "plate"
+ ],
+ "Pick up the doughnut and place it on the first level of the double shelf.": [
+  "doughnut",
+  "shelf"
+ ],
+ "Pick up the doughnut and put it into the container.": [
+  "doughnut",
+  "container"
+ ],
+ "Pick up the doughnut and release it into the transparent container.": [
+  "doughnut",
+  "transparent container"
+ ],
+ "Pick up the doughunt and place it in the container.": [
+  "doughnut",
+  "container"
+ ],
+ "Pick up the doughunt and place it in the second-layer wooden crate.": [
+  "doughnut",
+  "wooden crate"
+ ],
+ "Pick up the duck toy and place it into the container.": [
+  "duck",
+  "toy",
+  "container"
+ ],
+ "Pick up the duck toy from the table and place it into the basket.": [
+  "duck",
+  "toy",
+  "basket"
+ ],
+ "Pick up the dunt and place it into the basket.": [
+  "donut",
+  "basket"
+ ],
+ "Pick up the eggplant and place it in the basket.": [
+  "eggplant",
+  "basket"
+ ],
+ "Pick up the eggplant and place it in the box.": [
+  "eggplant",
+  "box"
+ ],
+ "Pick up the eggplant and place it in the container": [
+  "eggplant",
+  "container"
+ ],
+ "Pick up the eggplant and place it in the frying pan.": [
+  "eggplant",
+  "frying pan"
+ ],
+ "Pick up the eggplant and place it in the pan.": [
+  "eggplant",
+  "pan"
+ ],
+ "Pick up the eggplant and place it in the pot": [
+  "eggplant",
+  "pot"
+ ],
+ "Pick up the eggplant and place it in the pot.": [
+  "eggplant",
+  "pot"
+ ],
+ "Pick up the eggplant and place it in the white container.": [
+  "eggplant",
+  "white container"
+ ],
+ "Pick up the eggplant and place it into the basket.": [
+  "eggplant",
+  "basket"
+ ],
+ "Pick up the eggplant and place it into the box, then close the door.": [
+  "eggplant",
+  "box"
+ ],
+ "Pick up the eggplant and place it into the box.": [
+  "eggplant",
+  "box"
+ ],
+ "Pick up the eggplant and place it into the cabinet, then close the door.": [
+  "eggplant"
+ ],
+ "Pick up the eggplant and place it into the container.": [
+  "eggplant",
+  "container"
+ ],
+ "Pick up the eggplant and place it into the pan.": [
+  "eggplant",
+  "pan"
+ ],
+ "Pick up the eggplant and place it on the pot.": [
+  "eggplant",
+  "pot"
+ ],
+ "Pick up the eggplant and put it in the white basket.": [
+  "eggplant",
+  "white basket"
+ ],
+ "Pick up the eggplant apple measure into the cabinet and close the door.": [
+  "eggplant",
+  "apple"
+ ],
+ "Pick up the eggplant from the table and place it in the container.": [
+  "eggplant",
+  "container"
+ ],
+ "Pick up the eggplant from the table and place it in the pan.": [
+  "eggplant",
+  "pan"
+ ],
+ "Pick up the eggplant from the table and place it in the plate.": [
+  "eggplant",
+  "plate"
+ ],
+ "Pick up the eggplant from the table and place it into the frying pan.": [
+  "eggplant",
+  "frying pan"
+ ],
+ "Pick up the eggplant into the cabinet and close the door.": [
+  "eggplant"
+ ],
+ "Pick up the eggplant on the table and put it in a container": [
+  "eggplant",
+  "container"
+ ],
+ "Pick up the eggplant, carry it to the white box, and place it inside. Then, close the box.": [
+  "eggplant",
+  "white box",
+  "box"
+ ],
+ "Pick up the eggplant, put it in the cupboard and close the door": [
+  "eggplant"
+ ],
+ "Pick up the eggplant,place it into the container,and close the container": [
+  "eggplant",
+  "container"
+ ],
+ "Pick up the eggplant,place it into the container,and close the container.": [
+  "eggplant",
+  "container"
+ ],
+ "Pick up the fruit from the table and place it in the basket.": [
+  "fruit",
+  "basket"
+ ],
+ "Pick up the glue and insert it in the container.": [
+  "glue",
+  "container"
+ ],
+ "Pick up the glue stick and insert it in the container.": [
+  "glue stick",
+  "container"
+ ],
+ "Pick up the glue stick and place into the cup.": [
+  "glue stick",
+  "cup"
+ ],
+ "Pick up the glue stick and place it into the cup.": [
+  "glue stick",
+  "cup"
+ ],
+ "Pick up the glue stick from the table and place it into the black cup .": [
+  "glue stick",
+  "black cup"
+ ],
+ "Pick up the glue stick from the table and place it into the cup .": [
+  "glue stick",
+  "cup"
+ ],
+ "Pick up the glue stick from the table and place it into the pen holder.": [
+  "glue stick",
+  "pen",
+  "holder"
+ ],
+ "Pick up the glue stick from the table and place it into the red cup .": [
+  "glue stick",
+  "red cup"
+ ],
+ "Pick up the gray iron block and place into the cup.": [
+  "iron block",
+  "cup"
+ ],
+ "Pick up the gray iron block and place it into the cup.": [
+  "iron block",
+  "cup"
+ ],
+ "Pick up the gray iron block from the table and place it into the cup .": [
+  "iron block",
+  "cup"
+ ],
+ "Pick up the green apple and drop it into the container.": [
+  "green apple",
+  "container"
+ ],
+ "Pick up the green apple and drop it into the white basket.": [
+  "green apple",
+  "white basket"
+ ],
+ "Pick up the green apple and drop it into the white bin.": [
+  "green apple",
+  "white bin"
+ ],
+ "Pick up the green apple and drop it into the white box.": [
+  "green apple",
+  "white box"
+ ],
+ "Pick up the green apple and drop it into the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Pick up the green apple and place it in the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Pick up the green apple and place it in the bowl.": [
+  "green apple",
+  "bowl"
+ ],
+ "Pick up the green apple and place it in the container.": [
+  "green apple",
+  "container"
+ ],
+ "Pick up the green apple and place it in the tray.": [
+  "green apple",
+  "tray"
+ ],
+ "Pick up the green apple and place it in the white basket.": [
+  "green apple",
+  "white basket"
+ ],
+ "Pick up the green apple and place it in the white box.": [
+  "green apple",
+  "white box"
+ ],
+ "Pick up the green apple and place it in the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Pick up the green apple and place it in the white grid container.": [
+  "green apple",
+  "white grid",
+  "container"
+ ],
+ "Pick up the green apple and place it in the white tray.": [
+  "green apple",
+  "white tray"
+ ],
+ "Pick up the green apple and place it inside the white basket.": [
+  "green apple",
+  "white basket"
+ ],
+ "Pick up the green apple and place it into the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Pick up the green apple and put it in the bowl.": [
+  "green apple",
+  "bowl"
+ ],
+ "Pick up the green apple and put it into the white container": [
+  "green apple",
+  "white container"
+ ],
+ "Pick up the green apple from the table and place it in the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Pick up the green apple from the table and place it in the bowl.": [
+  "green apple",
+  "bowl"
+ ],
+ "Pick up the green apple from the table and place it in the plastic basket.": [
+  "green apple",
+  "plastic basket"
+ ],
+ "Pick up the green apple from the table and place it in the tray.": [
+  "green apple",
+  "tray"
+ ],
+ "Pick up the green apple from the table and place it in the white basket.": [
+  "green apple",
+  "white basket"
+ ],
+ "Pick up the green apple from the table and place it in the white bin.": [
+  "green apple",
+  "white bin"
+ ],
+ "Pick up the green apple from the table and place it in the white box.": [
+  "green apple",
+  "white box"
+ ],
+ "Pick up the green apple from the table and place it in the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Pick up the green apple from the table and place it inside the white basket.": [
+  "green apple",
+  "white basket"
+ ],
+ "Pick up the green apple into the cabinet ,and then close the door.": [
+  "green apple"
+ ],
+ "Pick up the green apple into the cabinet and close the door.": [
+  "green apple"
+ ],
+ "Pick up the green apple measure into the cabinet and close the door.": [
+  "green apple"
+ ],
+ "Pick up the green apple on the table and put it into the container.": [
+  "green apple",
+  "container"
+ ],
+ "Pick up the green apples, put them in the cupboard and close the door": [
+  "green apple"
+ ],
+ "Pick up the green ball and drop it into the basket": [
+  "green ball",
+  "basket"
+ ],
+ "Pick up the green ball and place it in the basket.": [
+  "green ball",
+  "basket"
+ ],
+ "Pick up the green ball and place it in the black and red grid.": [
+  "green ball",
+  "red grid"
+ ],
+ "Pick up the green ball and place it in the tray.": [
+  "green ball",
+  "tray"
+ ],
+ "Pick up the green ball and place it in the white grid.": [
+  "green ball",
+  "white grid"
+ ],
+ "Pick up the green ball and place it into the basket.": [
+  "green ball",
+  "basket"
+ ],
+ "Pick up the green ball from the table and place it in the container.": [
+  "green ball",
+  "container"
+ ],
+ "Pick up the green block and place into the cup.": [
+  "green block",
+  "cup"
+ ],
+ "Pick up the green block and place it into the cup.": [
+  "green block",
+  "cup"
+ ],
+ "Pick up the green block and put it into the bucket.": [
+  "green block",
+  "bucket"
+ ],
+ "Pick up the green block from the table and place it into the black cup .": [
+  "green block",
+  "black cup"
+ ],
+ "Pick up the green block from the table and place it into the cup .": [
+  "green block",
+  "cup"
+ ],
+ "Pick up the green block from the table and place it into the pink cup .": [
+  "green block",
+  "pink cup"
+ ],
+ "Pick up the green block from the table and place it into the red cup .": [
+  "green block",
+  "red cup"
+ ],
+ "Pick up the green cube and drop it into the pink container.": [
+  "green cube",
+  "pink container"
+ ],
+ "Pick up the green cup and put it on the white shelf.": [
+  "green cup",
+  "white shelf"
+ ],
+ "Pick up the green object and drop it into the container.": [
+  "container"
+ ],
+ "Pick up the green object and place it in the basket.": [
+  "basket"
+ ],
+ "Pick up the green object and place it in the container.": [
+  "container"
+ ],
+ "Pick up the green object and put it in the box.": [
+  "box"
+ ],
+ "Pick up the green object with the robotic arm and place it on the conveyor belt.": [
+  "conveyor belt"
+ ],
+ "Pick up the green object,put it in the white box": [
+  "white box"
+ ],
+ "Pick up the green sphere and put it in the tray.": [
+  "green sphere",
+  "tray"
+ ],
+ "Pick up the green strip and insert it in the container.": [
+  "container"
+ ],
+ "Pick up the green strip and insert it in the cup.": [
+  "cup"
+ ],
+ "Pick up the green strip and insert it in the pen holder.": [
+  "pen",
+  "holder"
+ ],
+ "Pick up the laptop mouse with the robotic arm and place it into the basket.": [
+  "laptop",
+  "mouse",
+  "basket"
+ ],
+ "Pick up the lemon and drop it into the container.": [
+  "lemon",
+  "container"
+ ],
+ "Pick up the lemon and place it in the basket": [
+  "lemon",
+  "basket"
+ ],
+ "Pick up the lemon and place it in the basket.": [
+  "lemon",
+  "basket"
+ ],
+ "Pick up the lemon and place it in the container.": [
+  "lemon",
+  "container"
+ ],
+ "Pick up the lemon and place it in the plastic container.": [
+  "lemon",
+  "plastic container"
+ ],
+ "Pick up the lemon and place it inside the container.": [
+  "lemon",
+  "container"
+ ],
+ "Pick up the lemon and place it into the basket.": [
+  "lemon",
+  "basket"
+ ],
+ "Pick up the lemon and place it into the bowl.": [
+  "lemon",
+  "bowl"
+ ],
+ "Pick up the lemon and place it into the box.": [
+  "lemon",
+  "box"
+ ],
+ "Pick up the lemon and place it into the container.": [
+  "lemon",
+  "container"
+ ],
+ "Pick up the lemon and place it into the plate.": [
+  "lemon",
+  "plate"
+ ],
+ "Pick up the lemon and place it into the transparent container.": [
+  "lemon",
+  "transparent container"
+ ],
+ "Pick up the lemon and place it on the first level of the double shelf.": [
+  "lemon",
+  "shelf"
+ ],
+ "Pick up the lemon and place it on the first level of the shelf.": [
+  "lemon",
+  "shelf"
+ ],
+ "Pick up the lemon and place it on the plate.": [
+  "lemon",
+  "plate"
+ ],
+ "Pick up the lemon and place it on the second level of the shelf.": [
+  "lemon",
+  "shelf"
+ ],
+ "Pick up the lemon and place it on the third level of the shelf.": [
+  "lemon",
+  "shelf"
+ ],
+ "Pick up the lemon and place it on the thirdly level of the shelf.": [
+  "lemon",
+  "shelf"
+ ],
+ "Pick up the lemon and put it in the white basket.": [
+  "lemon",
+  "white basket"
+ ],
+ "Pick up the lemon and put it on the black shelf.": [
+  "lemon",
+  "black shelf"
+ ],
+ "Pick up the lemon and put it on the second layer of the black shelf.": [
+  "lemon",
+  "black shelf"
+ ],
+ "Pick up the lemon and put it on the second shelf": [
+  "lemon",
+  "shelf"
+ ],
+ "Pick up the lemon and put it on the second shelfs": [
+  "lemon",
+  "shelf"
+ ],
+ "Pick up the lemon and put it on the third layer of the basket.": [
+  "lemon",
+  "basket"
+ ],
+ "Pick up the lemon clock and put it on the second shelf": [
+  "lemon",
+  "clock",
+  "shelf"
+ ],
+ "Pick up the lemon from the table and drop it into the container.": [
+  "lemon",
+  "container"
+ ],
+ "Pick up the lemon from the table and place it in the bin.": [
+  "lemon",
+  "bin"
+ ],
+ "Pick up the lemon from the table and place it in the container": [
+  "lemon",
+  "container"
+ ],
+ "Pick up the lemon from the table and place it in the container.": [
+  "lemon",
+  "container"
+ ],
+ "Pick up the lemon from the table and place it inside the transparent container.": [
+  "lemon",
+  "transparent container"
+ ],
+ "Pick up the lemon with the robotic gripper and place it in the container.": [
+  "lemon",
+  "container"
+ ],
+ "Pick up the lemon with the robotic hand and drop it into the plastic container.": [
+  "lemon",
+  "plastic container"
+ ],
+ "Pick up the lemons on the table and put them in the container": [
+  "lemon",
+  "container"
+ ],
+ "Pick up the lettuce and place it into the box, then close the door.": [
+  "lettuce",
+  "box"
+ ],
+ "Pick up the lettuce and place it into the cabinet, then close the door.": [
+  "lettuce"
+ ],
+ "Pick up the lettuce into the cabinet and close the door.": [
+  "lettuce"
+ ],
+ "Pick up the lettuce into the cabinet,and then close the door.": [
+  "lettuce"
+ ],
+ "Pick up the measuring tape and place it in the bowl.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Pick up the measuring tape and place it in the container.": [
+  "measuring tape",
+  "container"
+ ],
+ "Pick up the measuring tape and place it in the tray.": [
+  "measuring tape",
+  "tray"
+ ],
+ "Pick up the measuring tape and place it in the white basket.": [
+  "measuring tape",
+  "white basket"
+ ],
+ "Pick up the measuring tape and place it in the white bowl.": [
+  "measuring tape",
+  "white bowl"
+ ],
+ "Pick up the measuring tape and place it in the white container.": [
+  "measuring tape",
+  "white container"
+ ],
+ "Pick up the measuring tape and place it inside the container.": [
+  "measuring tape",
+  "container"
+ ],
+ "Pick up the measuring tape from the table and place it in the bowl.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Pick up the measuring tape from the table and place it in the container.": [
+  "measuring tape",
+  "container"
+ ],
+ "Pick up the measuring tape from the table and place it in the tray.": [
+  "measuring tape",
+  "tray"
+ ],
+ "Pick up the mouse and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Pick up the mouse and place it in the black tray.": [
+  "mouse",
+  "black tray"
+ ],
+ "Pick up the mouse and place it in the container.": [
+  "mouse",
+  "container"
+ ],
+ "Pick up the mouse and place it in the tray.": [
+  "mouse",
+  "tray"
+ ],
+ "Pick up the mouse and place it into the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Pick up the mouse and place it into the box, then close the door.": [
+  "mouse",
+  "box"
+ ],
+ "Pick up the mouse and place it into the cabinet, then close the door.": [
+  "mouse"
+ ],
+ "Pick up the mouse and place it into the container.": [
+  "mouse",
+  "container"
+ ],
+ "Pick up the mouse and place it into the pan.": [
+  "mouse",
+  "pan"
+ ],
+ "Pick up the mouse and put it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Pick up the mouse and put it in the black basket.": [
+  "mouse",
+  "black basket"
+ ],
+ "Pick up the mouse and put it in the white basket.": [
+  "mouse",
+  "white basket"
+ ],
+ "Pick up the mouse and put it into the pan.": [
+  "mouse",
+  "pan"
+ ],
+ "Pick up the mouse from the table and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Pick up the mouse from the table and place it in the container.": [
+  "mouse",
+  "container"
+ ],
+ "Pick up the mouse from the table and place it in the metal basket.": [
+  "mouse",
+  "metal basket"
+ ],
+ "Pick up the mouse from the table and place it inside the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Pick up the mouse into the cabinet and close the door.": [
+  "mouse"
+ ],
+ "Pick up the mouse measure into the cabinet and close the door.": [
+  "mouse"
+ ],
+ "Pick up the mouse on the table and put it in the container": [
+  "mouse",
+  "container"
+ ],
+ "Pick up the mouse with the robotic arm and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Pick up the mouse with the robotic arm and place it in the tray.": [
+  "mouse",
+  "tray"
+ ],
+ "Pick up the mouse, put it in the cabinet and close the door": [
+  "mouse"
+ ],
+ "Pick up the mouse,place it into the box,and close the door.": [
+  "mouse",
+  "box"
+ ],
+ "Pick up the mouse,place it into the container,and close the container.": [
+  "mouse",
+  "container"
+ ],
+ "Pick up the mug and place it in the basin.": [
+  "mug",
+  "basin"
+ ],
+ "Pick up the mug and place it in the basket.": [
+  "mug",
+  "basket"
+ ],
+ "Pick up the mug and place it in the container.": [
+  "mug",
+  "container"
+ ],
+ "Pick up the mug and place it into the container.": [
+  "mug",
+  "container"
+ ],
+ "Pick up the mug and place it on the third level of the shelf.": [
+  "mug",
+  "shelf"
+ ],
+ "Pick up the object from the table and place it in the container.": [
+  "container"
+ ],
+ "Pick up the object from the table and place it into the white container.": [
+  "white container"
+ ],
+ "Pick up the orange and drop it into the transparent container.": [
+  "orange",
+  "transparent container"
+ ],
+ "Pick up the orange and place it in the tray.": [
+  "orange",
+  "tray"
+ ],
+ "Pick up the orange and place it into the basket.": [
+  "orange",
+  "basket"
+ ],
+ "Pick up the orange and place it into the bowl": [
+  "orange",
+  "bowl"
+ ],
+ "Pick up the orange and place it into the container.": [
+  "orange",
+  "container"
+ ],
+ "Pick up the orange and place it on the first level of the double shelf.": [
+  "orange",
+  "shelf"
+ ],
+ "Pick up the orange and place it on the first level of the shelf.": [
+  "orange",
+  "shelf"
+ ],
+ "Pick up the orange and place it on the second level of the shelf.": [
+  "orange",
+  "shelf"
+ ],
+ "Pick up the orange and place it on the third level of the shelf.": [
+  "orange",
+  "shelf"
+ ],
+ "Pick up the orange and place it on the thirdly level of the shelf.": [
+  "orange",
+  "shelf"
+ ],
+ "Pick up the orange and put it into the container.": [
+  "orange",
+  "container"
+ ],
+ "Pick up the orange and put it on the black shelf.": [
+  "orange",
+  "black shelf"
+ ],
+ "Pick up the orange and put it on the second shelf": [
+  "orange",
+  "shelf"
+ ],
+ "Pick up the orange and put it on the second shelfs": [
+  "orange",
+  "shelf"
+ ],
+ "Pick up the orange and put it on the shelf.": [
+  "orange",
+  "shelf"
+ ],
+ "Pick up the orange and put it on the third layer of the basket.": [
+  "orange",
+  "basket"
+ ],
+ "Pick up the orange and put it on the third shelf": [
+  "orange",
+  "shelf"
+ ],
+ "Pick up the orange and put it on the top of the white shelf.": [
+  "orange",
+  "white shelf"
+ ],
+ "Pick up the orange and put it on the white shelf.": [
+  "orange",
+  "white shelf"
+ ],
+ "Pick up the orange clock, and place it on the blue plate.": [
+  "orange clock",
+  "blue plate"
+ ],
+ "Pick up the orange cup and pour its content into the green bowl.": [
+  "orange cup",
+  "green bowl"
+ ],
+ "Pick up the orange cup and pour its contents into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pick up the orange cup and pour the red beans inside into the green cup.": [
+  "red beans",
+  "orange cup",
+  "green cup"
+ ],
+ "Pick up the orange cup and pour the red beans inside into the pink cup.": [
+  "red beans",
+  "orange cup",
+  "pink cup"
+ ],
+ "Pick up the orange cup and pour the red beans into the blue bowl.": [
+  "red beans",
+  "orange cup",
+  "blue bowl"
+ ],
+ "Pick up the orange cup and pour the red beans into the green cup.": [
+  "red beans",
+  "orange cup",
+  "green cup"
+ ],
+ "Pick up the orange cup and pour the red objects into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pick up the orange cup and transfer its contents into the pink bowl.": [
+  "orange cup",
+  "pink bowl"
+ ],
+ "Pick up the orange cup and transfer the beans into the transparent cup.": [
+  "beans",
+  "orange cup",
+  "transparent cup"
+ ],
+ "Pick up the orange cup and transfer the contents into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pick up the orange cup containing black beans and pour them into the pink cup.": [
+  "black beans",
+  "orange cup",
+  "pink cup"
+ ],
+ "Pick up the orange cup, pour its contents into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pick up the orange cup, pour the black items into the pink cup, and then put the orange cup back on the table.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pick up the orange cup, pour the contents into the pink cup, and then place the orange cup back on the table.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pick up the orange cup, pour the granules into the pink cup, and then place the orange cup back on the table.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pick up the orange cup, pour the orange cup into the pink bucket, place the cup.": [
+  "orange cup",
+  "pink bucket",
+  "cup"
+ ],
+ "Pick up the orange cup, pour the orange cup into the pink cup, place the cup.": [
+  "orange cup",
+  "pink cup",
+  "cup"
+ ],
+ "Pick up the orange cup, pour the red beans into the green bowl and then place the orange cup back on the table.": [
+  "red beans",
+  "orange cup",
+  "green bowl"
+ ],
+ "Pick up the orange cup, transfer the contents to the pink cup, and then empty the orange cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pick up the orange from the table and place it in the container.": [
+  "orange",
+  "container"
+ ],
+ "Pick up the orange glass, pour its contents into the pink glass, and then place the orange glass back on the table.": [
+  "orange glass",
+  "pink glass"
+ ],
+ "Pick up the oranges and place them in the white container.": [
+  "orange",
+  "white container"
+ ],
+ "Pick up the oranges on the table and put them in the container": [
+  "orange",
+  "container"
+ ],
+ "Pick up the origin cup and pour the red beans into the blue bowl.": [
+  "red beans",
+  "cup",
+  "blue bowl"
+ ],
+ "Pick up the pastry and drop it into the bin.": [
+  "pastry",
+  "bin"
+ ],
+ "Pick up the pastry and place it on the green plate.": [
+  "pastry",
+  "green plate"
+ ],
+ "Pick up the pastry and place it on the plate.": [
+  "pastry",
+  "plate"
+ ],
+ "Pick up the pastry from the table and place it in the container.": [
+  "pastry",
+  "container"
+ ],
+ "Pick up the peach blossom and place it on the plate.": [
+  "peach",
+  "plate"
+ ],
+ "Pick up the pear and place it into the basket.": [
+  "pear",
+  "basket"
+ ],
+ "Pick up the pear and place it into the container.": [
+  "pear",
+  "container"
+ ],
+ "Pick up the pear and place it on the first level of the double shelf.": [
+  "pear",
+  "shelf"
+ ],
+ "Pick up the pear and place it on the first level of the shelf.": [
+  "pear",
+  "shelf"
+ ],
+ "Pick up the pear and place it on the second level of the shelf.": [
+  "pear",
+  "shelf"
+ ],
+ "Pick up the pear and place it on the third level of the shelf.": [
+  "pear",
+  "shelf"
+ ],
+ "Pick up the pear and place it on the thirdly level of the shelf.": [
+  "pear",
+  "shelf"
+ ],
+ "Pick up the pear and put it in the basket.": [
+  "pear",
+  "basket"
+ ],
+ "Pick up the pear and put it on the black shelf.": [
+  "pear",
+  "black shelf"
+ ],
+ "Pick up the pear and put it on the second shelf": [
+  "pear",
+  "shelf"
+ ],
+ "Pick up the pear and put it on the shelf.": [
+  "pear",
+  "shelf"
+ ],
+ "Pick up the pear and put it on the third layer of the basket.": [
+  "pear",
+  "basket"
+ ],
+ "Pick up the pear and put it on the third shelf": [
+  "pear",
+  "shelf"
+ ],
+ "Pick up the pear and put it on the top of the white shelf.": [
+  "pear",
+  "white shelf"
+ ],
+ "Pick up the pear and put it on the white shelf.": [
+  "pear",
+  "white shelf"
+ ],
+ "Pick up the pear from the table and place it in the container.": [
+  "pear",
+  "container"
+ ],
+ "Pick up the pearl from the table and place it in the container": [
+  "container"
+ ],
+ "Pick up the pears on the table and put them in the container": [
+  "pear",
+  "container"
+ ],
+ "Pick up the perisimmon and place it inside the white basket.": [
+  "persimmon",
+  "white basket"
+ ],
+ "Pick up the persimmon and place it in the tray.": [
+  "persimmon",
+  "tray"
+ ],
+ "Pick up the persimmon and place it into the basket.": [
+  "persimmon",
+  "basket"
+ ],
+ "Pick up the persimmon and place it into the box, then close the door.": [
+  "persimmon",
+  "box"
+ ],
+ "Pick up the persimmon and place it into the box.": [
+  "persimmon",
+  "box"
+ ],
+ "Pick up the persimmon and place it into the cabinet, then close the door.": [
+  "persimmon"
+ ],
+ "Pick up the persimmon and place it into the container.": [
+  "persimmon",
+  "container"
+ ],
+ "Pick up the persimmon and place it into the pan.": [
+  "persimmon",
+  "pan"
+ ],
+ "Pick up the persimmon and place it on the plate.": [
+  "persimmon",
+  "plate"
+ ],
+ "Pick up the persimmon and put it in the black basket.": [
+  "persimmon",
+  "black basket"
+ ],
+ "Pick up the persimmon and put them in the white basket.": [
+  "persimmon",
+  "white basket"
+ ],
+ "Pick up the persimmon from the table and place it in the container.": [
+  "persimmon",
+  "container"
+ ],
+ "Pick up the persimmon into the cabinet ,and then close the door.": [
+  "persimmon"
+ ],
+ "Pick up the persimmon into the cabinet and close the door.": [
+  "persimmon"
+ ],
+ "Pick up the persimmon measure into the cabinet and close the door.": [
+  "persimmon"
+ ],
+ "Pick up the persimmon on the table and put them in a container": [
+  "persimmon",
+  "container"
+ ],
+ "Pick up the persimmon, put it in the cupboard and close the door": [
+  "persimmon"
+ ],
+ "Pick up the persimmon,place it into the box,and close the door.": [
+  "persimmon",
+  "box"
+ ],
+ "Pick up the persimmon,place it into the container,and close the container.": [
+  "persimmon",
+  "container"
+ ],
+ "Pick up the pie and place it in the white container.": [
+  "pie",
+  "white container"
+ ],
+ "Pick up the pie from the table and place it in the container.": [
+  "pie",
+  "container"
+ ],
+ "Pick up the pink cup and drop it into the container.": [
+  "pink cup",
+  "container"
+ ],
+ "Pick up the pink cup and place it in the container.": [
+  "pink cup",
+  "container"
+ ],
+ "Pick up the pink cup and place it in the tray.": [
+  "pink cup",
+  "tray"
+ ],
+ "Pick up the pink cup and place it in the white basin.": [
+  "pink cup",
+  "white basin"
+ ],
+ "Pick up the pink cup and place it in the white basket.": [
+  "pink cup",
+  "white basket"
+ ],
+ "Pick up the pink cup and place it in the white bin.": [
+  "pink cup",
+  "white bin"
+ ],
+ "Pick up the pink cup and place it in the white container.": [
+  "pink cup",
+  "white container"
+ ],
+ "Pick up the pink cup and place it in the white tray.": [
+  "pink cup",
+  "white tray"
+ ],
+ "Pick up the pink cup and place it into the basket.": [
+  "pink cup",
+  "basket"
+ ],
+ "Pick up the pink cup and place it into the container.": [
+  "pink cup",
+  "container"
+ ],
+ "Pick up the pink cup and place it into the drawer.": [
+  "pink cup",
+  "drawer"
+ ],
+ "Pick up the pink cup and place it into the tray.": [
+  "pink cup",
+  "tray"
+ ],
+ "Pick up the pink cup and place it into the white container.": [
+  "pink cup",
+  "white container"
+ ],
+ "Pick up the pink cup and put it in the black basket.": [
+  "pink cup",
+  "black basket"
+ ],
+ "Pick up the pink cup from the red table and place it in the white container.": [
+  "pink cup",
+  "white container"
+ ],
+ "Pick up the pink cup from the table and place it in the container below.": [
+  "pink cup",
+  "container"
+ ],
+ "Pick up the pink cup from the table and place it in the tray.": [
+  "pink cup",
+  "tray"
+ ],
+ "Pick up the pink cup from the table and place it in the white container.": [
+  "pink cup",
+  "white container"
+ ],
+ "Pick up the pink cup from the table and place it in the white tray.": [
+  "pink cup",
+  "white tray"
+ ],
+ "Pick up the pink cup from the table and place it into the white container.": [
+  "pink cup",
+  "white container"
+ ],
+ "Pick up the pink cup into the cabinet and close the door.": [
+  "pink cup"
+ ],
+ "Pick up the pink cup into the white basket.": [
+  "pink cup",
+  "white basket"
+ ],
+ "Pick up the pink cup on the table and put it in the container": [
+  "pink cup",
+  "container"
+ ],
+ "Pick up the pink mug and place it in the basket.": [
+  "pink mug",
+  "basket"
+ ],
+ "Pick up the pink mug and place it in the white bin.": [
+  "pink mug",
+  "white bin"
+ ],
+ "Pick up the pink mug and place it in the white container.": [
+  "pink mug",
+  "white container"
+ ],
+ "Pick up the pink mug and place it into the container.": [
+  "pink mug",
+  "container"
+ ],
+ "Pick up the plastic hammer and place it into the cup.": [
+  "plastic hammer",
+  "cup"
+ ],
+ "Pick up the plastic hammer from the table and place it into the cup .": [
+  "plastic hammer",
+  "cup"
+ ],
+ "Pick up the plastic wrench and place into the cup.": [
+  "plastic wrench",
+  "cup"
+ ],
+ "Pick up the plastic wrench and place it into the cup.": [
+  "plastic wrench",
+  "cup"
+ ],
+ "Pick up the plastic wrench from the table and place it into the cup .": [
+  "plastic wrench",
+  "cup"
+ ],
+ "Pick up the potato and drop it into the container.": [
+  "potato",
+  "container"
+ ],
+ "Pick up the potato and place it in the container.": [
+  "potato",
+  "container"
+ ],
+ "Pick up the potato and place it in the right trolley": [
+  "potato",
+  "trolley"
+ ],
+ "Pick up the potato and place it in the tray.": [
+  "potato",
+  "tray"
+ ],
+ "Pick up the potato and place it in the white container.": [
+  "potato",
+  "white container"
+ ],
+ "Pick up the potato and place it into the basket.": [
+  "potato",
+  "basket"
+ ],
+ "Pick up the potato and place it into the box, then close the door.": [
+  "potato",
+  "box"
+ ],
+ "Pick up the potato and place it into the box.": [
+  "potato",
+  "box"
+ ],
+ "Pick up the potato and place it into the cabinet, then close the door.": [
+  "potato"
+ ],
+ "Pick up the potato and place it into the container.": [
+  "potato",
+  "container"
+ ],
+ "Pick up the potato and place it into the pan.": [
+  "potato",
+  "pan"
+ ],
+ "Pick up the potato and put it in the black basket.": [
+  "potato",
+  "black basket"
+ ],
+ "Pick up the potato and put it into the cabinet, then close the cabinet door.": [
+  "potato"
+ ],
+ "Pick up the potato and put it into the cabinet, then open the cabinet door.": [
+  "potato"
+ ],
+ "Pick up the potato and put it into the container.": [
+  "potato",
+  "container"
+ ],
+ "Pick up the potato and put them in the white basket": [
+  "potato",
+  "white basket"
+ ],
+ "Pick up the potato from the table and place it in the container.": [
+  "potato",
+  "container"
+ ],
+ "Pick up the potato from the table and place it in the white container.": [
+  "potato",
+  "white container"
+ ],
+ "Pick up the potato from the table and place it inside the container.": [
+  "potato",
+  "container"
+ ],
+ "Pick up the potato in the left trolley and Put it in the right trolley": [
+  "potato",
+  "trolley"
+ ],
+ "Pick up the potato into the cabinet and close the door.": [
+  "potato"
+ ],
+ "Pick up the potato into the cabinet,and then close the door.": [
+  "potato"
+ ],
+ "Pick up the potato, then place the potato into the white container.": [
+  "potato",
+  "white container"
+ ],
+ "Pick up the potato,place it into the box,and close the door.": [
+  "potato",
+  "box"
+ ],
+ "Pick up the potato,place it into the container,and close the container.": [
+  "potato",
+  "container"
+ ],
+ "Pick up the potatoes and put them in the white basket.": [
+  "potato",
+  "white basket"
+ ],
+ "Pick up the potatoes on the table and put them in the container": [
+  "potato",
+  "container"
+ ],
+ "Pick up the potatoes, put them in the cupboard and close the door": [
+  "potato"
+ ],
+ "Pick up the purple eggplant and place it in the pan.": [
+  "purple eggplant",
+  "pan"
+ ],
+ "Pick up the purple eggplant and place it in the pot.": [
+  "purple eggplant",
+  "pot"
+ ],
+ "Pick up the purple eggplant from the table and transfer it into the white bowl.": [
+  "purple eggplant",
+  "white bowl"
+ ],
+ "Pick up the purple object and place it in the grid.": [
+  "grid"
+ ],
+ "Pick up the purple object and place it in the white bowl.": [
+  "white bowl"
+ ],
+ "Pick up the red cup and place it inside the basket.": [
+  "red cup",
+  "basket"
+ ],
+ "Pick up the red cup and pour the beans into the green bowl.": [
+  "beans",
+  "red cup",
+  "green bowl"
+ ],
+ "Pick up the red cup and pour the beans into the green cup.": [
+  "beans",
+  "red cup",
+  "green cup"
+ ],
+ "Pick up the red cup and pour the contents into the green bowl.": [
+  "red cup",
+  "green bowl"
+ ],
+ "Pick up the red cup and pour the contents into the pink cup.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pick up the red cup and pour the red beans inside into the green cup.": [
+  "red beans",
+  "red cup",
+  "green cup"
+ ],
+ "Pick up the red cup and pour the red beans inside into the pink cup.": [
+  "red beans",
+  "red cup",
+  "pink cup"
+ ],
+ "Pick up the red cup and pour the red beans into the blue bowl.": [
+  "red beans",
+  "red cup",
+  "blue bowl"
+ ],
+ "Pick up the red cup filled with black objects and pour them into the pink cup.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pick up the red cup from the table and pour the black objects into the pink cup, then put the red cup back on the table.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pick up the red cup, empty its contents into the green bowl, and then place the cup back on the table.": [
+  "red cup",
+  "green bowl",
+  "cup"
+ ],
+ "Pick up the red cup, pour the beans into the green bowl, and then place the cup back on the table.": [
+  "beans",
+  "red cup",
+  "green bowl"
+ ],
+ "Pick up the red cup, pour the black objects into the pink cup, and then place the red cup back on the table.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pick up the red cup, transfer the black objects to the pink cup, and then place the red cup back on the table.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pick up the red mug, fill it with the contents of the green cup, and pour the contents into the green cup.": [
+  "red mug",
+  "green cup"
+ ],
+ "Pick up the red pen from the table and drop it into the pen holder.": [
+  "red pen",
+  "pen",
+  "holder"
+ ],
+ "Pick up the rubiccube and place it in the basket": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Pick up the rubiccube and place it in the container.": [
+  "rubiks cube",
+  "container"
+ ],
+ "Pick up the scissors and drop them into the container.": [
+  "scissors",
+  "container"
+ ],
+ "Pick up the staple from the table and place it in the container": [
+  "container"
+ ],
+ "Pick up the stapler and drop it into the basket.": [
+  "stapler",
+  "basket"
+ ],
+ "Pick up the stapler and place it in the basket": [
+  "stapler",
+  "basket"
+ ],
+ "Pick up the stapler and place it in the basket.": [
+  "stapler",
+  "basket"
+ ],
+ "Pick up the stapler and place it in the plate.": [
+  "stapler",
+  "plate"
+ ],
+ "Pick up the stapler and place it in the second-layer wooden crate.": [
+  "stapler",
+  "wooden crate"
+ ],
+ "Pick up the stapler and place it into the basket.": [
+  "stapler",
+  "basket"
+ ],
+ "Pick up the stapler and place it into the bowl.": [
+  "stapler",
+  "bowl"
+ ],
+ "Pick up the stapler and place it into the container.": [
+  "stapler",
+  "container"
+ ],
+ "Pick up the stapler and place it on the first level of the double shelf.": [
+  "stapler",
+  "shelf"
+ ],
+ "Pick up the stapler and place it on the first level of the shelf.": [
+  "stapler",
+  "shelf"
+ ],
+ "Pick up the stapler and place it on the plate.": [
+  "stapler",
+  "plate"
+ ],
+ "Pick up the stapler and place it on the second level of the shelf.": [
+  "stapler",
+  "shelf"
+ ],
+ "Pick up the stapler and place it on the third level of the shelf.": [
+  "stapler",
+  "shelf"
+ ],
+ "Pick up the stapler and place it on the top of the double shelf.": [
+  "stapler",
+  "shelf"
+ ],
+ "Pick up the stapler and place it on the wooden crate.": [
+  "stapler",
+  "wooden crate"
+ ],
+ "Pick up the stapler and place it on top of the basket.": [
+  "stapler",
+  "basket"
+ ],
+ "Pick up the stapler and put it in the basket.": [
+  "stapler",
+  "basket"
+ ],
+ "Pick up the stapler and put it on the black shelf.": [
+  "stapler",
+  "black shelf"
+ ],
+ "Pick up the stapler and put it on the second shelf": [
+  "stapler",
+  "shelf"
+ ],
+ "Pick up the stapler and put it on the second shelfs": [
+  "stapler",
+  "shelf"
+ ],
+ "Pick up the stapler and put it on the third shelf": [
+  "stapler",
+  "shelf"
+ ],
+ "Pick up the stapler and put it on the top of the white shelf.": [
+  "stapler",
+  "white shelf"
+ ],
+ "Pick up the stapler and put it on the white shelf.": [
+  "stapler",
+  "white shelf"
+ ],
+ "Pick up the stapler from the table and place it in the container": [
+  "stapler",
+  "container"
+ ],
+ "Pick up the stapler from the table and place it in the container.": [
+  "stapler",
+  "container"
+ ],
+ "Pick up the stapler from the table and place it into the container.": [
+  "stapler",
+  "container"
+ ],
+ "Pick up the stapler on the table and put it in the container": [
+  "stapler",
+  "container"
+ ],
+ "Pick up the starfruit from the table and place it in the container.": [
+  "starfruit",
+  "container"
+ ],
+ "Pick up the starfruit from the table and place it into the basket.": [
+  "starfruit",
+  "basket"
+ ],
+ "Pick up the steel strip and insert it in the container.": [
+  "container"
+ ],
+ "Pick up the steel strip and insert it in the pen holder.": [
+  "pen",
+  "holder"
+ ],
+ "Pick up the tape dispenser and place it on the shelf.": [
+  "dispenser",
+  "shelf"
+ ],
+ "Pick up the tape measure and drop it into the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Pick up the tape measure and drop it into the white container.": [
+  "tape measure",
+  "white container"
+ ],
+ "Pick up the tape measure and drop it into the white tray.": [
+  "tape measure",
+  "white tray"
+ ],
+ "Pick up the tape measure and place it in the basket.": [
+  "tape measure",
+  "basket"
+ ],
+ "Pick up the tape measure and place it in the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Pick up the tape measure and place it in the container.": [
+  "tape measure",
+  "container"
+ ],
+ "Pick up the tape measure and place it in the pan.": [
+  "tape measure",
+  "pan"
+ ],
+ "Pick up the tape measure and place it in the tray.": [
+  "tape measure",
+  "tray"
+ ],
+ "Pick up the tape measure and place it in the white bowl.": [
+  "tape measure",
+  "white bowl"
+ ],
+ "Pick up the tape measure and place it inside the white container.": [
+  "tape measure",
+  "white container"
+ ],
+ "Pick up the tape measure and place it into the basket.": [
+  "tape measure",
+  "basket"
+ ],
+ "Pick up the tape measure and place it into the cabinet, then close the door.": [
+  "tape measure"
+ ],
+ "Pick up the tape measure and place it into the container.": [
+  "tape measure",
+  "container"
+ ],
+ "Pick up the tape measure and put it in the white basket.": [
+  "tape measure",
+  "white basket"
+ ],
+ "Pick up the tape measure and put it in the white container.": [
+  "tape measure",
+  "white container"
+ ],
+ "Pick up the tape measure from the table and drop it in the white container.": [
+  "tape measure",
+  "white container"
+ ],
+ "Pick up the tape measure from the table and place it in the basket.": [
+  "tape measure",
+  "basket"
+ ],
+ "Pick up the tape measure from the table and place it in the container.": [
+  "tape measure",
+  "container"
+ ],
+ "Pick up the tape measure from the table and place it in the tray.": [
+  "tape measure",
+  "tray"
+ ],
+ "Pick up the tape measure from the table and place it in the trolley.": [
+  "tape measure",
+  "trolley"
+ ],
+ "Pick up the tape measure from the table and place it in the white container.": [
+  "tape measure",
+  "white container"
+ ],
+ "Pick up the tape measure into the cabinet ,and then close the door.": [
+  "tape measure"
+ ],
+ "Pick up the tape measure into the cabinet and close the door.": [
+  "tape measure"
+ ],
+ "Pick up the tape measure,place it into the box,and close the door.": [
+  "tape measure",
+  "box"
+ ],
+ "Pick up the tape measure,place it into the container, and close the door.": [
+  "tape measure",
+  "container"
+ ],
+ "Pick up the tape measure,place it into the container,and close the container.": [
+  "tape measure",
+  "container"
+ ],
+ "Pick up the tennis and place it into the basket.": [
+  "basket"
+ ],
+ "Pick up the tennis and place it into the box.": [
+  "box"
+ ],
+ "Pick up the tennis and place it on the first level of the shelf.": [
+  "shelf"
+ ],
+ "Pick up the tennis and place it on the second level of the shelf.": [
+  "shelf"
+ ],
+ "Pick up the tennis and place it on the third level of the shelf.": [
+  "shelf"
+ ],
+ "Pick up the tennis and place it on the thirdly level of the shelf.": [
+  "shelf"
+ ],
+ "Pick up the tennis and put it on the second shelf": [
+  "shelf"
+ ],
+ "Pick up the tennis and put it on the second shelfs": [
+  "shelf"
+ ],
+ "Pick up the tennis and put it on the third shelf": [
+  "shelf"
+ ],
+ "Pick up the tennis ball and place it in the plate.": [
+  "tennis ball",
+  "plate"
+ ],
+ "Pick up the tennis ball and place it into the bowl.": [
+  "tennis ball",
+  "bowl"
+ ],
+ "Pick up the tennis ball and place it into the container.": [
+  "tennis ball",
+  "container"
+ ],
+ "Pick up the tennis ball and place it on the first level of the double shelf.": [
+  "tennis ball",
+  "shelf"
+ ],
+ "Pick up the tennis ball and place it on the second level of the shelf.": [
+  "tennis ball",
+  "shelf"
+ ],
+ "Pick up the tennis ball and place it on the third level of the shelf.": [
+  "tennis ball",
+  "shelf"
+ ],
+ "Pick up the tennis ball and put it in the white basket.": [
+  "tennis ball",
+  "white basket"
+ ],
+ "Pick up the tennis ball and put it on the black shelf.": [
+  "tennis ball",
+  "black shelf"
+ ],
+ "Pick up the tennis ball and put it on the shelf.": [
+  "tennis ball",
+  "shelf"
+ ],
+ "Pick up the tennis ball and put it on the top of the white shelf.": [
+  "tennis ball",
+  "white shelf"
+ ],
+ "Pick up the tennis ball and put it on the white shelf.": [
+  "tennis ball",
+  "white shelf"
+ ],
+ "Pick up the tennis balls on the table and put them in the container": [
+  "tennis ball",
+  "container"
+ ],
+ "Pick up the tennis from the table and place it in the container": [
+  "container"
+ ],
+ "Pick up the tennis from the table and place it in the container.": [
+  "container"
+ ],
+ "Pick up the the blue cup and place it into the clear container.": [
+  "blue cup",
+  "clear container"
+ ],
+ "Pick up the the blue cup and place it into the mug.": [
+  "blue cup",
+  "mug"
+ ],
+ "Pick up the the blue cup and place it on the saucer.": [
+  "blue cup",
+  "saucer"
+ ],
+ "Pick up the the blue cup and place it on the saucer..": [
+  "blue cup",
+  "saucer"
+ ],
+ "Pick up the vagetable and place it into the basket.": [
+  "vegetable",
+  "basket"
+ ],
+ "Pick up the vagetable and place it into the box.": [
+  "vegetable",
+  "box"
+ ],
+ "Pick up the vegetable and place it into the basket.": [
+  "vegetable",
+  "basket"
+ ],
+ "Pick up the vegetable and place it into the box.": [
+  "vegetable",
+  "box"
+ ],
+ "Pick up the vegetable and place it into the container.": [
+  "vegetable",
+  "container"
+ ],
+ "Pick up the vegetable and place it into the pan.": [
+  "vegetable",
+  "pan"
+ ],
+ "Pick up the vegetable,place it into the box,and close the door.": [
+  "vegetable",
+  "box"
+ ],
+ "Pick up the vegetable,place it into the container,and close the container.": [
+  "vegetable",
+  "container"
+ ],
+ "Pick up the vegetables and put them in the black basket.": [
+  "vegetable",
+  "black basket"
+ ],
+ "Pick up the vegetables and put them in the white basket.": [
+  "vegetable",
+  "white basket"
+ ],
+ "Pick up the white computer mouse and place it in the black basket.": [
+  "white computer",
+  "mouse",
+  "black basket"
+ ],
+ "Pick up the white computer mouse and place it in the black tray.": [
+  "white computer",
+  "mouse",
+  "black tray"
+ ],
+ "Pick up the white computer mouse and place it in the tray.": [
+  "white computer",
+  "mouse",
+  "tray"
+ ],
+ "Pick up the white computer mouse from the table and place it into the basket.": [
+  "white computer",
+  "mouse",
+  "basket"
+ ],
+ "Pick up the white mouse and place in the basket.": [
+  "white mouse",
+  "basket"
+ ],
+ "Pick up the white mouse and place it in the basket.": [
+  "white mouse",
+  "basket"
+ ],
+ "Pick up the white mouse and place it in the black basket.": [
+  "white mouse",
+  "black basket"
+ ],
+ "Pick up the white mouse and place it in the black container.": [
+  "white mouse",
+  "black container"
+ ],
+ "Pick up the white mouse and place it in the black tray.": [
+  "white mouse",
+  "black tray"
+ ],
+ "Pick up the white mouse and place it in the container": [
+  "white mouse",
+  "container"
+ ],
+ "Pick up the white mouse and place it into the basket.": [
+  "white mouse",
+  "basket"
+ ],
+ "Pick up the white mouse and place it into the black tray.": [
+  "white mouse",
+  "black tray"
+ ],
+ "Pick up the white mouse from the red surface and place it in the black basket.": [
+  "white mouse",
+  "black basket"
+ ],
+ "Pick up the white mouse from the table and place it in the basket.": [
+  "white mouse",
+  "basket"
+ ],
+ "Pick up the white mouse from the table and place it in the black tray on the red surface.": [
+  "white mouse",
+  "black tray"
+ ],
+ "Pick up the white mouse from the table and place it in the black tray.": [
+  "white mouse",
+  "black tray"
+ ],
+ "Pick up the white mouse from the table and place it in the metal rack.": [
+  "white mouse",
+  "metal rack"
+ ],
+ "Pick up the white mouse from the table and place it into the black tray.": [
+  "white mouse",
+  "black tray"
+ ],
+ "Pick up the white mouse from the table and place it into the tray.": [
+  "white mouse",
+  "tray"
+ ],
+ "Pick up the white mouse on the table and put it in the container": [
+  "white mouse",
+  "container"
+ ],
+ "Pick up the white mouse with the robotic arm and place it in the basket.": [
+  "white mouse",
+  "basket"
+ ],
+ "Pick up the wreast and put it on the top of the white shelf.": [
+  "white shelf"
+ ],
+ "Pick up the wrench and insert it in the beaker.": [
+  "wrench",
+  "beaker"
+ ],
+ "Pick up the wrench and insert it in the container.": [
+  "wrench",
+  "container"
+ ],
+ "Pick up the wrench and insert it in the cup.": [
+  "wrench",
+  "cup"
+ ],
+ "Pick up the wrench and insert it in the pen cup.": [
+  "wrench",
+  "pen",
+  "cup"
+ ],
+ "Pick up the wrench and insert it in the pen holder.": [
+  "wrench",
+  "pen",
+  "holder"
+ ],
+ "Pick up the yellow ball and put it into the container.": [
+  "yellow ball",
+  "container"
+ ],
+ "Pick up the yellow ball and release it in the container.": [
+  "yellow ball",
+  "container"
+ ],
+ "Pick up the yellow clock and put it onto the blue plate.": [
+  "yellow clock",
+  "blue plate"
+ ],
+ "Pick up the yellow clock from the table and place it into the basket.": [
+  "yellow clock",
+  "basket"
+ ],
+ "Pick up the yellow measure and place it in the basket.": [
+  "basket"
+ ],
+ "Pick up the yellow measure and place it in the bowl.": [
+  "bowl"
+ ],
+ "Pick up the yellow measure and place it in the white bowl.": [
+  "white bowl"
+ ],
+ "Pick up the yellow measure and put it in the bowl.": [
+  "bowl"
+ ],
+ "Pick up the yellow measure and put it in the white basket.": [
+  "white basket"
+ ],
+ "Pick up the yellow measuring tape and place it in the bowl.": [
+  "yellow measuring tape",
+  "bowl"
+ ],
+ "Pick up the yellow measuring tape and place it in the white basket.": [
+  "yellow measuring tape",
+  "white basket"
+ ],
+ "Pick up the yellow measuring tape and place it in the white bowl.": [
+  "yellow measuring tape",
+  "white bowl"
+ ],
+ "Pick up the yellow measuring tape and place it in the white container.": [
+  "yellow measuring tape",
+  "white container"
+ ],
+ "Pick up the yellow measuring tape and place it inside the white tray.": [
+  "yellow measuring tape",
+  "white tray"
+ ],
+ "Pick up the yellow measuring tape and place it into the basket.": [
+  "yellow measuring tape",
+  "basket"
+ ],
+ "Pick up the yellow measuring tape and place it into the white container.": [
+  "yellow measuring tape",
+  "white container"
+ ],
+ "Pick up the yellow measuring tape and place it on the table.": [
+  "yellow measuring tape"
+ ],
+ "Pick up the yellow measuring tape from the table and place it in the bowl.": [
+  "yellow measuring tape",
+  "bowl"
+ ],
+ "Pick up the yellow measuring tape from the table and place it in the container.": [
+  "yellow measuring tape",
+  "container"
+ ],
+ "Pick up the yellow measuring tape from the table and place it in the white tray.": [
+  "yellow measuring tape",
+  "white tray"
+ ],
+ "Pick up the yellow object and place it in the basket.": [
+  "basket"
+ ],
+ "Pick up the yellow object and place it in the bowl.": [
+  "bowl"
+ ],
+ "Pick up the yellow object and place it in the container.": [
+  "container"
+ ],
+ "Pick up the yellow object and place it in the white container.": [
+  "white container"
+ ],
+ "Pick up the yellow object and place it inside the plastic container.": [
+  "plastic container"
+ ],
+ "Pick up the yellow object and place it into the white bowl.": [
+  "white bowl"
+ ],
+ "Pick up the yellow object and put it in the basket.": [
+  "basket"
+ ],
+ "Pick up the yellow object and put it in the bowl.": [
+  "bowl"
+ ],
+ "Pick up the yellow object from the table and place it in the bowl.": [
+  "bowl"
+ ],
+ "Pick up the yellow object from the table and place it in the container.": [
+  "container"
+ ],
+ "Pick up the yellow object from the table and place it into the white container.": [
+  "white container"
+ ],
+ "Pick up the yellow object on the table and drop it into the white container.": [
+  "white container"
+ ],
+ "Pick up the yellow tape measure and place it in the bowl.": [
+  "yellow tape measure",
+  "bowl"
+ ],
+ "Pick up the yellow tape measure and place it in the container.": [
+  "yellow tape measure",
+  "container"
+ ],
+ "Pick up the yellow tape measure and place it in the tray.": [
+  "yellow tape measure",
+  "tray"
+ ],
+ "Pick up the yellow tape measure and place it in the white container.": [
+  "yellow tape measure",
+  "white container"
+ ],
+ "Pick up the yellow tape measure and place it in the white tray.": [
+  "yellow tape measure",
+  "white tray"
+ ],
+ "Pick up the yellow tape measure and put it in the black container.": [
+  "yellow tape measure",
+  "black container"
+ ],
+ "Pick up the yellow tape measure and put it in the container.": [
+  "yellow tape measure",
+  "container"
+ ],
+ "Pick up the yellow tape measure and put it in the white container.": [
+  "yellow tape measure",
+  "white container"
+ ],
+ "Pick up the yellow tape measure and put it into the black basket.": [
+  "yellow tape measure",
+  "black basket"
+ ],
+ "Pick up the yellow tape measure from the right corner and place it in the white container.": [
+  "yellow tape measure",
+  "white container"
+ ],
+ "Pick up the yellow tape measure from the table and place it in the container.": [
+  "yellow tape measure",
+  "container"
+ ],
+ "Pick up the yellow tape measure from the table and place it in the tray.": [
+  "yellow tape measure",
+  "tray"
+ ],
+ "Pick-up the lemon from the table and drop it into the container.": [
+  "lemon",
+  "container"
+ ],
+ "Picking up the tape measure and placing it in the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Place the Croissant into the container": [
+  "croissant",
+  "container"
+ ],
+ "Place the Rubiks cube in the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Place the Rubiks cube into the container": [
+  "rubiks cube",
+  "container"
+ ],
+ "Place the Rubiks cube into the first layer of the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Place the alarm clock cube into the first layer of the basket.": [
+  "alarm clock",
+  "cube",
+  "basket"
+ ],
+ "Place the alarm clock into the container": [
+  "alarm clock",
+  "container"
+ ],
+ "Place the alarm clock into the first layer of the basket.": [
+  "alarm clock",
+  "basket"
+ ],
+ "Place the alarmclock into the first layer of the basket.": [
+  "alarm clock",
+  "basket"
+ ],
+ "Place the apple in the bowl.": [
+  "apple",
+  "bowl"
+ ],
+ "Place the ararm clock into the first layer of the basket.": [
+  "alarm clock",
+  "basket"
+ ],
+ "Place the bagel cube into the first layer of the basket.": [
+  "bagel",
+  "cube",
+  "basket"
+ ],
+ "Place the bagel into the first layer of the basket.": [
+  "bagel",
+  "basket"
+ ],
+ "Place the blue mug inside the basket.": [
+  "blue mug",
+  "basket"
+ ],
+ "Place the blue scissors in the white bowl to the right.": [
+  "blue scissors",
+  "white bowl"
+ ],
+ "Place the bread item into the transparent box.": [
+  "bread",
+  "transparent box"
+ ],
+ "Place the croissant into the container": [
+  "croissant",
+  "container"
+ ],
+ "Place the croissant into the first layer of the basket.": [
+  "croissant",
+  "basket"
+ ],
+ "Place the croissantinto the first layer of the basket.": [
+  "croissant",
+  "basket"
+ ],
+ "Place the crossant into the first layer of the basket.": [
+  "croissant",
+  "basket"
+ ],
+ "Place the cup cube into the first layer of the basket.": [
+  "cube",
+  "cup",
+  "basket"
+ ],
+ "Place the cup into the container": [
+  "cup",
+  "container"
+ ],
+ "Place the cup into the first layer of the basket.": [
+  "cup",
+  "basket"
+ ],
+ "Place the eggplant into the container": [
+  "eggplant",
+  "container"
+ ],
+ "Place the green apple in the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Place the green apple in the white box.": [
+  "green apple",
+  "white box"
+ ],
+ "Place the green apple inside the white cage.": [
+  "green apple",
+  "white cage"
+ ],
+ "Place the green apple into the bowl.": [
+  "green apple",
+  "bowl"
+ ],
+ "Place the green apple into the white bowl.": [
+  "green apple",
+  "white bowl"
+ ],
+ "Place the green sphere into the white container.": [
+  "green sphere",
+  "white container"
+ ],
+ "Place the lemon into the container": [
+  "lemon",
+  "container"
+ ],
+ "Place the lemon into the first layer of the basket.": [
+  "lemon",
+  "basket"
+ ],
+ "Place the measuring tape in the white bowl.": [
+  "measuring tape",
+  "white bowl"
+ ],
+ "Place the measuring tape into the bowl.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Place the mouse into the container": [
+  "mouse",
+  "container"
+ ],
+ "Place the orange cube into the first layer of the basket.": [
+  "orange cube",
+  "basket"
+ ],
+ "Place the orange into the first layer of the basket.": [
+  "orange",
+  "basket"
+ ],
+ "Place the pastry on the plate.": [
+  "pastry",
+  "plate"
+ ],
+ "Place the pear cube into the first layer of the basket.": [
+  "pear",
+  "cube",
+  "basket"
+ ],
+ "Place the pear into the first layer of the basket.": [
+  "pear",
+  "basket"
+ ],
+ "Place the persimmon into the container": [
+  "persimmon",
+  "container"
+ ],
+ "Place the rubiks cube into the first layer of the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Place the stapler into the bowl.": [
+  "stapler",
+  "bowl"
+ ],
+ "Place the stapler into the first layer of the basket.": [
+  "stapler",
+  "basket"
+ ],
+ "Place the tangerine into the container": [
+  "tangerine",
+  "container"
+ ],
+ "Place the tape measure in the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Place the tape measure in the white bowl.": [
+  "tape measure",
+  "white bowl"
+ ],
+ "Place the tennis into the first layer of the basket.": [
+  "basket"
+ ],
+ "Place the white mouse into the black grid structure.": [
+  "white mouse",
+  "black grid"
+ ],
+ "Place the yellow tape into the container.": [
+  "container"
+ ],
+ "Place the yellow tape measure into the bowl.": [
+  "yellow tape measure",
+  "bowl"
+ ],
+ "Place the yellow toy in the basket.": [
+  "yellow toy",
+  "basket"
+ ],
+ "Pour Water": [
+  "water"
+ ],
+ "Pour beans from the orange cup into the green bowl.": [
+  "beans",
+  "orange cup",
+  "green bowl"
+ ],
+ "Pour beans from the orange cup into the pink cup.": [
+  "beans",
+  "orange cup",
+  "pink cup"
+ ],
+ "Pour beans from the red cup into the green bowl.": [
+  "beans",
+  "red cup",
+  "green bowl"
+ ],
+ "Pour beans from the small pink cup into the larger pink cup.": [
+  "beans",
+  "pink cup"
+ ],
+ "Pour black bean from the red cup into the pink cup.": [
+  "black bean",
+  "red cup",
+  "pink cup"
+ ],
+ "Pour red beans from the red cup into the pink cup.": [
+  "red beans",
+  "red cup",
+  "pink cup"
+ ],
+ "Pour the beans from the orange cup into the blue bowl.": [
+  "beans",
+  "orange cup",
+  "blue bowl"
+ ],
+ "Pour the beans from the orange cup into the clear measuring cup.": [
+  "beans",
+  "orange cup",
+  "cup"
+ ],
+ "Pour the beans from the orange cup into the green bowl.": [
+  "beans",
+  "orange cup",
+  "green bowl"
+ ],
+ "Pour the beans from the orange cup into the pink cup": [
+  "beans",
+  "orange cup",
+  "pink cup"
+ ],
+ "Pour the beans from the orange cup into the pink cup.": [
+  "beans",
+  "orange cup",
+  "pink cup"
+ ],
+ "Pour the beans from the red cup into the green bowl.": [
+  "beans",
+  "red cup",
+  "green bowl"
+ ],
+ "Pour the beans from the red cup into the pink cup.": [
+  "beans",
+  "red cup",
+  "pink cup"
+ ],
+ "Pour the black beans from the orange cup into the clear cup.": [
+  "black beans",
+  "orange cup",
+  "clear cup"
+ ],
+ "Pour the black objects from the orange cup into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pour the brown objects from the red cup into the pink cup using the chuck gripper.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pour the coffee beans from the red cup into the green bowl.": [
+  "coffee",
+  "beans",
+  "red cup"
+ ],
+ "Pour the content from the red container into the pink container.": [
+  "red container",
+  "pink container"
+ ],
+ "Pour the content from the red cup into the pink cup.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pour the content of the red cup into the green bowl.": [
+  "red cup",
+  "green bowl"
+ ],
+ "Pour the contents from the orange cup into the clear container.": [
+  "orange cup",
+  "clear container"
+ ],
+ "Pour the contents from the orange cup into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pour the contents from the red cup into the green bowl.": [
+  "red cup",
+  "green bowl"
+ ],
+ "Pour the contents from the red cup into the pink cup.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pour the contents into the pink cup.": [
+  "pink cup"
+ ],
+ "Pour the contents of the orange cup into the clear container.": [
+  "orange cup",
+  "clear container"
+ ],
+ "Pour the contents of the orange cup into the clear cup.": [
+  "orange cup",
+  "clear cup"
+ ],
+ "Pour the contents of the orange cup into the clear plastic container.": [
+  "orange cup",
+  "plastic container"
+ ],
+ "Pour the contents of the orange cup into the green bowl.": [
+  "orange cup",
+  "green bowl"
+ ],
+ "Pour the contents of the orange cup into the green cup.": [
+  "orange cup",
+  "green cup"
+ ],
+ "Pour the contents of the orange cup into the pink bowl.": [
+  "orange cup",
+  "pink bowl"
+ ],
+ "Pour the contents of the orange cup into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pour the contents of the red cup into the green bowl.": [
+  "red cup",
+  "green bowl"
+ ],
+ "Pour the contents of the red cup into the green cup.": [
+  "red cup",
+  "green cup"
+ ],
+ "Pour the contents of the red cup into the pink cup using the robotic arm.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pour the contents of the red cup into the pink cup.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pour the liquid from the pink cup into the white container.": [
+  "liquid",
+  "pink cup",
+  "white container"
+ ],
+ "Pour the objects from the orange cup into the transparent cup.": [
+  "orange cup",
+  "transparent cup"
+ ],
+ "Pour the orange cups contents into the green cup.": [
+  "orange cup",
+  "green cup"
+ ],
+ "Pour the orange cups contents into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pour the orange cups contents into the transparent cup.": [
+  "orange cup",
+  "transparent cup"
+ ],
+ "Pour the red beans from the orange bowl into the blue bowl using the robotic arm.": [
+  "red beans",
+  "orange bowl",
+  "blue bowl"
+ ],
+ "Pour the red beans from the orange cup into the green bowl.": [
+  "red beans",
+  "orange cup",
+  "green bowl"
+ ],
+ "Pour the red beans from the orange cup into the green cup.": [
+  "red beans",
+  "orange cup",
+  "green cup"
+ ],
+ "Pour the red beans from the orange cup into the pink cup.": [
+  "red beans",
+  "orange cup",
+  "pink cup"
+ ],
+ "Pour the red beans from the red cup into the green bowl.": [
+  "red beans",
+  "red cup",
+  "green bowl"
+ ],
+ "Pour the red beans from the red cup into the green cup.": [
+  "red beans",
+  "red cup",
+  "green cup"
+ ],
+ "Pour the red beans from the small orange cup into the transparent measuring cup.": [
+  "red beans",
+  "orange cup",
+  "cup"
+ ],
+ "Pour the red beans into another container": [
+  "red beans",
+  "container"
+ ],
+ "Pour the red cup of beans into the green bowl.": [
+  "beans",
+  "red cup",
+  "green bowl"
+ ],
+ "Pour the red cup of beans into the pink cup.": [
+  "beans",
+  "red cup",
+  "pink cup"
+ ],
+ "Pour the red cups content into the pink cup.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pour the red cups contents into the pink cup and empty the red cup.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pour the red cups contents into the pink cup.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Pour the red granular substance from the orange container into the pink cup.": [
+  "orange container",
+  "pink cup"
+ ],
+ "Pour the red objects from the glass cup into the bowl.": [
+  "glass cup",
+  "bowl"
+ ],
+ "Pour the red objects from the orange cup into the green bowl.": [
+  "orange cup",
+  "green bowl"
+ ],
+ "Pour the red objects from the orange cup into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Pour the red objects from the red cup into the green cup.": [
+  "red cup",
+  "green cup"
+ ],
+ "Pour water from the cup into the container.": [
+  "water",
+  "cup",
+  "container"
+ ],
+ "Pour water from the mug into the sink.": [
+  "water",
+  "mug",
+  "sink"
+ ],
+ "Pour water into the cup": [
+  "water",
+  "cup"
+ ],
+ "Put oranges in clear plastic boxes": [
+  "orange",
+  "plastic box"
+ ],
+ "Put the apple in the container": [
+  "apple",
+  "container"
+ ],
+ "Put the aubergine into the plate.": [
+  "aubergine",
+  "plate"
+ ],
+ "Put the bagel in the container": [
+  "bagel",
+  "container"
+ ],
+ "Put the blue cup into a clear container": [
+  "blue cup",
+  "clear container"
+ ],
+ "Put the blue cup into the bowl": [
+  "blue cup",
+  "bowl"
+ ],
+ "Put the blue cup into the white bowl": [
+  "blue cup",
+  "white bowl"
+ ],
+ "Put the blue object into the bowl.": [
+  "bowl"
+ ],
+ "Put the cake in the container": [
+  "cake",
+  "container"
+ ],
+ "Put the clamp in the container": [
+  "clamp",
+  "container"
+ ],
+ "Put the croissant in the container": [
+  "croissant",
+  "container"
+ ],
+ "Put the cube in the container": [
+  "cube",
+  "container"
+ ],
+ "Put the cup in the container": [
+  "cup",
+  "container"
+ ],
+ "Put the duck in the container": [
+  "duck",
+  "container"
+ ],
+ "Put the eggplant in a white container": [
+  "eggplant",
+  "white container"
+ ],
+ "Put the eggplant in the container": [
+  "eggplant",
+  "container"
+ ],
+ "Put the eggplant into the bowl.": [
+  "eggplant",
+  "bowl"
+ ],
+ "Put the green apple in the bowl.": [
+  "green apple",
+  "bowl"
+ ],
+ "Put the green apple in the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Put the green apple into the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Put the green object in the white container.": [
+  "white container"
+ ],
+ "Put the green object into the plastic basket.": [
+  "plastic basket"
+ ],
+ "Put the lemons in the earthy bowl": [
+  "lemon",
+  "bowl"
+ ],
+ "Put the lettuce in the container": [
+  "lettuce",
+  "container"
+ ],
+ "Put the measuring tape in the bowl.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Put the measuring tape into the bowl.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Put the pink cup in the basket.": [
+  "pink cup",
+  "basket"
+ ],
+ "Put the pink cup in the pan.": [
+  "pink cup",
+  "pan"
+ ],
+ "Put the pink cup in the plastic container.": [
+  "pink cup",
+  "plastic container"
+ ],
+ "Put the pink cup in the white container.": [
+  "pink cup",
+  "white container"
+ ],
+ "Put the potatoes in the earthy bowl": [
+  "potato",
+  "bowl"
+ ],
+ "Put the purple eggplant in the black container": [
+  "purple eggplant",
+  "black container"
+ ],
+ "Put the purple eggplant in the white basket": [
+  "purple eggplant",
+  "white basket"
+ ],
+ "Put the purple eggplant in the white pan": [
+  "purple eggplant",
+  "white pan"
+ ],
+ "Put the stapler in the bowl.": [
+  "stapler",
+  "bowl"
+ ],
+ "Put the star in the container": [
+  "star",
+  "container"
+ ],
+ "Put the tape measure in the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Put the tape measure in the white basket": [
+  "tape measure",
+  "white basket"
+ ],
+ "Put the tape measure into the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Put the tape measure into the container.": [
+  "tape measure",
+  "container"
+ ],
+ "Put the white mouse in the black basket": [
+  "white mouse",
+  "black basket"
+ ],
+ "Put the white object into the container.": [
+  "container"
+ ],
+ "Put the yellow measuring tape in the bowl.": [
+  "yellow measuring tape",
+  "bowl"
+ ],
+ "Put the yellow tape measure in the black basket": [
+  "yellow tape measure",
+  "black basket"
+ ],
+ "Put the yellow tape measure in the pan.": [
+  "yellow tape measure",
+  "pan"
+ ],
+ "Put the yellow tape measure in the white basket": [
+  "yellow tape measure",
+  "white basket"
+ ],
+ "Put the yellow tape measure into the white plastic container": [
+  "yellow tape measure",
+  "plastic container"
+ ],
+ "Quickly pick up the clock from the table and place it inside the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Reach for the green apple and place it in the bowl.": [
+  "green apple",
+  "bowl"
+ ],
+ "Reach for the orange cup, pick it up, pour the red seeds into the pink cup, and then place the orange cup back on the table.": [
+  "red seeds",
+  "orange cup",
+  "pink cup"
+ ],
+ "Reach for the tape measure, pick it up, and place it in the bowl.": [
+  "tape measure",
+  "bowl"
+ ],
+ "Reach for the yellow toy, pick it up, and place it in the basket.": [
+  "yellow toy",
+  "basket"
+ ],
+ "Retrieve the cup and place it in the plastic container.": [
+  "cup",
+  "plastic container"
+ ],
+ "Retrieve the green apple and place it into the pan.": [
+  "green apple",
+  "pan"
+ ],
+ "Retrieve the green apple from the table and place it in the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Retrieve the green apple from the table and place it in the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Retrieve the pink cup and place it in the plastic basket.": [
+  "pink cup",
+  "plastic basket"
+ ],
+ "Retrieve the pink cup from the table and place it in the white container.": [
+  "pink cup",
+  "white container"
+ ],
+ "Select the green apple and drop it into the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Sense the Rubiks cube, pick it up, and place it into the basket.": [
+  "rubiks cube",
+  "basket"
+ ],
+ "Start by lifting the orange cup and pour the black beans into the clear cup.": [
+  "black beans",
+  "orange cup",
+  "clear cup"
+ ],
+ "Take the blue clip, put it in the cupboard and close the door": [
+  "blue clip"
+ ],
+ "Take the bread, put it in the cupboard and close the door": [
+  "bread"
+ ],
+ "Take the cabbage and put it in the cupboard": [
+  "cabbage"
+ ],
+ "Take the croissant and put it on the second shelf": [
+  "croissant",
+  "shelf"
+ ],
+ "Take the cup, put it in the cupboard and close the door": [
+  "cup"
+ ],
+ "Take the lemon and put it in the white basket": [
+  "lemon",
+  "white basket"
+ ],
+ "Take the lemon and put it on the second shelf": [
+  "lemon",
+  "shelf"
+ ],
+ "Take the measuring tape on the table and put it in the basket": [
+  "measuring tape",
+  "basket"
+ ],
+ "Take the measuring tape on the table and put it in the container": [
+  "measuring tape",
+  "container"
+ ],
+ "Take the orange cup and pour the beans into the blue cup": [
+  "beans",
+  "orange cup",
+  "blue cup"
+ ],
+ "Take the orange cup and pour the beans into the green cup": [
+  "beans",
+  "orange cup",
+  "green cup"
+ ],
+ "Take the orange cup and pour the beans into the measuring cup": [
+  "beans",
+  "orange cup",
+  "cup"
+ ],
+ "Take the orange cup and pour the beans into the pink cup": [
+  "beans",
+  "orange cup",
+  "pink cup"
+ ],
+ "Take the orange cup and pour the red beans into the green bowl": [
+  "red beans",
+  "orange cup",
+  "green bowl"
+ ],
+ "Take the orange glass and pour the red beans into the pink bowl.": [
+  "red beans",
+  "orange glass",
+  "pink bowl"
+ ],
+ "Take the potatoes and put them in the cupboard": [
+  "potato"
+ ],
+ "Take the red cup and pour the beans into the blue cup": [
+  "beans",
+  "red cup",
+  "blue cup"
+ ],
+ "Take the red cup and pour the beans into the green cup": [
+  "beans",
+  "red cup",
+  "green cup"
+ ],
+ "Take the red cup and pour the beans into the measuring cup": [
+  "beans",
+  "red cup",
+  "cup"
+ ],
+ "Take the red cup and pour the beans into the measuring glass": [
+  "beans",
+  "red cup",
+  "glass"
+ ],
+ "Take the red cup and pour the beans into the pink cup": [
+  "beans",
+  "red cup",
+  "pink cup"
+ ],
+ "Take the red cup and pour the red beans into the green bowl": [
+  "red beans",
+  "red cup",
+  "green bowl"
+ ],
+ "Take the red cup and pour the red beans into the green bowl.": [
+  "red beans",
+  "red cup",
+  "green bowl"
+ ],
+ "Take the red cup and pour the red beans into the pink bowl.": [
+  "red beans",
+  "red cup",
+  "pink bowl"
+ ],
+ "Take the tape measure, put it in the closet and close the door": [
+  "tape measure"
+ ],
+ "Teleport to the table, pick up the tape measure, and release it into the container.": [
+  "tape measure",
+  "container"
+ ],
+ "The robot should pick up a lemon from the table and place it into the container.": [
+  "lemon",
+  "container"
+ ],
+ "The verbal instruction might be: Place the green object into the clear container.": [
+  "clear container"
+ ],
+ "Toss the green apple into the basket.": [
+  "green apple",
+  "basket"
+ ],
+ "Touch and pick the potato from the table, then place it inside the white cabinet and close the door.": [
+  "potato"
+ ],
+ "Transfer all beans from the orange cup to the green bowl.": [
+  "beans",
+  "orange cup",
+  "green bowl"
+ ],
+ "Transfer all the red objects from the orange cup to the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Transfer beans from the orange cup into the green cup.": [
+  "beans",
+  "orange cup",
+  "green cup"
+ ],
+ "Transfer the black objects from the orange cup to the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Transfer the clock from the table to the basket.": [
+  "clock",
+  "basket"
+ ],
+ "Transfer the coffee beans from the orange cup to the pink cup.": [
+  "coffee",
+  "beans",
+  "orange cup"
+ ],
+ "Transfer the coffee beans from the red cup to the pink cup.": [
+  "coffee",
+  "beans",
+  "red cup"
+ ],
+ "Transfer the contents from the orange cup to the pink cup using the robotic arm.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Transfer the contents from the orange cup to the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Transfer the contents of the orange container into the pink container.": [
+  "orange container",
+  "pink container"
+ ],
+ "Transfer the contents of the orange cup into the green bowl.": [
+  "orange cup",
+  "green bowl"
+ ],
+ "Transfer the contents of the orange cup into the green cup.": [
+  "orange cup",
+  "green cup"
+ ],
+ "Transfer the contents of the orange cup into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Transfer the contents of the red cup into the green bowl.": [
+  "red cup",
+  "green bowl"
+ ],
+ "Transfer the eggplant from the table to the pot.": [
+  "eggplant",
+  "pot"
+ ],
+ "Transfer the green object into the bucket.": [
+  "bucket"
+ ],
+ "Transfer the measuring tape into the bowl.": [
+  "measuring tape",
+  "bowl"
+ ],
+ "Transfer the mug from the table to the basin.": [
+  "mug",
+  "basin"
+ ],
+ "Transfer the orange cup contents into the green bowl.": [
+  "orange cup",
+  "green bowl"
+ ],
+ "Transfer the orange cup filled with red beans into the green bowl.": [
+  "red beans",
+  "orange cup",
+  "green bowl"
+ ],
+ "Transfer the orange cup filled with red objects into the green cup.": [
+  "orange cup",
+  "green cup"
+ ],
+ "Transfer the orange cups contents into the green bowl.": [
+  "orange cup",
+  "green bowl"
+ ],
+ "Transfer the orange cups contents into the pink cup.": [
+  "orange cup",
+  "pink cup"
+ ],
+ "Transfer the pink cup from the table to the white tray.": [
+  "pink cup",
+  "white tray"
+ ],
+ "Transfer the pink mug from the table to the white tray.": [
+  "pink mug",
+  "white tray"
+ ],
+ "Transfer the red beans from the orange cup to the pink cup.": [
+  "red beans",
+  "orange cup",
+  "pink cup"
+ ],
+ "Transfer the red cup to the green bowl and pour its contents.": [
+  "red cup",
+  "green bowl"
+ ],
+ "Transfer the red objects from the orange cup to the green bowl.": [
+  "orange cup",
+  "green bowl"
+ ],
+ "Translate the mouse from the table to the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Use the right claw to pick up the green apple and place it in the white container.": [
+  "green apple",
+  "white container"
+ ],
+ "Use the robot arm to pour the contents of the red cup into the pink cup.": [
+  "red cup",
+  "pink cup"
+ ],
+ "Use the robotic arm to close the cabinet to the right": [
+  "cabinet door",
+  "white cabinet"
+ ],
+ "Use the robotic arm to open the cabinet to the left": [
+  "cabinet door",
+  "white cabinet"
+ ],
+ "Use your gripper to grasp the mouse and place it in the black grate.": [
+  "mouse",
+  "black grate"
+ ],
+ "Use your left hand to pick up the mouse and place it in the basket.": [
+  "mouse",
+  "basket"
+ ],
+ "Use your right hand to grab the green apple and place it in the black tray.": [
+  "green apple",
+  "black tray"
+ ],
+ "grab the apple and put it into the basket": [
+  "apple",
+  "basket"
+ ],
+ "grab the apple and put it into the pan": [
+  "apple",
+  "pan"
+ ],
+ "move the green apple into the bowl": [
+  "green apple",
+  "bowl"
+ ],
+ "pick a tape measure from the table and place it in the bowl": [
+  "tape measure",
+  "bowl"
+ ],
+ "pick up the apple and place it into the pan": [
+  "apple",
+  "pan"
+ ],
+ "pick up the persimmon from the table and place it in the container.": [
+  "persimmon",
+  "container"
+ ]
+}
