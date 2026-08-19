@@ -751,6 +751,13 @@ class UnifiedDecoderV4(nn.Module):
       (bidirectional, no mask; feature head at the P positions).
     arch="mot": ``mot_depth`` MoTBlockV4 layers (shared attention with the same
       mask, per-group FFN/norms), heads read the final sequence directly.
+    arch="shared_trunk_vis": shared_trunk with the recon branch and the action head
+      REMOVED — the trunk carries the VISUAL branches only (dino [+ segpix]). The
+      action path is not part of this module at all: the tokenizer keeps its
+      ordinary separate ``ReconDecoderV4`` and decodes actions from the latent
+      there. Everything else (latent embedding, patch projection, the asymmetric
+      mask, trunk/branch depths) is identical to "shared_trunk", so the only
+      difference against it is the missing recon branch (EXP-0011).
 
     Both heads are zero-init (``LinearHead`` "zero"), matching the separate
     decoders' output-layer convention.
@@ -775,12 +782,20 @@ class UnifiedDecoderV4(nn.Module):
         use_segpix_branch: bool = False,
     ):
         super().__init__()
-        assert arch in ("shared_trunk", "mot"), f"unknown decoder arch {arch!r}"
-        assert not (use_segpix_branch and arch != "shared_trunk"), (
+        assert arch in ("shared_trunk", "mot", "shared_trunk_vis"), (
+            f"unknown decoder arch {arch!r}"
+        )
+        assert not (use_segpix_branch and arch not in ("shared_trunk", "shared_trunk_vis")), (
             "the segpix branch is only supported with --decoder-arch shared_trunk "
-            "(mot + seg-pixel is explicitly unsupported for now)"
+            "/ shared_trunk_vis (mot + seg-pixel is explicitly unsupported for now)"
         )
         self.arch = arch
+        # Visual-only trunk (EXP-0011): no recon branch, no action head.
+        self.visual_only = arch == "shared_trunk_vis"
+        assert not (self.visual_only and recon_sees_vision), (
+            "recon_sees_vision is meaningless for arch='shared_trunk_vis' (the "
+            "action path does not go through this decoder at all)"
+        )
         self.action_dim = action_dim
         self.action_horizon = action_horizon
         self.token_dim = token_dim
@@ -795,9 +810,10 @@ class UnifiedDecoderV4(nn.Module):
         self.latent_pos_emb = PositionalEmbeddingAdder(width, max_sizes=[n_lat_max])
         self.patch_proj = nn.Linear(dino_dim, width)
 
-        if arch == "shared_trunk":
+        if arch in ("shared_trunk", "shared_trunk_vis"):
             self.trunk = Transformer(dim=width, depth=trunk_depth, head_dim=head_dim, drop=pdropout)
-            self.recon_branch = Transformer(dim=width, depth=branch_depth, head_dim=head_dim, drop=pdropout)
+            if not self.visual_only:
+                self.recon_branch = Transformer(dim=width, depth=branch_depth, head_dim=head_dim, drop=pdropout)
             self.dino_branch = Transformer(dim=width, depth=branch_depth, head_dim=head_dim, drop=pdropout)
         else:
             self.layers = nn.ModuleList(
@@ -811,7 +827,10 @@ class UnifiedDecoderV4(nn.Module):
                     if m.bias is not None:
                         nn.init.constant_(m.bias, 0)
 
-        self.action_head = LinearHead(width, action_dim, weight_init_style="zero")
+        # visual_only: no action head at all (the separate ReconDecoderV4 owns the
+        # action path), so DDP never sees an unused parameter here.
+        if not self.visual_only:
+            self.action_head = LinearHead(width, action_dim, weight_init_style="zero")
         self.feat_head = LinearHead(width, dino_dim, weight_init_style="zero")
         for m in (self.latent_up_proj, self.patch_proj):
             nn.init.xavier_uniform_(m.weight)
@@ -854,6 +873,10 @@ class UnifiedDecoderV4(nn.Module):
         (action_pred, None, None). segpix_visuals is the RAW segpix-branch output
         at the patch positions (the pixel-block head lives on the tokenizer);
         None unless the branch was built and x0_feat given.
+
+        arch="shared_trunk_vis" has no action path: action_pred is always None and
+        x0_feat is REQUIRED (the caller decodes actions from the tokenizer's
+        separate recon_decoder instead).
         """
         L = self._embed_latent(global_tok, time_tok, hand_tok)
         n_lat = L.shape[1]
@@ -861,6 +884,10 @@ class UnifiedDecoderV4(nn.Module):
         T = time_tok.shape[1]
 
         if x0_feat is None:
+            assert not self.visual_only, (
+                "arch='shared_trunk_vis' produces no action — forward() requires "
+                "x0_feat (actions come from the tokenizer's separate recon_decoder)."
+            )
             assert not self.recon_sees_vision, (
                 "decoder was built with recon_sees_vision=True: decode() requires "
                 "x0_feat (the latent positions attend to vision)."
@@ -869,6 +896,18 @@ class UnifiedDecoderV4(nn.Module):
         else:
             x = torch.cat([L, self.patch_proj(x0_feat.to(dtype=L.dtype))], dim=1)
         mask = self._attn_mask(n_lat, x.shape[1], x.device)
+
+        if self.visual_only:
+            # Visual-only trunk (EXP-0011): same trunk + same asymmetric mask as
+            # "shared_trunk" (so the ONLY difference is the removed recon branch),
+            # then the visual branches. No action is produced here.
+            h = self.trunk(x, block_mask=mask)
+            hd = self.dino_branch(h)  # bidirectional refinement, no mask
+            feat = self.feat_head(hd[:, n_lat:])
+            seg_vis = None
+            if self.use_segpix_branch:
+                seg_vis = self.segpix_branch(h)[:, n_lat:]
+            return None, feat, seg_vis
 
         if self.arch == "shared_trunk":
             h = self.trunk(x, block_mask=mask)
@@ -955,14 +994,37 @@ class ActionLatentTokenizerV4(nn.Module):
         # "shared_trunk" / "mot": ONE UnifiedDecoderV4 replaces both decoders; the
         # ``_decoder_arch`` marker lets the inference wrapper rebuild it. The
         # separate-only extras (seg decoders) are out of scope for unified.
-        assert decoder_arch in ("separate", "shared_trunk", "mot"), (
+        # "shared_trunk_vis" (EXP-0011): the unified decoder is VISUAL-ONLY — it
+        # replaces dino_decoder only, and the ordinary ReconDecoderV4 keeps the
+        # action path (so recon is bit-for-bit the "separate"/base configuration).
+        assert decoder_arch in ("separate", "shared_trunk", "mot", "shared_trunk_vis"), (
             f"unknown decoder_arch {decoder_arch!r}"
         )
         self.decoder_arch = decoder_arch
         self.unified_decoder = unified_decoder
+        self._unified_visual_only = decoder_arch == "shared_trunk_vis"
         if decoder_arch == "separate":
             assert unified_decoder is None, "decoder_arch='separate' forbids unified_decoder"
             assert recon_decoder is not None, "decoder_arch='separate' requires recon_decoder"
+        elif self._unified_visual_only:
+            assert unified_decoder is not None and unified_decoder.arch == decoder_arch, (
+                "decoder_arch='shared_trunk_vis' requires a matching UnifiedDecoderV4"
+            )
+            assert recon_decoder is not None, (
+                "decoder_arch='shared_trunk_vis' keeps the SEPARATE action decoder — "
+                "pass recon_decoder (only dino_decoder is replaced)"
+            )
+            assert dino_decoder is None, (
+                "the visual-only trunk replaces dino_decoder — pass dino_decoder=None"
+            )
+            assert seg_dino_decoder is None and seg_pixel_decoder is None, (
+                "separate seg decoder modules cannot be combined with a unified "
+                "decoder (segpix rides as a branch of the trunk instead)"
+            )
+            assert encoder.num_global_tokens == 0 and encoder.num_hand_tokens == 0, (
+                "unified decoder currently supports Ng=Nh=0 only (the V4 default)"
+            )
+            self.register_buffer("_decoder_arch", _str_to_byte_tensor(decoder_arch))
         else:
             assert unified_decoder is not None and unified_decoder.arch == decoder_arch, (
                 f"decoder_arch={decoder_arch!r} requires a matching UnifiedDecoderV4"
@@ -1232,8 +1294,11 @@ class ActionLatentTokenizerV4(nn.Module):
         ``x0_feat`` is only consumed by a unified decoder built with
         ``recon_sees_vision`` (exploration mode); every other configuration
         decodes from the latent alone and ignores it.
+
+        With a VISUAL-ONLY unified decoder (``shared_trunk_vis``) the action path is
+        the ordinary ``recon_decoder`` below — identical to the "separate" arch.
         """
-        if self.unified_decoder is not None:
+        if self.unified_decoder is not None and not self._unified_visual_only:
             ctx = x0_feat if self.unified_decoder.recon_sees_vision else None
             action, _, _ = self.unified_decoder(global_tok, time_tok, hand_tok, ctx)
             return action
@@ -1326,8 +1391,11 @@ class ActionLatentTokenizerV4(nn.Module):
         )
 
         # Loss 1: action reconstruction (unified decoder computes losses 1+2 in one
-        # combined masked pass — see below, after the patch weights are prepared)
-        if self.unified_decoder is None:
+        # combined masked pass — see below, after the patch weights are prepared).
+        # A VISUAL-ONLY unified decoder ("shared_trunk_vis") has no action path, so
+        # loss 1 is computed here from the separate recon_decoder exactly as in the
+        # "separate" configuration.
+        if self.unified_decoder is None or self._unified_visual_only:
             if self.lambda_recon > 0:
                 recon = self.decode(global_tok, time_tok, hand_tok)
                 loss_recon = self._recon_loss_fn(recon, actions)
@@ -1360,10 +1428,13 @@ class ActionLatentTokenizerV4(nn.Module):
             # the latent positions, which the mask keeps vision-free) AND the future
             # feature prediction (from the patch positions). Loss weighting/combination
             # below is identical to the separate path.
+            # "shared_trunk_vis": the pass is visual-only (recon is None) and loss 1
+            # was already computed above from the separate recon_decoder.
             recon, pred_x1, seg_vis = self.unified_decoder(global_tok, time_tok, hand_tok, x0_feat)
-            loss_recon = (
-                self._recon_loss_fn(recon, actions) if self.lambda_recon > 0 else self._zero(device)
-            )
+            if not self._unified_visual_only:
+                loss_recon = (
+                    self._recon_loss_fn(recon, actions) if self.lambda_recon > 0 else self._zero(device)
+                )
             if self.lambda_dino > 0:
                 loss_dino, dino_sub = self._dino_loss(pred_x1, x1_feat, patch_weights=patch_w)
             else:

@@ -376,7 +376,12 @@ class ArgsConfig:
     #   still works from the latent alone.
     # "mot": mot_depth Mixture-of-Transformers layers — shared attention (same
     #   asymmetric mask), per-group (latent/patch) FFN + norms, no branches.
-    decoder_arch: Literal["separate", "shared_trunk", "mot"] = "separate"
+    # "shared_trunk_vis" (EXP-0011): shared_trunk WITHOUT the recon branch — the
+    #   trunk serves the visual branches only (dino [+ segpix]) and the action is
+    #   decoded by the ordinary ReconDecoderV4 (--decoder-depth / --emb-dim), i.e.
+    #   the action path never touches the trunk. Everything else (trunk/branch
+    #   depths, asymmetric mask, heads) matches "shared_trunk" exactly.
+    decoder_arch: Literal["separate", "shared_trunk", "mot", "shared_trunk_vis"] = "separate"
     decoder_trunk_depth: int = 4
     decoder_branch_depth: int = 2
     mot_depth: int = 6
@@ -564,11 +569,14 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
             "--decoder-arch shared_trunk/mot does not support --use-seg-dino-decoder "
             "(separate-arch-only feature)."
         )
-        if config.use_seg_pixel_decoder and config.decoder_arch != "shared_trunk":
+        if config.use_seg_pixel_decoder and config.decoder_arch not in (
+            "shared_trunk", "shared_trunk_vis"
+        ):
             raise ValueError(
                 "--use-seg-pixel-decoder with --decoder-arch mot is not supported "
-                "(the segpix branch exists only for shared_trunk)."
+                "(the segpix branch exists only for shared_trunk/shared_trunk_vis)."
             )
+        visual_only = config.decoder_arch == "shared_trunk_vis"
         unified_decoder = UnifiedDecoderV4(
             action_dim=action_dim,
             action_horizon=action_horizon,
@@ -586,6 +594,26 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
             recon_sees_vision=config.decoder_recon_sees_vision,
             use_segpix_branch=config.use_seg_pixel_decoder,
         )
+        # shared_trunk_vis: the action path stays SEPARATE — build the ordinary
+        # ReconDecoderV4 (same construction as the separate path below, i.e. base's
+        # emb_dim/decoder_depth decoder) and hand it to the tokenizer alongside the
+        # visual-only trunk. Built after the unified decoder so the trunk's init
+        # under a fixed seed does not depend on it.
+        vis_recon_decoder = None
+        if visual_only:
+            vis_recon_decoder = ReconDecoderV4(
+                action_dim=action_dim,
+                action_horizon=action_horizon,
+                emb_dim=config.emb_dim,
+                head_dim=config.head_dim,
+                depth=config.decoder_depth,
+                pdropout=config.pdropout,
+                decoder_mode=config.decoder_mode,
+                num_global_tokens=0,
+                num_hand_tokens=0,
+                token_dim=config.token_dim,
+            )
+
         # segpix branch head (built AFTER the decoder so shared-module init under a
         # fixed seed is identical with the branch on or off). Zero-init → initial
         # logits 0 → BCE starts at ln2, mirroring the separate seg_pixel_head.
@@ -598,7 +626,7 @@ def _build_v4_tokenizer(config: ArgsConfig, action_dim: int, action_horizon: int
             )
         return ActionLatentTokenizerV4(
             encoder=encoder,
-            recon_decoder=None,
+            recon_decoder=vis_recon_decoder,
             dino_decoder=None,
             unified_decoder=unified_decoder,
             decoder_arch=config.decoder_arch,
@@ -781,6 +809,22 @@ def main(config: ArgsConfig):
             f"seg_dino_decoder_input={config.seg_dino_decoder_input} "
             f"lambda_dino_seg={config.lambda_dino_seg}"
         )
+
+    # ---- decoder-arch banner (silent for the default "separate") ----
+    if config.decoder_arch != "separate":
+        print(
+            f"[decoder-arch] {config.decoder_arch}  trunk_depth={config.decoder_trunk_depth} "
+            f"branch_depth={config.decoder_branch_depth} mot_depth={config.mot_depth} "
+            f"width={config.fusion_width} recon_sees_vision={config.decoder_recon_sees_vision} "
+            f"segpix_branch={config.use_seg_pixel_decoder}"
+        )
+        if config.decoder_arch == "shared_trunk_vis":
+            print(
+                "[decoder-arch] VISUAL-ONLY trunk: no recon branch / action head — the "
+                f"action path is the separate ReconDecoderV4 (emb_dim={config.emb_dim}, "
+                f"depth={config.decoder_depth}, mode={config.decoder_mode}), so the trunk "
+                "carries the visual tasks only (EXP-0011)."
+            )
 
     # ---- mask-stream arg validation (all no-ops when the flags are off) ----
     use_masks = config.use_mask_weighted_dino_loss or config.use_seg_pixel_decoder
