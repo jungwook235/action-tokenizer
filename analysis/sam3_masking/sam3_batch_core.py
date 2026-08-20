@@ -16,6 +16,7 @@ npz layout written by write_outputs (uint8 0/1, frame t == step t of the parquet
     episode_index (), fps ()
 """
 
+import os
 import numpy as np
 import torch
 
@@ -150,7 +151,23 @@ def write_outputs(frames, fps, prompt_masks, prompts, n_robot, ep,
     )
     if keep_prompt_masks:
         payload["prompt_masks"] = prompt_masks
-    np.savez_compressed(msk_path, **payload)
+    # Atomic write: a scancel/preemption during savez would otherwise leave a
+    # truncated npz at the final path, and the caller's resume check only tests
+    # for existence -- so the corrupt shard entry would be skipped forever.
+    # The .partial suffix keeps the temp file out of `find -name '*.npz'` counts,
+    # and passing a file object stops savez from appending its own .npz.
+    tmp_path = msk_path + ".partial"
+    try:
+        with open(tmp_path, "wb") as fh:
+            np.savez_compressed(fh, **payload)
+        os.replace(tmp_path, msk_path)
+    except BaseException:
+        # only removes the temp file this call just created
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
     n = len(frames)
     return {
