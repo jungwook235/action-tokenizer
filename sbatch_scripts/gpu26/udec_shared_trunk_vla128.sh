@@ -125,6 +125,8 @@ unset HF_HUB_OFFLINE TRANSFORMERS_OFFLINE
 if compgen -G "$VLA_CKPT_DIR/checkpoint-$VLA_STEP/model*" > /dev/null; then
   echo "[stage2] checkpoint-$VLA_STEP exists — nothing to do"
 else
+  # --resume makes the trainer listdir this path; without it Stage-2 dies with FileNotFoundError (RLDX 108663).
+  mkdir -p "$VLA_CKPT_DIR"
   python scripts/gr00t_finetune_actlat_fm.py \
     --dataset-path "${DATA_DIR[@]}" \
     --output-dir "$VLA_CKPT_DIR" \
