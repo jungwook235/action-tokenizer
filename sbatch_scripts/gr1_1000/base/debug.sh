@@ -30,6 +30,10 @@ CKPT_DIR="checkpoints/vla_nactlat_fm_gr1_1000demos/base_fs_1024"
 # Glob expands to all 24 gr1_unified.* dataset dirs (each a LeRobot dataset root)
 DATA_DIR=(/NHNHOME/data/wook/dataset/gr00t_unified/gr1_unified.*)
 
+# Stage-2 --resume 안전장치: 출력 디렉토리가 없으면 트레이너의
+# get_last_checkpoint -> os.listdir 이 FileNotFoundError로 즉사한다 (2026-08-16 mlxp,
+# 2026-08-19 RLDX 108663에서 18h31m 손실로 재현). 빈 디렉토리면 신규 시작으로 폴백.
+mkdir -p "$CKPT_DIR"
 python scripts/gr00t_finetune_actlat_fm.py \
     --dataset-path "${DATA_DIR[@]}" \
     --output-dir $CKPT_DIR \

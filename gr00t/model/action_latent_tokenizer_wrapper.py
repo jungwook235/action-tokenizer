@@ -469,6 +469,11 @@ class ActionLatentTokenizerWrapper(nn.Module):
             from gr00t.model.action_latent_tokenizer_v4 import byte_tensor_to_str as _b2s
 
             unified_arch = _b2s(state_dict["_decoder_arch"])
+        # "shared_trunk_vis" (EXP-0011): that unified decoder is VISUAL-ONLY (dino
+        # [+ segpix] branches) — the action path was the ordinary recon_decoder, so
+        # for inference this rebuilds exactly like a "separate" checkpoint and the
+        # whole unified_decoder.* block is training-only (filtered like dino_decoder).
+        unified_is_visual_only = unified_arch == "shared_trunk_vis"
 
         # recon decoder discovery (same logic as v2/v3)
         dec_depth = 0
@@ -553,7 +558,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
 
         unified_decoder = None
         recon_decoder = None
-        if unified_arch is not None:
+        if unified_arch is not None and not unified_is_visual_only:
             from gr00t.model.action_latent_tokenizer_v4 import UnifiedDecoderV4
 
             ud_width = state_dict["unified_decoder.latent_up_proj.weight"].shape[0]
@@ -589,6 +594,12 @@ class ActionLatentTokenizerWrapper(nn.Module):
                 recon_sees_vision=recon_sees_vision,
             )
         else:
+            if unified_is_visual_only:
+                print(
+                    "[timewise_v4] unified decoder: arch=shared_trunk_vis (VISUAL-ONLY "
+                    "→ training-only module); action path = separate recon_decoder "
+                    f"(depth={dec_depth}, mode={decoder_mode})"
+                )
             recon_decoder = ReconDecoderV4(
                 action_dim=action_dim,
                 action_horizon=action_horizon,
@@ -640,7 +651,7 @@ class ActionLatentTokenizerWrapper(nn.Module):
             recon_decoder=recon_decoder,
             dino_decoder=None,
             unified_decoder=unified_decoder,
-            decoder_arch=unified_arch or "separate",
+            decoder_arch="separate" if unified_is_visual_only else (unified_arch or "separate"),
             seg_dino_decoder=None,
             lambda_recon=1.0,
             lambda_dino=0.0,
