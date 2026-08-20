@@ -1,12 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=gr1_vla128_udec_shared_trunk
-#SBATCH --partition=a100
-#SBATCH --qos=background
+#SBATCH --partition=h200
 #SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=48
 #SBATCH --mem=400G
 #SBATCH --nodes=1
-#SBATCH --time=24:00:00
+#SBATCH --time=2-20:00:00
 #SBATCH --requeue
 #SBATCH --signal=B:SIGTERM@120
 #SBATCH --output=/home/wook/logs_gpu26/%x_%j.out
@@ -16,34 +15,30 @@
 # recon_dino_bn64_l1_mse_naiveln_vae_4gpus_bs256_vla128.sh). ONLY the decoder-
 # architecture flags differ from the ref; every other Stage-1/Stage-2
 # hyperparameter is kept verbatim. gpu26 adaptations: storage-contract paths,
-# flock-guarded tar->/scratch extraction, GR00T_S3_COMPAT checkpointing,
-# idempotent stages (background QoS restarts this script from the top; each
-# stage skips itself when its final checkpoint exists and otherwise --resume's
-# from the latest one on /s3ckpt).
-# save-steps: ref values kept (user decision 2026-08-17 — accepts >30min save
-# interval to limit undeletable checkpoint accumulation on /s3ckpt).
+# flock-guarded tar->/scratch extraction, idempotent stages (a requeue restarts
+# this script from the top; each stage skips itself when its final checkpoint
+# exists and otherwise --resume's from the latest one under /ckpt).
+# h200 run (2026-08-18): normal QoS (assigned partition, no preemption);
+# checkpoints on /ckpt per the 2026-08-18 policy. save-steps: ref values
+# (user decision 2026-08-17).
 
 export WANDB_API_KEY="66a73856614bc24a07523f3fbee42482fcbeffe3"
 export PYTHONUNBUFFERED=1
+export WANDB_DISABLE_STATS=true
 set -euxo pipefail
 
 ARCH=shared_trunk
 DECODER_FLAGS=(--decoder-arch shared_trunk --decoder-trunk-depth 4 --decoder-branch-depth 2)
 
 # --- storage contract (submit filter checks these literals) ---
+# 2026-08-18 policy: checkpoints go to /ckpt/$USER (real POSIX FS, auto-archived
+# to S3 in ~20s) — the GR00T_S3_COMPAT staging workaround is no longer needed.
 S3_DATA_ROOT=/s3data/gr1-unified-lerobot/v1
-TOK_CKPT_DIR=/s3ckpt/$USER/tok_gr1_v4_udec_${ARCH}_bs256
-VLA_CKPT_DIR=/s3ckpt/$USER/vla_gr1_v4_udec_${ARCH}_vla128
+TOK_CKPT_DIR=/ckpt/$USER/tok_gr1_v4_udec_${ARCH}_bs256
+VLA_CKPT_DIR=/ckpt/$USER/vla_gr1_v4_udec_${ARCH}_vla128
 SCRATCH_DATA=/scratch/$USER/gr1_unified
 TOK_STEP=100000
 VLA_STEP=60000
-
-# gpu26 S3-compat switch: scratch-staged checkpoints (data-only copy to
-# /s3ckpt) + WANDB_DIR respected. Other servers never set this -> stock code.
-export GR00T_S3_COMPAT=1
-export GR00T_CKPT_STAGE_DIR=/scratch/$USER/ckpt_stage_udec_${ARCH}
-export WANDB_DIR=$HOME/wandb_runs
-mkdir -p "$WANDB_DIR"
 
 BASE_DIR=/home/wook/action-tokenizer
 cd "$BASE_DIR"
@@ -125,7 +120,9 @@ unset HF_HUB_OFFLINE TRANSFORMERS_OFFLINE
 if compgen -G "$VLA_CKPT_DIR/checkpoint-$VLA_STEP/model*" > /dev/null; then
   echo "[stage2] checkpoint-$VLA_STEP exists — nothing to do"
 else
-  # --resume makes the trainer listdir this path; without it Stage-2 dies with FileNotFoundError (RLDX 108663).
+  # Stage-2 runs with --resume; the trainer os.listdir()s output_dir, so it must exist
+  # even on the first pass. Evidence on two servers: RLDX job 108663 (18h31m lost) and
+  # gpu26 job 173 (died right after Stage-1).
   mkdir -p "$VLA_CKPT_DIR"
   python scripts/gr00t_finetune_actlat_fm.py \
     --dataset-path "${DATA_DIR[@]}" \
