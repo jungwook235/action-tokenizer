@@ -291,7 +291,14 @@ class DualBrainTrainer(S3CompatCheckpointStaging, transformers.Trainer):
             resume_from_checkpoint = None
 
         if isinstance(resume_from_checkpoint, bool) and resume_from_checkpoint:
-            resume_from_checkpoint = get_last_checkpoint(self.args.output_dir)
+            # get_last_checkpoint() os.listdir()s the dir, so a --resume run whose
+            # output_dir does not exist yet (first run of a stage) would raise
+            # FileNotFoundError instead of falling through to "from scratch".
+            resume_from_checkpoint = (
+                get_last_checkpoint(self.args.output_dir)
+                if os.path.isdir(self.args.output_dir)
+                else None
+            )
             if resume_from_checkpoint is None:
                 print(f"No valid checkpoint found in output directory ({self.args.output_dir})")
                 print(f"Continuing training from scratch")

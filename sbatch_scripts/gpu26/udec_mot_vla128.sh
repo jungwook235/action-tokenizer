@@ -118,6 +118,9 @@ unset HF_HUB_OFFLINE TRANSFORMERS_OFFLINE
 if compgen -G "$VLA_CKPT_DIR/checkpoint-$VLA_STEP/model*" > /dev/null; then
   echo "[stage2] checkpoint-$VLA_STEP exists — nothing to do"
 else
+  # Stage-2 runs with --resume; the trainer os.listdir()s output_dir, so it must
+  # exist even on the first pass (this is what killed job 173 after Stage-1).
+  mkdir -p "$VLA_CKPT_DIR"
   python scripts/gr00t_finetune_actlat_fm.py \
     --dataset-path "${DATA_DIR[@]}" \
     --output-dir "$VLA_CKPT_DIR" \
