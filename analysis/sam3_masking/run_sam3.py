@@ -11,6 +11,7 @@ side-by-side comparison videos and summary stats.
 import argparse
 import json
 import os
+import shlex
 import time
 
 import cv2
@@ -73,15 +74,54 @@ def overlay(frame_rgb, masks, ids, scores=None, alpha=0.55):
 
 
 def write_video(path, frames_rgb, fps):
+    """Render frames to an h264 mp4 at `path`, atomically.
+
+    Nothing is visible at `path` until the file is complete. This matters because
+    every batch runner resumes by testing os.path.exists() on its outputs, so a
+    half-written video left at the final path by an scancel/preemption would be
+    treated as finished and skipped forever (the npz path had the same hole; see
+    sam3_batch_core.write_outputs). The old code wrote cv2 frames straight to
+    `path`, which left that hole open for the whole encode loop.
+
+    The staging names are chosen from measured behaviour, not taste
+    (gpu26, opencv 4.11 + ffmpeg):
+      * cv2.VideoWriter infers the container from the extension and refuses to
+        open anything else -- ".partial" and ".mp4.partial" both give
+        isOpened() == False -- so the raw stage must keep a real ".mp4" tail.
+      * ffmpeg fails the same way ("Unable to find a suitable output format")
+        unless the name ends in .mp4 or -f mp4 is passed, so the h264 stage
+        passes -f mp4 explicitly and can then drop the .mp4 tail.
+    Only the short-lived raw stage is therefore visible to a `find -name '*.mp4'`
+    progress count; exclude '*.partial.mp4' when counting outputs.
+
+    If ffmpeg is missing or fails, the mp4v render is promoted instead -- same
+    fallback the previous version had, just now atomic as well.
+    """
     h, w = frames_rgb[0].shape[:2]
-    vw = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-    for f in frames_rgb:
-        vw.write(cv2.cvtColor(f, cv2.COLOR_RGB2BGR))
-    vw.release()
-    # re-encode to h264 for browser playback if ffmpeg available
-    tmp = path + ".h264.mp4"
-    if os.system(f"ffmpeg -y -v error -i {path} -c:v libx264 -pix_fmt yuv420p {tmp}") == 0:
-        os.replace(tmp, path)
+    raw = path + ".raw.partial.mp4"   # cv2 needs the .mp4 tail
+    enc = path + ".h264.partial"      # ffmpeg -f mp4 does not
+    try:
+        vw = cv2.VideoWriter(raw, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+        if not vw.isOpened():
+            raise RuntimeError(f"cv2.VideoWriter could not open {raw}")
+        try:
+            for f in frames_rgb:
+                vw.write(cv2.cvtColor(f, cv2.COLOR_RGB2BGR))
+        finally:
+            vw.release()
+        # re-encode to h264 for browser playback if ffmpeg available
+        rc = os.system(
+            "ffmpeg -y -v error -i %s -f mp4 -c:v libx264 -pix_fmt yuv420p %s"
+            % (shlex.quote(raw), shlex.quote(enc))
+        )
+        os.replace(enc if rc == 0 else raw, path)
+    finally:
+        # drop whichever stage file the replace did not consume
+        for p in (raw, enc):
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
 
 
 def run_image_mode(model, processor, frames, prompt, device, threshold, batch_size=8):
