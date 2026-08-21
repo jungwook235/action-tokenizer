@@ -3,7 +3,7 @@
 #SBATCH --partition=a6000
 #SBATCH --gres=gpu:a6000:1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=64G
+#SBATCH --mem=32G
 #SBATCH --nodes=1
 #SBATCH --time=24:00:00
 #SBATCH --requeue
@@ -17,8 +17,11 @@
 # Deliberate differences from the gpu26 version (all forced by this cluster):
 #   * NO --qos. Our jinwoo association has only `default_qos` granted, so
 #     `--qos=background` (and `base_jinwoo`) are REJECTED at submit time here.
-#     Per-user ceiling on default_qos: gpu=18, cpu=144, mem=1152G -> 8 cpu / 64G
-#     per GPU is the most a full 18-GPU fan-out can ask for, which is what this asks.
+#     Per-user ceiling on default_qos: gpu=18, cpu=144, mem=1152G. 8 cpu is the
+#     per-GPU share of that; 32G is sized from the measured host peak (MaxRSS
+#     7.65 GiB on job 181107, a 376-frame episode) with room to spare, rather than
+#     from the 64G the quota would allow -- 8 tasks x 64G would nearly exhaust a
+#     node's 515G and block co-scheduling, while 8 x 32G leaves half the node free.
 #   * NO --array directive. Which shards we take is exactly what has to be agreed
 #     with gpu26, so it is left blank on purpose and named at submit time:
 #         sbatch --array=<A>-<B>%<throttle> sam3_gr1_split_array.sh
