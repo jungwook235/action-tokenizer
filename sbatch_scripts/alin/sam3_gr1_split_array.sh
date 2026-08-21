@@ -104,8 +104,14 @@ if [ -z "$(find "$DATA_ROOT" -maxdepth 1 -type d -name 'gr1_unified.*' -print -q
   ) 200>"$DATA_ROOT/.extract.lock"
 fi
 
+# '._*' is excluded because the transfer onto lustre leaves macOS AppleDouble
+# sidecars (._episode_NNNNNN.mp4, 163 B) beside every video. `find -name '*.mp4'`
+# counts them while ls and python's glob skip dotfiles, so without this filter a
+# fully-transferred dataset reports exactly double (2000 mp4 for 1000 episodes)
+# and the number below stops meaning anything. The masking itself is unaffected:
+# list_episodes() uses glob.glob, which never matches a leading dot.
 NDS=$(find "$DATA_ROOT" -maxdepth 1 -type d -name 'gr1_unified.*' | wc -l)
-NVID=$(find "$DATA_ROOT" -name '*.mp4' ! -name '*.partial.mp4' | wc -l)
+NVID=$(find "$DATA_ROOT" -name '*.mp4' ! -name '*.partial.mp4' ! -name '._*' | wc -l)
 echo "[data-check] $NDS dataset dirs, $NVID episode videos (gpu26 sees 24 / 24000)"
 [ "$NDS" -gt 0 ] || { echo "[x] no gr1_unified.* dirs under $DATA_ROOT"; exit 1; }
 [ "$NVID" -gt 0 ] || { echo "[x] no episode videos under $DATA_ROOT"; exit 1; }
@@ -125,5 +131,5 @@ srun --unbuffered "$SAM3_PY" "$SAM3_SCRIPT" \
 
 # The npz temp suffix is '.partial' (not '.npz'), so *.npz is already an honest
 # progress count. Were videos re-enabled, count mp4 as: ! -name '*.partial.mp4'.
-echo "[count] npz so far: $(find "$OUT_ROOT" -name '*.npz' | wc -l)"
+echo "[count] npz so far: $(find "$OUT_ROOT" -name '*.npz' ! -name '._*' | wc -l)"
 echo "[done] gr1_split shard $SHARD_ID/$NUM_SHARDS"
