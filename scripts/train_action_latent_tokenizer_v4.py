@@ -425,6 +425,15 @@ class ArgsConfig:
     # features below is on; episodes with no npz are tolerated (mask_valid=0).
     mask_dataset_root: Optional[str] = None
     mask_subdir: str = "masks"
+    # Which SAM3 plane is used as the mask target/weight source:
+    #   "union"  (default, unchanged): every prompt — member 'mask' of the npz.
+    #   "robot"  : robot prompts only  — member 'robot_mask'  (role-split npz only).
+    #   "object" : object prompts only — member 'object_mask' (role-split npz only).
+    # Role-split planes are written by analysis/sam3_masking/batch_sam3_gr1_unified.py.
+    # For the per-frame ("masks_pf") layout the plane is baked in at conversion time,
+    # so point --mask-subdir at the mirror converted with the SAME role; the loader
+    # cross-checks the stamped role and fails loud on a mismatch.
+    mask_role: Literal["union", "robot", "object"] = "union"
 
     # ── Mask-weighted DINO loss (EXP-0002; default off = byte-identical) ──
     # use_mask_weighted_dino_loss=True: per-patch weights on the (RGB) DINO
@@ -851,7 +860,8 @@ def main(config: ArgsConfig):
         )
         print(
             f"[mask-weight] ON  root={config.mask_dataset_root} "
-            f"subdir={config.mask_subdir} W={config.mask_patch_weight}"
+            f"subdir={config.mask_subdir} role={config.mask_role} "
+            f"W={config.mask_patch_weight}"
         )
     if config.use_seg_pixel_decoder and config.decoder_arch == "mot":
         raise ValueError(
@@ -871,7 +881,8 @@ def main(config: ArgsConfig):
         )
         print(
             f"[seg-pixel] ON  root={config.mask_dataset_root} "
-            f"subdir={config.mask_subdir} lambda={config.lambda_seg_pixel} "
+            f"subdir={config.mask_subdir} role={config.mask_role} "
+            f"lambda={config.lambda_seg_pixel} "
             f"depth={config.seg_pixel_decoder_depth or config.dino_decoder_depth} "
             f"patch={config.seg_pixel_patch} (grid {grid}x{grid} @ {config.image_size})"
         )
@@ -914,6 +925,7 @@ def main(config: ArgsConfig):
             seg_video_subdir=config.seg_video_subdir,
             mask_dataset_root=config.mask_dataset_root if use_masks else None,
             mask_subdir=config.mask_subdir,
+            mask_role=config.mask_role,
         )
 
     datasets_train, datasets_val = [], []
@@ -1173,6 +1185,11 @@ def main(config: ArgsConfig):
                             "mask_patch_weight": config.mask_patch_weight,
                             "mask_dataset_root": config.mask_dataset_root,
                             "mask_subdir": config.mask_subdir,
+                            **(
+                                {"mask_role": config.mask_role}
+                                if config.mask_role != "union"
+                                else {}
+                            ),
                         }
                         if config.use_mask_weighted_dino_loss
                         else {}
@@ -1185,6 +1202,11 @@ def main(config: ArgsConfig):
                             "seg_pixel_patch": config.seg_pixel_patch,
                             "mask_dataset_root": config.mask_dataset_root,
                             "mask_subdir": config.mask_subdir,
+                            **(
+                                {"mask_role": config.mask_role}
+                                if config.mask_role != "union"
+                                else {}
+                            ),
                         }
                         if config.use_seg_pixel_decoder
                         else {}

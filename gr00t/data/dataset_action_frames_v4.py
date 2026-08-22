@@ -13,8 +13,9 @@ two steps and preprocessed through the SAME video transforms:
 When ``seg_dataset_root`` is None (the default) nothing changes — the items, the
 collator output and the trainer path are byte-identical to before.
 
-With the optional SAM3 mask npz stream enabled (``mask_dataset_root`` set) the union
-mask at the x1 (chunk-end) step is attached, read from the mask mirror of the SAME
+With the optional SAM3 mask npz stream enabled (``mask_dataset_root`` set) the mask
+at the x1 (chunk-end) step is attached (union of all prompts by default;
+``mask_role="robot"``/``"object"`` selects one role-split plane instead), read from the mask mirror of the SAME
 dataset (``<mask_root>/<dataset_dir_name>/<mask_subdir>/chunk-XXX/<video_key>/
 episode_XXXXXX.npz``, key ``mask``: (T,H,W) uint8 {0,1}, frame t == parquet step t)
 and nearest-resized to ``image_size``:
@@ -57,6 +58,45 @@ from gr00t.data.transform.video import VideoResize, VideoToNumpy, VideoToTensor
 from gr00t.experiment.data_config import DATA_CONFIG_MAP
 from gr00t.utils.video import get_frames_by_timestamps
 
+# SAM3 npz plane feeding ``mask_x1``. "union" is the historical behaviour (the only
+# plane the pre-role-split npz carry); the role-split batch runs
+# (analysis/sam3_masking/batch_sam3_gr1_unified.py) additionally store the robot-prompt
+# and object-prompt planes, so a run can be trained against one role alone.
+MASK_ROLE_KEYS = {"union": "mask", "robot": "robot_mask", "object": "object_mask"}
+
+
+def read_mask_frame(npz_path, step: int, mask_role: str = "union") -> np.ndarray:
+    """One (H, W) uint8 {0,1} mask frame at native resolution.
+
+    Handles both npz layouts and both mask roles; ``step`` is clamped to the episode
+    length, guarding against npz/parquet length drift the same way the video streams do.
+      - legacy (no 'meta' member): the whole-episode plane, member ``mask`` /
+        ``robot_mask`` / ``object_mask`` per role;
+      - per-frame ('meta' present): one packbits member per frame, the plane fixed at
+        conversion time and stamped in 'role' (absent = the original union mirrors),
+        so a mirror/role mismatch is a loud error rather than a silently wrong target.
+    """
+    key = MASK_ROLE_KEYS[mask_role]
+    with np.load(npz_path) as z:
+        if "meta" not in z.files:  # legacy whole-episode layout
+            if key not in z.files:
+                raise KeyError(
+                    f"mask_role={mask_role!r} needs member {key!r}, but {npz_path} has "
+                    f"{sorted(z.files)}. Role-split planes exist only in npz from the "
+                    "role-split SAM3 runs."
+                )
+            arr = z[key]  # (T, H, W) uint8 {0,1}
+            return arr[min(step, arr.shape[0] - 1)]
+        file_role = str(z["role"]) if "role" in z.files else "union"
+        if file_role != mask_role:
+            raise ValueError(
+                f"mask_role={mask_role!r} but {npz_path} holds the {file_role!r} plane. "
+                "Point --mask-subdir at the mirror converted for that role."
+            )
+        T, H, W = (int(v) for v in z["meta"])
+        row = z[f"f{min(step, T - 1)}"]
+        return np.unpackbits(row)[: H * W].reshape(H, W)
+
 
 class ActionFramesDatasetV4(LeRobotSingleDataset):
     """LeRobotSingleDataset variant loading action chunk + (x0, x1) frames.
@@ -75,6 +115,13 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
             ``.../GR00T-X-Embodiment-Sim_sam3_robot_task``). None (default) disables
             the segment stream entirely — items keep their original keys.
         seg_video_subdir: subdir inside the mirror holding the videos ("cutout").
+        mask_dataset_root: root of the SAM3 mask mirror (None = mask stream off).
+        mask_subdir: subdir inside the mask mirror ("masks" = legacy whole-episode
+            layout, "masks_pf" = per-frame packbits layout).
+        mask_role: which SAM3 plane feeds ``mask_x1`` — "union" (default,
+            unchanged: every prompt), "robot" (robot prompts only) or "object"
+            (object prompts only). Role-split planes exist only in npz written by
+            the role-split batch runs; see ``_load_mask_x1``.
     """
 
     def __init__(
@@ -94,6 +141,7 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
         seg_video_subdir: str = "cutout",
         mask_dataset_root: Optional[str] = None,
         mask_subdir: str = "masks",
+        mask_role: str = "union",
     ):
         assert split in ("train", "val", "all"), f"split must be train/val/all: {split}"
 
@@ -198,6 +246,10 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
         self._mask_subdir = mask_subdir
         self._mask_dir = None
         self._mask_image_size = image_size
+        assert mask_role in MASK_ROLE_KEYS, (
+            f"mask_role must be one of {sorted(MASK_ROLE_KEYS)}; got {mask_role!r}"
+        )
+        self._mask_role = mask_role
         if mask_dataset_root is not None:
             self._mask_dir = seg_dataset_dir(mask_dataset_root, dataset_path)
 
@@ -317,7 +369,11 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
         return np.asarray(out[self._video_key])
 
     def _load_mask_x1(self, trajectory_id: int, base_index: int) -> tuple[np.ndarray, bool]:
-        """Union mask at the SAME step as ``frame_x1``: ([S, S] uint8 {0,1}, valid).
+        """SAM3 mask at the SAME step as ``frame_x1``: ([S, S] uint8 {0,1}, valid).
+
+        ``mask_role`` picks the plane: "union" (default, historical) reads member
+        ``mask``; "robot"/"object" read ``robot_mask``/``object_mask``, which only the
+        role-split runs write. Everything else below is role-independent.
 
         Two npz layouts are supported (frame t == parquet step t in both, so the x1
         STEP index — the same clamped index the video streams use — addresses the
@@ -350,15 +406,7 @@ class ActionFramesDatasetV4(LeRobotSingleDataset):
         if not npz_path.is_file():
             return np.zeros((size, size), dtype=np.uint8), False
 
-        with np.load(npz_path) as z:
-            if "mask" in z.files:  # legacy whole-episode layout
-                arr = z["mask"]  # (T, H, W) uint8 {0,1}
-                # Guard against npz/parquet length drift (clamp like the video streams).
-                frame = arr[min(x1_step, arr.shape[0] - 1)]
-            else:  # per-frame packbits layout
-                T, H, W = (int(v) for v in z["meta"])
-                row = z[f"f{min(x1_step, T - 1)}"]
-                frame = np.unpackbits(row)[: H * W].reshape(H, W)
+        frame = read_mask_frame(npz_path, x1_step, self._mask_role)
         t = torch.from_numpy(np.ascontiguousarray(frame))[None, None].float()
         t = F.interpolate(t, size=(size, size), mode="nearest")
         return (t[0, 0] > 0.5).to(torch.uint8).numpy(), True
